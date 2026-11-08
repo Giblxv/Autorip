@@ -220,3 +220,21 @@ def test_etiquetas_nao_se_misturam_em_rips_simultaneos(tmp_path, monkeypatch):
 
     for resultado, esperado in zip(saidas, referencias):
         assert resultado.read_bytes() == esperado
+@pytest.mark.parametrize("width_cm", [0, -1, float("nan"), float("inf")])
+def test_rejeita_largura_explicita_invalida(sample_png, tmp_path, width_cm):
+    output = tmp_path / "largura-invalida.PRT"
+    settings = Settings(dpi_x=300, dpi_y=300, label_enabled=False)
+    with pytest.raises(ValueError, match="largura de impressão"):
+        Rip(settings).process(str(sample_png), str(output), width_cm=width_cm)
+    assert not output.exists()
+    assert not list(tmp_path.glob("*.part"))
+
+
+def test_largura_omitida_usa_dpi_da_imagem(tmp_path):
+    source = tmp_path / "dpi.png"
+    Image.new("RGB", (100, 50), "blue").save(source, dpi=(100, 100))
+    output = tmp_path / "dpi.PRT"
+    info = Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False)).process(
+        str(source), str(output))
+    assert info["width_cm"] == pytest.approx(2.54, abs=0.002)
+    assert read_header(output)["n_dots"] == 300
