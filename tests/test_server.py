@@ -402,6 +402,26 @@ def test_post_cross_site_e_operacoes_sem_sessao_sao_bloqueados(panel, app):
     assert status == 200 and json.loads(response)["auto"] is False
 
 
+def test_upload_rejeita_sessao_ausente_ou_invalida(panel, app, sample_png, monkeypatch):
+    raw = sample_png.read_bytes()
+    called = []
+
+    def forbidden(*args, **kwargs):
+        called.append(True)
+        pytest.fail("Upload sem sessao nao pode chegar ao disco nem a fila")
+
+    monkeypatch.setattr(app, "receive_upload", forbidden)
+    for headers in (
+        {"Content-Type": "application/octet-stream"},
+        {"Content-Type": "application/octet-stream", "X-Token": "invalido"},
+    ):
+        status, body, _ = request(panel, "/api/upload?name=nao-autorizado.png",
+                                  "POST", raw, headers)
+        assert status == 401
+        assert json.loads(body)["error"] == "login"
+    assert called == []
+
+
 def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_png, monkeypatch):
     origin = {"Origin": panel, "Sec-Fetch-Site": "same-origin"}
     weak = json.dumps({"new": "1234"}).encode()
@@ -420,7 +440,7 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     assert status == 400
 
     raw = sample_png.read_bytes()
-    headers = {**origin, "Content-Type": "application/octet-stream"}
+    headers = {**origin, "Content-Type": "application/octet-stream", "X-Token": token}
     pending = os.path.join(app.inbox, "pendente")
     os.makedirs(pending)
     with open(os.path.join(pending, "reserva.bin"), "wb") as target:
