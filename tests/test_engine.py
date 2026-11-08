@@ -85,6 +85,19 @@ def test_verifica_espaco_estimado_antes_de_criar_temporario(monkeypatch, sample_
     assert not list(tmp_path.glob("*.part"))
 
 
+def test_rip_preserva_128_mib_de_reserva_de_disco(monkeypatch, sample_png, tmp_path):
+    # Existe espaco suficiente para o arquivo, mas nao para a reserva minima.
+    livre = engine.MIN_FREE_DISK_BYTES + 10
+    monkeypatch.setattr(engine.shutil, "disk_usage",
+                        lambda path: SimpleNamespace(free=livre))
+    destination = tmp_path / "sem-reserva.PRT"
+    with pytest.raises(ValueError, match="128 MiB"):
+        Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False)).process(
+            str(sample_png), str(destination), 2.54)
+    assert not destination.exists()
+    assert not list(tmp_path.glob("*.part"))
+
+
 def test_rejeita_tira_acima_do_orcamento_de_memoria(monkeypatch, sample_png, tmp_path):
     monkeypatch.setattr(engine, "MAX_STRIP_MEMORY_BYTES", 1)
     with pytest.raises(ValueError, match="memória"):
@@ -143,6 +156,152 @@ def test_resolucao_padrao_preserva_reticula_existente():
     rip = Rip(Settings(label_enabled=False))
     assert np.array_equal(rip.noise, engine._blue_noise())
 
+
+@pytest.mark.parametrize("fmt", ["JPEG", "TIFF"])
+@pytest.mark.parametrize("orientation", [1, 6])
+@pytest.mark.parametrize("width_cm", [None, 2.54])
+def test_rip_preserva_proporcao_fisica_de_dpi_anisotropico(tmp_path, orientation, width_cm, fmt):
+    path = tmp_path / "anisotropica.jpg"
+    exif = Image.Exif()
+    exif[274] = orientation
+    Image.new("RGB", (200, 100), "blue").save(path, format=fmt, dpi=(100, 200), exif=exif)
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0,
+                        margin_bottom_in=0, label_enabled=False)
+    output = tmp_path / "anisotropica.PRT"
+    info = Rip(settings).process(str(path), str(output), width_cm=width_cm)
+    natural_width, natural_height = (5.08, 1.27) if orientation == 1 else (1.27, 5.08)
+    expected_width = natural_width if width_cm is None else width_cm
+    expected_height = natural_height * expected_width / natural_width
+    header = read_header(output)
+    assert info["width_cm"] == pytest.approx(expected_width)
+    assert info["height_cm"] == pytest.approx(expected_height, abs=0.01)
+    assert header["n_dots"] == round(expected_width / 2.54 * 300)
+    assert header["n_rows"] == round(expected_height / 2.54 * 300)
+
+
+def test_etiquetas_nao_se_misturam_em_rips_simultaneos(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier, local
+
+    entradas = []
+    for nome in ("ALFA-TESTE.png", "BETA-TESTE.png"):
+        path = tmp_path / nome
+        Image.new("RGBA", (64, 64), (255, 255, 255, 255)).save(path)
+        entradas.append(path)
+
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0.3,
+                        margin_bottom_in=0.3, label_enabled=True,
+                        white_enabled=False)
+    referencias = []
+    for index, path in enumerate(entradas):
+        destino = tmp_path / f"referencia-{index}.PRT"
+        Rip(settings).process(str(path), str(destino), width_cm=2.54)
+        referencias.append(destino.read_bytes())
+    assert referencias[0] != referencias[1]  # a etiqueta distingue as artes
+
+    rip = Rip(settings)
+    original = rip._render
+    barrier = Barrier(2)
+    thread_state = local()
+
+    def render_simultaneo(*args, **kwargs):
+        if not getattr(thread_state, "entered", False):
+            thread_state.entered = True
+            barrier.wait(timeout=10)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(rip, "_render", render_simultaneo)
+    saidas = [tmp_path / "paralelo-alfa.PRT", tmp_path / "paralelo-beta.PRT"]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(rip.process, str(src), str(dest), 2.54)
+                   for src, dest in zip(entradas, saidas)]
+        for future in futures:
+            future.result(timeout=30)
+
+    for resultado, esperado in zip(saidas, referencias):
+        assert resultado.read_bytes() == esperado
+
+@pytest.mark.parametrize("width_cm", [0, -1, float("nan"), float("inf")])
+def test_rejeita_largura_explicita_invalida(sample_png, tmp_path, width_cm):
+    output = tmp_path / "largura-invalida.PRT"
+    settings = Settings(dpi_x=300, dpi_y=300, label_enabled=False)
+    with pytest.raises(ValueError, match="largura de impressão"):
+        Rip(settings).process(str(sample_png), str(output), width_cm=width_cm)
+    assert not output.exists()
+    assert not list(tmp_path.glob("*.part"))
+
+
+def test_largura_omitida_usa_dpi_da_imagem(tmp_path):
+    source = tmp_path / "dpi.png"
+    Image.new("RGB", (100, 50), "blue").save(source, dpi=(100, 100))
+    output = tmp_path / "dpi.PRT"
+    info = Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False)).process(
+        str(source), str(output))
+    assert info["width_cm"] == pytest.approx(2.54, abs=0.002)
+    assert read_header(output)["n_dots"] == 300
+
+@pytest.mark.parametrize("dpi_x,dpi_y", [(720, 72), (72, 720)])
+def test_fechamento_branco_funciona_com_raio_zero_em_um_eixo(dpi_x, dpi_y):
+    alpha = np.ones((64, 64), dtype=np.float32)
+    alpha[31:34, 31:34] = 0
+    settings = Settings(dpi_x=dpi_x, dpi_y=dpi_y, white_fill_holes_mm=0.1,
+                        white_choke_mm=0, label_enabled=False)
+    levels = Rip(settings)._white_levels(alpha)
+    assert np.all(levels[31:34, 31:34] == 3)
+    # A operacao nao deve recortar o bloco nem apagar bordas opacas.
+    assert levels.shape == alpha.shape
+    assert np.all(levels == 3)
+
+def test_rip_converte_tiff_lab_com_perfil_icc_embutido(tmp_path):
+    from PIL import ImageCms
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB", 6500))
+    lab = Image.new("LAB", (24, 24), (150, 180, 200))
+    source = tmp_path / "lab.tif"
+    lab.save(source, icc_profile=profile.tobytes())
+    rgb = ImageCms.profileToProfile(lab, profile, ImageCms.createProfile("sRGB"), outputMode="RGB")
+    reference = tmp_path / "srgb.png"
+    rgb.save(reference, icc_profile=b"")
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0, margin_bottom_in=0,
+                        label_enabled=False, white_choke_mm=0, white_fill_holes_mm=0)
+    rip = Rip(settings)
+    actual, expected = tmp_path / "lab.PRT", tmp_path / "srgb.PRT"
+    rip.process(str(source), str(actual), width_cm=1)
+    rip.process(str(reference), str(expected), width_cm=1)
+    assert actual.read_bytes() == expected.read_bytes()
+
+
+def test_rip_rejeita_perfil_icc_embutido_invalido(tmp_path):
+    source = tmp_path / "invalido.png"
+    Image.new("RGB", (20, 20), "blue").save(source, icc_profile=b"perfil invalido")
+    output = tmp_path / "invalido.PRT"
+    with pytest.raises(ValueError, match="ICC.*entrada"):
+        Rip(Settings(label_enabled=False)).process(str(source), str(output), width_cm=1)
+    assert not output.exists()
+    assert not list(tmp_path.glob("*.part"))
+
+
+
+def test_perfil_rgb_embutido_preserva_alpha(tmp_path):
+    from PIL import ImageCms
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    source = tmp_path / "alpha-icc.png"
+    image = Image.new("RGBA", (12, 12), (80, 140, 200, 128))
+    image.putpixel((0, 0), (200, 0, 0, 0))
+    image.save(source, icc_profile=profile)
+    with Image.open(source) as opened:
+        converted = Rip(Settings())._source_rgba(opened)
+        assert converted.mode == "RGBA"
+        assert converted.getchannel("A").tobytes() == image.getchannel("A").tobytes()
+        assert converted.getpixel((6, 6))[:3] == (80, 140, 200)
+
+
+def test_perfil_incompativel_com_modo_da_arte_falha(tmp_path):
+    from PIL import ImageCms
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB")).tobytes()
+    source = tmp_path / "perfil-incompativel.png"
+    Image.new("RGB", (20, 20), "blue").save(source, icc_profile=profile)
+    with pytest.raises(ValueError, match="ICC.*entrada"):
+        Rip(Settings()).process(str(source), str(tmp_path / "nao-criar.PRT"), width_cm=1)
 
 def test_etiqueta_nome_longo_nao_perde_final_com_dimensoes():
     settings = Settings(dpi_x=300, dpi_y=300, mirror=False)

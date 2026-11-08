@@ -76,6 +76,23 @@ def request(base, path, method="GET", data=None, headers=None):
         return error.code, error.read(), error.headers
 
 
+def test_painel_rejeita_host_remoto_e_porta_incorreta(panel):
+    porta = int(panel.rsplit(":", 1)[1])
+    for host in (f"evil.example:{porta}", f"127.0.0.1:{porta + 1}",
+                 f"127.0.0.1:{porta}@evil.example"):
+        status, body, _ = request(panel, "/api/state", headers={"Host": host})
+        assert status == 403
+        assert json.loads(body)["error"] == "host local nao autorizado"
+        status, _, _ = request(panel, "/api/login", "POST",
+                               json.dumps({"password": "qualquer"}).encode(),
+                               headers={"Host": host})
+        assert status == 403
+
+    status, _, _ = request(panel, "/api/state",
+                           headers={"Host": f"localhost:{porta}"})
+    assert status == 200
+
+
 def test_configuracoes_nao_revelam_segredos_e_resposta_tem_headers(panel, app):
     app.s.trello_token = "TOKEN-QUE-NAO-PODE-SAIR"
     app.tokens.add("sessao-teste")
@@ -108,7 +125,9 @@ def test_endpoint_thumb_nao_serve_symlink_externo(panel, app, tmp_path):
         os.symlink(outside, link)
     except (OSError, NotImplementedError):
         pytest.skip("symlink indisponível neste sistema")
-    status, body, _ = request(panel, "/api/thumb?name=falso")
+    app.tokens.add("token-thumb")
+    status, body, _ = request(panel, "/api/thumb?name=falso",
+                              headers={"X-Token": "token-thumb"})
     assert status == 404 and b"segredo" not in body
 
 
@@ -166,6 +185,24 @@ def test_journal_recupera_upload_manual_pendente(app, sample_png):
     assert os.path.isfile(archived)
     assert not os.path.exists(folder)
     assert app.auto is False
+
+
+def test_limpeza_de_upload_manual_re_tenta_lock_temporario(app, monkeypatch):
+    folder = os.path.join(app.inbox, "retry-cleanup")
+    os.makedirs(folder)
+    original_rmdir = os.rmdir
+    attempts = {"count": 0}
+
+    def flaky_rmdir(path):
+        if path == os.path.realpath(folder) and attempts["count"] < 2:
+            attempts["count"] += 1
+            raise PermissionError("arquivo ainda sendo liberado")
+        return original_rmdir(path)
+
+    monkeypatch.setattr(server_module.os, "rmdir", flaky_rmdir)
+    app._cleanup_manual_folder(os.path.join(folder, "arte.png"))
+    assert attempts["count"] == 2
+    assert not os.path.exists(folder)
 
 
 def test_journal_recria_sidecar_e_outbox_apos_crash_de_publicacao(app, sample_png):
@@ -370,6 +407,31 @@ def test_hot_folder_retry_sidecar_apos_enqueue_no_mesmo_processo(app, sample_png
     assert len([name for name in os.listdir(app.s.output_folder) if name.endswith(".PRT")]) == 1
 
 
+def test_troca_de_senha_revoga_sessoes_anteriores(panel, app):
+    origin = {"Origin": panel, "Sec-Fetch-Site": "same-origin"}
+    first = json.dumps({"new": "senha-inicial-123"}).encode()
+    status, body, _ = request(panel, "/api/setpass", "POST", first, origin)
+    assert status == 200
+    old_token = json.loads(body)["token"]
+    assert old_token
+
+    status, body, _ = request(panel, "/api/setpass", "POST",
+        json.dumps({"password": "senha-inicial-123", "new": "nova-senha-456"}).encode(),
+        {**origin, "X-Token": old_token})
+    assert status == 200
+    new_token = json.loads(body)["token"]
+    assert new_token != old_token
+
+    status, _, _ = request(panel, "/api/settings", headers={"X-Token": old_token})
+    assert status == 401
+    status, _, _ = request(panel, "/api/settings", headers={"X-Token": new_token})
+    assert status == 200
+
+    status, _, _ = request(panel, "/api/login", "POST",
+        json.dumps({"password": "senha-inicial-123"}).encode(), origin)
+    assert status == 401
+
+
 def test_post_cross_site_e_operacoes_sem_sessao_sao_bloqueados(panel, app):
     body = json.dumps({"on": False}).encode()
     status, _, _ = request(panel, "/api/auto", "POST", body, {
@@ -382,6 +444,26 @@ def test_post_cross_site_e_operacoes_sem_sessao_sao_bloqueados(panel, app):
     status, response, _ = request(panel, "/api/auto", "POST", body,
                                   {**origin, "X-Token": "sessao-teste"})
     assert status == 200 and json.loads(response)["auto"] is False
+
+
+def test_upload_rejeita_sessao_ausente_ou_invalida(panel, app, sample_png, monkeypatch):
+    raw = sample_png.read_bytes()
+    called = []
+
+    def forbidden(*args, **kwargs):
+        called.append(True)
+        pytest.fail("Upload sem sessao nao pode chegar ao disco nem a fila")
+
+    monkeypatch.setattr(app, "receive_upload", forbidden)
+    for headers in (
+        {"Content-Type": "application/octet-stream"},
+        {"Content-Type": "application/octet-stream", "X-Token": "invalido"},
+    ):
+        status, body, _ = request(panel, "/api/upload?name=nao-autorizado.png",
+                                  "POST", raw, headers)
+        assert status == 401
+        assert json.loads(body)["error"] == "login"
+    assert called == []
 
 
 def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_png, monkeypatch):
@@ -402,7 +484,7 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     assert status == 400
 
     raw = sample_png.read_bytes()
-    headers = {**origin, "Content-Type": "application/octet-stream"}
+    headers = {**origin, "Content-Type": "application/octet-stream", "X-Token": token}
     pending = os.path.join(app.inbox, "pendente")
     os.makedirs(pending)
     with open(os.path.join(pending, "reserva.bin"), "wb") as target:
@@ -427,3 +509,228 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     status, _, _ = request(panel, "/api/upload?name=evil.png", "POST", raw,
                            {"Origin": "http://evil.example", "Sec-Fetch-Site": "cross-site"})
     assert status == 403
+
+
+def test_worker_sobrevive_a_arte_removida_antes_do_processamento(app, sample_png, tmp_path):
+    from conftest import wait_for_job
+
+    missing = tmp_path / "arte-removida.png"
+    missing.write_bytes(sample_png.read_bytes())
+    missing.unlink()
+
+    # A primeira falha nao pode matar o worker que processa o pedido seguinte.
+    failed = app.enqueue(str(missing), width_cm=2.54, move_to_done=True)
+    valid = app.enqueue(str(sample_png), width_cm=2.54, move_to_done=False)
+    wait_for_job(failed, timeout=15)
+    wait_for_job(valid, timeout=30)
+
+    assert failed["status"] == "erro"
+    assert valid["status"] == "pronto"
+    assert valid["out"] and os.path.isfile(valid["out"])
+    assert not (tmp_path / "arte-removida.png.autorip.json").exists()
+    assert str(missing) not in app.archive_pending
+
+
+def test_modo_automatico_persiste_entre_reinicios(panel, app):
+    from autorip.config import Settings
+
+    app.tokens.add("sessao-auto")
+    headers = {"X-Token": "sessao-auto", "Origin": panel, "Sec-Fetch-Site": "same-origin"}
+    for enabled in (True, False):
+        status, body, _ = request(panel, "/api/auto", "POST",
+                                  json.dumps({"on": enabled}).encode(), headers)
+        assert status == 200
+        assert json.loads(body)["auto"] is enabled
+        assert app.auto is enabled
+        assert app.s.auto_mode is enabled
+        assert Settings.load(app.cfg_path, base=app.home).auto_mode is enabled
+
+
+def test_modo_automatico_nao_ativa_se_salvar_configuracao_falhar(
+        panel, app, monkeypatch):
+    from autorip.config import Settings
+
+    app.tokens.add("sessao-auto")
+    previous = app.auto
+    assert previous is False
+
+    def cannot_save(self, path):
+        raise OSError("disco indisponivel durante a persistencia")
+
+    monkeypatch.setattr(Settings, "save", cannot_save)
+    status, _, _ = request(panel, "/api/auto", "POST",
+                           json.dumps({"on": True}).encode(),
+                           {"X-Token": "sessao-auto", "Origin": panel})
+    assert status == 500
+    assert app.auto is previous
+    assert app.s.auto_mode is False
+    assert json.loads(open(app.cfg_path, encoding="utf-8").read())["auto_mode"] is False
+
+def test_estado_e_fila_nao_divulgam_artes_sem_login(panel, app):
+    app.log("SEGREDO-DE-PEDIDO-PRIVADO")
+    app.jobs.append({"name": "CLIENTE-PRIVADO.png", "status": "fila"})
+    app.tokens.add("sessao-read")
+    status, body, _ = request(panel, "/api/state")
+    data = json.loads(body)
+    assert status == 200 and data["locked"] is True
+    assert data["has_pass"] is False
+    assert data["version"]
+    for key in ("jobs", "log", "hot_folder", "output_folder", "icc", "auto"):
+        assert key not in data
+    assert b"SEGREDO-DE-PEDIDO-PRIVADO" not in body
+    assert b"CLIENTE-PRIVADO" not in body
+
+    status, _, _ = request(panel, "/api/prints")
+    assert status == 401
+    status, authorized, _ = request(panel, "/api/state",
+                                    headers={"X-Token": "sessao-read"})
+    assert status == 200
+    public = json.loads(authorized)
+    assert "jobs" in public and "log" in public
+    assert public["jobs"][-1]["name"] == "CLIENTE-PRIVADO.png"
+
+
+def test_previa_jpeg_requer_autenticacao(panel, app):
+    import pathlib
+
+    root = pathlib.Path(app.home) / "thumbs"
+    root.mkdir(exist_ok=True)
+    (root / "pedido.jpg").write_bytes(b"JPEG-PRIVADO")
+    status, body, _ = request(panel, "/api/thumb?id=pedido")
+    assert status == 401 and b"JPEG-PRIVADO" not in body
+
+    app.tokens.add("sessao-thumb")
+    status, body, headers = request(panel, "/api/thumb?id=pedido",
+                                    headers={"X-Token": "sessao-thumb"})
+    assert status == 200 and body == b"JPEG-PRIVADO"
+    assert headers["Content-Type"] == "image/jpeg"
+
+
+def test_tela_login_atualiza_atividade_sem_revelar_jobs(panel, app, monkeypatch):
+    before = server_module.LAST_CLIENT_SEEN
+    status, body, _ = request(panel, "/api/state")
+    assert status == 200 and json.loads(body)["locked"] is True
+    assert server_module.LAST_CLIENT_SEEN >= before
+
+def test_excluir_prt_apaga_metadados_e_miniaturas_associadas(app):
+    path = os.path.join(app.s.output_folder, "remover.PRT")
+    writer = PrtWriter(path, 300, 300, 1, 8)
+    writer.write_block([np.zeros((1, 8), dtype=np.uint8)] * 12)
+    writer.close()
+    with open(path + ".meta.json", "w", encoding="utf-8") as metadata:
+        metadata.write("{}")
+
+    root = os.path.join(app.home, "thumbs")
+    by_name = os.path.join(root, "by_name")
+    os.makedirs(by_name, exist_ok=True)
+    named = os.path.join(by_name, "remover.jpg")
+    job_preview = os.path.join(root, "job-teste.jpg")
+    unrelated = os.path.join(by_name, "outra-arte.jpg")
+    for thumbnail in (named, job_preview, unrelated):
+        with open(thumbnail, "wb") as target:
+            target.write(b"preview")
+
+    job = {"id": "job-teste", "out": path, "thumb": "/api/thumb?id=job-teste"}
+    app.jobs.append(job)
+    app.delete_print("remover.PRT")
+    assert not os.path.exists(path)
+    assert not os.path.exists(path + ".meta.json")
+    assert not os.path.exists(named)
+    assert not os.path.exists(job_preview)
+    assert os.path.isfile(unrelated)
+    assert job["thumb"] == ""
+
+
+def test_excluir_prt_nao_segue_symlink_de_thumbnail(app, tmp_path):
+    path = os.path.join(app.s.output_folder, "seguro.PRT")
+    writer = PrtWriter(path, 300, 300, 1, 8)
+    writer.write_block([np.zeros((1, 8), dtype=np.uint8)] * 12)
+    writer.close()
+    outside = tmp_path / "externo.jpg"
+    outside.write_bytes(b"nao remover")
+    by_name = os.path.join(app.home, "thumbs", "by_name")
+    os.makedirs(by_name, exist_ok=True)
+    link = os.path.join(by_name, "seguro.jpg")
+    try:
+        os.symlink(outside, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks indisponiveis")
+    app.delete_print("seguro.PRT")
+    assert outside.read_bytes() == b"nao remover"
+
+
+
+def test_thumbnail_so_substitui_jpeg_apos_gravacao_completa(tmp_path, monkeypatch):
+    from PIL import Image
+
+    destination = tmp_path / "preview.jpg"
+    picture = Image.new("RGB", (12, 12), (10, 20, 30))
+    server_module._save_thumbnail_atomic(picture, str(destination))
+    with Image.open(destination) as stored:
+        stored.verify()
+    original = destination.read_bytes()
+
+    def broken_save(self, target, *args, **kwargs):
+        target.write(b"imagem-incompleta")
+        raise OSError("falha simulada ao salvar preview")
+
+    monkeypatch.setattr(Image.Image, "save", broken_save)
+    with pytest.raises(OSError, match="falha simulada"):
+        server_module._save_thumbnail_atomic(picture, str(destination))
+
+    assert destination.read_bytes() == original
+    assert not list(tmp_path.glob(".thumb.*.part"))
+
+
+def test_geracao_de_preview_recusa_diretorio_symlink(app, sample_png, tmp_path):
+    outside = tmp_path / "imagens-externas"
+    outside.mkdir()
+    link = os.path.join(app.home, "thumbs")
+    try:
+        os.symlink(outside, link, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink de diretorio indisponivel")
+    assert app._thumb("job-symlink", str(sample_png)) == ""
+    assert not list(outside.iterdir())
+
+
+
+def test_journal_ilegivel_bloqueia_reprocessamento_automatico(app, sample_png, tmp_path):
+    import shutil
+
+    source = tmp_path / "origem-sem-reconciliacao.png"
+    shutil.copyfile(sample_png, source)
+    marker = tmp_path / "origem-sem-reconciliacao.png.autorip.json"
+    marker.write_text('{"version":1,"phase":"success","output":"arquivo.PRT"', encoding="utf-8")
+    def warnings():
+        return [item for item in app.log_lines
+                if "journal invalido" in item.lower() and source.name in item]
+
+    warnings_before = len(warnings())
+    assert app._recover_marked_source(str(source), app.s) is True
+    assert app._recover_marked_source(str(source), app.s) is True
+    assert source.is_file()
+    assert marker.is_file()
+    assert len(warnings()) == warnings_before + 1
+
+    # Remover manualmente o registro invalido libera a arte para nova analise.
+    marker.unlink()
+    assert app._recover_marked_source(str(source), app.s) is False
+
+
+def test_journal_symlink_bloqueia_rip_e_preserva_evidencia(app, sample_png, tmp_path):
+    import shutil
+
+    source = tmp_path / "com-marcador-symlink.png"
+    shutil.copyfile(sample_png, source)
+    external = tmp_path / "evidencia.json"
+    external.write_text("conteudo-externo", encoding="utf-8")
+    marker = tmp_path / "com-marcador-symlink.png.autorip.json"
+    try:
+        os.symlink(external, marker)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink indisponivel")
+    assert app._recover_marked_source(str(source), app.s) is True
+    assert marker.is_symlink()
+    assert external.read_text(encoding="utf-8") == "conteudo-externo"
+    assert source.is_file()

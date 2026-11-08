@@ -199,7 +199,8 @@ def layout_to_svg(items: Iterable[LayoutItem], sheet_width_cm: float = MAX_SHEET
              '<rect width="100%" height="100%" fill="#f7f0dc" stroke="#1a1a1a" stroke-width="0.08"/>']
     for index, item in enumerate(items):
         width, item_height = _dimensions(item)
-        parts.append(f'<g transform="translate({item.x_cm:g} {item.y_cm:g}) rotate({item.rotation} {width/2:g} {item_height/2:g})">')
+        # O retangulo ja representa a caixa ocupada apos a rotacao.
+        parts.append(f'<g transform="translate({item.x_cm:g} {item.y_cm:g})" data-rotation="{item.rotation}">')
         parts.append(f'<rect width="{width:g}" height="{item_height:g}" rx="0.12" fill="#00aeef" fill-opacity=".22" stroke="#1a1a1a" stroke-width=".06"/>')
         label = esc(item.name[:32])
         parts.append(f'<text x="{width/2:g}" y="{item_height/2:g}" text-anchor="middle" dominant-baseline="middle" font-size="{max(.22, min(.8, width/12)):g}" fill="#1a1a1a">{label}</text>')
