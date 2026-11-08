@@ -21,12 +21,17 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-dev.txt
+          python -m pip install -r requirements-dev.txt pyinstaller
+
+      - name: Verify PyInstaller availability
+        run: python -m PyInstaller --version
 
       - name: Run regression tests before Windows packaging
         run: python -m pytest -q
