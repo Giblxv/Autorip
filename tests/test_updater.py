@@ -83,3 +83,53 @@ def test_cache_recente_valido_mantem_intervalo_de_consultas(tmp_path, monkeypatc
 
     monkeypatch.setattr(updater, "_latest_release", forbidden)
     assert updater.stage_latest(str(tmp_path), "0.8.4") is None
+
+
+@pytest.mark.parametrize("url", [
+    "https://github.com/Giblxv/Outro/releases/download/v0.8.7/AutoRIP_Setup.exe",
+    "https://github.com/atacante/repo/releases/download/v0.8.7/AutoRIP_Setup.exe",
+    "https://github.com/Giblxv/Autorip/releases/download/v0.8.6/AutoRIP_Setup.exe",
+    "https://github.com/Giblxv/Autorip/releases/download/v0.8.7/SHA256SUMS.txt",
+    "https://release-assets.githubusercontent.com/download/AutoRIP_Setup.exe",
+    "https://github.com/Giblxv/Autorip/releases/download/v0.8.7/AutoRIP_Setup.exe?token=1",
+    "https://github.com:444/Giblxv/Autorip/releases/download/v0.8.7/AutoRIP_Setup.exe",
+])
+def test_release_nao_aceita_assets_de_outro_repositorio(url):
+    assert not updater._release_asset_url(url, "v0.8.7", "AutoRIP_Setup.exe")
+
+
+def test_release_aceita_asset_do_proprio_repositorio():
+    tag = "v0.8.7"
+    assert updater._release_asset_url(
+        f"https://github.com/Giblxv/Autorip/releases/download/{tag}/AutoRIP_Setup.exe",
+        tag, "AutoRIP_Setup.exe")
+    assert updater._release_asset_url(
+        f"https://github.com/Giblxv/Autorip/releases/download/{tag}/SHA256SUMS.txt",
+        tag, "SHA256SUMS.txt")
+
+
+def test_api_de_release_nao_aceita_instalador_de_outro_repositorio(monkeypatch):
+    import io
+    import json
+
+    release = {
+        "tag_name": "v0.8.7",
+        "draft": False,
+        "prerelease": False,
+        "assets": [
+            {"name": "AutoRIP_Setup.exe", "browser_download_url":
+             "https://github.com/atacante/repo/releases/download/v0.8.7/AutoRIP_Setup.exe"},
+            {"name": "SHA256SUMS.txt", "browser_download_url":
+             "https://github.com/Giblxv/Autorip/releases/download/v0.8.7/SHA256SUMS.txt"},
+        ],
+    }
+
+    class FakeResponse(io.BytesIO):
+        headers = {}
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            return FakeResponse(json.dumps(release).encode())
+
+    monkeypatch.setattr(updater.urllib.request, "build_opener", lambda *_args: FakeOpener())
+    assert updater._latest_release() is None
