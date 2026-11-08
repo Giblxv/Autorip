@@ -129,16 +129,21 @@ class Rip:
                 raise ValueError(f"Imagem excede o limite de {MAX_INPUT_PIXELS:,} pixels; reduza a arte antes do RIP.")
             if opened.width <= 0 or opened.height <= 0:
                 raise ValueError("A imagem precisa ter largura e altura maiores que zero.")
+            orientation = opened.getexif().get(274, 1)
             source = ImageOps.exif_transpose(opened)
             has_alpha = source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info
-            dpi = source.info.get("dpi", (300, 300))[0] or 300
+            source_dpi = source.info.get("dpi", (300, 300))
+            source_dpi_x, source_dpi_y = source_dpi[0] or 300, source_dpi[1] or 300
+            if orientation in (5, 6, 7, 8):
+                source_dpi_x, source_dpi_y = source_dpi_y, source_dpi_x
             source.load()
             im = source.convert("RGBA")
-        w_cm = width_cm or (im.width / dpi * 2.54)
+        w_cm = width_cm or (im.width / source_dpi_x * 2.54)
         if not np.isfinite(w_cm) or w_cm <= 0:
             raise ValueError("A largura de impressão precisa ser um número positivo.")
         n_dots = int(round(w_cm / 2.54 * s.dpi_x))
-        art_rows = int(round((im.height / im.width) * w_cm / 2.54 * s.dpi_y))
+        physical_ratio = (im.height / source_dpi_y) / (im.width / source_dpi_x)
+        art_rows = int(round(physical_ratio * w_cm / 2.54 * s.dpi_y))
         if n_dots <= 0 or art_rows <= 0:
             raise ValueError("A largura ou a resolucao escolhida gera uma arte sem pixels de saida; aumente as medidas.")
         top = int(round(s.margin_top_in * s.dpi_y)); bot = int(round(s.margin_bottom_in * s.dpi_y))
