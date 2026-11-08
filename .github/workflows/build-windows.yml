@@ -26,7 +26,10 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt pyinstaller
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run regression tests before Windows packaging
+        run: python -m pytest -q
 
       - name: Build one-file executable
         run: .\build_windows.bat
