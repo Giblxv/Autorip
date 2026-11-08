@@ -5,6 +5,8 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
+import pytest
+
 from autorip import integrations
 from autorip.config import Settings
 from conftest import wait_for_job
@@ -65,14 +67,12 @@ def test_trello_download_e_integracoes_de_saida_nao_expoem_tokens(app, sample_pn
         assert received[0][2].startswith("OAuth ")
         assert "key=" not in received[0][1] and "token=" not in received[0][1]
 
-        settings.trello_in_list = ""  # impede a thread de fundo de repetir a entrada durante o teste
-        settings.offline_mode = False
-        job = app.enqueue(artifact, 3)
-        wait_for_job(job)
-        deadline = time.monotonic() + 10
-        while time.monotonic() < deadline and integrations.outbox_load(app.home):
-            time.sleep(0.05)
-        assert integrations.outbox_load(app.home) == []
+        # Testa o envio de rede independentemente do timing do RIP/worker.
+        settings.trello_in_list = ""
+        job = {"name": "pedido42.png", "out": os.path.join(settings.output_folder, "pedido42.PRT")}
+        info = {"width_cm": 3.0, "height_cm": 2.0, "n_dots": 300, "n_rows": 200}
+        results = integrations.notify_done(settings, job, info, app.log)
+        assert results == {"webhook": True, "Trello": True, "Notion": True, "Jira": True}
 
         posts = [(urlsplit(row[1]).path, row[2]) for row in received if row[0] == "POST"]
         paths = {path for path, _ in posts}
@@ -140,3 +140,85 @@ def test_outbox_add_e_idempotente_por_job_id(tmp_path):
     assert integrations.outbox_add(str(tmp_path), job, info) is False
     assert len(integrations.outbox_load(str(tmp_path))) == 1
     assert integrations.outbox_load(str(tmp_path))[0]["job_id"] == "rip-123"
+
+
+def test_trello_nao_duplica_anexo_apos_reinicio(tmp_path, sample_png, monkeypatch):
+    import shutil
+
+    home = tmp_path / "home"
+    home.mkdir()
+    hot = tmp_path / "hot"
+    hot.mkdir()
+    settings = Settings(offline_mode=False, hot_folder=str(hot), trello_key="K",
+                        trello_token="T", trello_in_list="L", trello_base="https://api.trello.com/1")
+    card = [{"name": "Pedido 1", "attachments": [{
+        "id": "trello-attachment-001", "name": "arte.png",
+        "url": "https://trello.com/1/cards/arte.png"}]}]
+    calls = []
+    monkeypatch.setattr(integrations, "_req", lambda *_a, **_kw: card)
+
+    def download(url, path, headers, **kwargs):
+        calls.append(url)
+        shutil.copyfile(sample_png, path)
+        return os.path.getsize(path)
+
+    monkeypatch.setattr(integrations, "_download_attachment", download)
+    assert integrations.pull_trello(settings, set(), lambda _: None, seen_home=str(home)) == 1
+    assert json.loads((home / "trello_seen.json").read_text()) == ["trello-attachment-001"]
+    (hot / "arte.png").unlink()  # a hot-folder ja consumiu a arte
+
+    # Simula reinicializacao: novo set(), mesmo home e mesmo cartao no Trello.
+    assert integrations.pull_trello(settings, set(), lambda _: None, seen_home=str(home)) == 0
+    assert calls == ["https://trello.com/1/cards/arte.png"]
+    assert list(hot.iterdir()) == []
+
+
+def test_trello_recibo_corrompido_suspende_download_sem_apagar_registro(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    hot = tmp_path / "hot"
+    hot.mkdir()
+    ledger = home / "trello_seen.json"
+    ledger.write_text('{"corrompido": true}', encoding="utf-8")
+    settings = Settings(offline_mode=False, hot_folder=str(hot), trello_key="K",
+                        trello_token="T", trello_in_list="L")
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("Registro invalido nao pode consultar ou importar Trello")
+
+    monkeypatch.setattr(integrations, "_req", forbidden)
+    with pytest.raises(ValueError, match="Registro de anexos Trello invalido"):
+        integrations.pull_trello(settings, set(), seen_home=str(home))
+    assert ledger.read_text(encoding="utf-8") == '{"corrompido": true}'
+
+
+def test_trello_falha_ao_persistir_nao_marca_id_como_confirmado(
+        tmp_path, sample_png, monkeypatch):
+    import shutil
+
+    home = tmp_path / "home"
+    home.mkdir()
+    hot = tmp_path / "hot"
+    hot.mkdir()
+    settings = Settings(offline_mode=False, hot_folder=str(hot), trello_key="K",
+                        trello_token="T", trello_in_list="L")
+    card = [{"name": "Pedido", "attachments": [{
+        "id": "trello-attachment-002", "name": "pedido.png",
+        "url": "https://trello.com/1/file.png"}]}]
+    monkeypatch.setattr(integrations, "_req", lambda *_a, **_kw: card)
+    monkeypatch.setattr(integrations, "_download_attachment",
+                        lambda url, path, headers, **kw: shutil.copyfile(sample_png, path))
+
+    def save_fails(*_args, **_kwargs):
+        raise OSError("falha de disco ao registrar recibo")
+
+    monkeypatch.setattr(integrations, "_atomic_json", save_fails)
+    seen = set()
+    with pytest.raises(OSError, match="registrar recibo"):
+        integrations.pull_trello(settings, seen, seen_home=str(home))
+
+    assert not seen
+    assert not (home / "trello_seen.json").exists()
+    # A arte foi publicada; em caso de queda no meio, o operador consegue
+    # identificar e reconciliar o trabalho antes de retomar a importacao.
+    assert (hot / "pedido.png").exists()
