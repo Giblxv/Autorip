@@ -230,6 +230,10 @@ def pull_trello(s, seen: set, log=print, offline_check=None, seen_home=None):
     if not (s.trello_key and s.trello_token and s.trello_in_list) or _is_offline(s, offline_check):
         return 0
     receipts = _load_trello_seen(seen_home) if seen_home is not None else []
+    if seen_home is not None:
+        # O registro em disco e a referencia entre reinicios; limite tambem
+        # o set em memoria ao mesmo horizonte de recibos.
+        seen.clear()
     seen.update(receipts)
     os.makedirs(s.hot_folder, exist_ok=True)
     if _is_offline(s, offline_check):
@@ -263,14 +267,18 @@ def pull_trello(s, seen: set, log=print, offline_check=None, seen_home=None):
                 if _is_offline(s, offline_check):
                     continue
                 destination = publish_unique_file(temporary, os.path.join(s.hot_folder, name))
-                seen.add(identifier)
                 if seen_home is not None:
-                    # Falha na persistencia e reportada, nunca apresentada como sucesso.
-                    # Os IDs mais antigos saem apos 10 mil anexos confirmados.
-                    receipts = [existing for existing in receipts if existing != identifier]
-                    receipts.append(identifier)
-                    receipts = receipts[-_TRELLO_SEEN_LIMIT:]
-                    _atomic_json(_trello_seen_path(seen_home), receipts)
+                    # Somente marcamos como visto apos um recibo duravel; se
+                    # a escrita falhar, alertamos e permitimos reconciliacao.
+                    next_receipts = [existing for existing in receipts if existing != identifier]
+                    next_receipts.append(identifier)
+                    next_receipts = next_receipts[-_TRELLO_SEEN_LIMIT:]
+                    _atomic_json(_trello_seen_path(seen_home), next_receipts)
+                    receipts = next_receipts
+                    seen.clear()
+                    seen.update(receipts)
+                else:
+                    seen.add(identifier)
                 count += 1
                 log(f"Trello: baixado {os.path.basename(destination)} (cartao {safe_filename(card.get('name', ''))})")
             except Exception:
