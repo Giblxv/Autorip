@@ -507,3 +507,24 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     status, _, _ = request(panel, "/api/upload?name=evil.png", "POST", raw,
                            {"Origin": "http://evil.example", "Sec-Fetch-Site": "cross-site"})
     assert status == 403
+
+
+def test_worker_sobrevive_a_arte_removida_antes_do_processamento(app, sample_png, tmp_path):
+    from conftest import wait_for_job
+
+    missing = tmp_path / "arte-removida.png"
+    missing.write_bytes(sample_png.read_bytes())
+    missing.unlink()
+
+    # A primeira falha nao pode matar o worker que processa o pedido seguinte.
+    failed = app.enqueue(str(missing), width_cm=2.54, move_to_done=True)
+    valid = app.enqueue(str(sample_png), width_cm=2.54, move_to_done=False)
+    wait_for_job(failed, timeout=15)
+    wait_for_job(valid, timeout=30)
+
+    assert failed["status"] == "erro"
+    assert valid["status"] == "pronto"
+    assert valid["out"] and os.path.isfile(valid["out"])
+    assert not (tmp_path / "arte-removida.png.autorip.json").exists()
+    assert str(missing) not in app.archive_pending
+
