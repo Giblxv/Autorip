@@ -46,6 +46,23 @@ def home_dir():
     return h
 
 
+def _save_thumbnail_atomic(image, destination):
+    """Escreve JPEG completo antes de substituir uma miniatura visivel no painel."""
+    directory = os.path.dirname(destination)
+    fd, temporary = tempfile.mkstemp(prefix=".thumb.", suffix=".part", dir=directory)
+    try:
+        with os.fdopen(fd, "wb") as target:
+            image.save(target, format="JPEG", quality=82)
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temporary, destination)
+    finally:
+        try:
+            os.remove(temporary)
+        except OSError:
+            pass
+
+
 class App:
     def __init__(self):
         self.home = home_dir()
@@ -575,10 +592,15 @@ class App:
                 a = w.getchannel("A").point(lambda v: int(v * settings.watermark_opacity)); w.putalpha(a)
                 bg.alpha_composite(w, ((im.width - w.width) // 2, (im.height - w.height) // 2))
             d = os.path.join(self.home, "thumbs"); os.makedirs(d, exist_ok=True)
-            rgb = bg.convert("RGB"); rgb.save(os.path.join(d, jid + ".jpg"), quality=82)
+            if os.path.islink(d):
+                return ""
             nd = os.path.join(d, "by_name"); os.makedirs(nd, exist_ok=True)
+            if os.path.islink(nd):
+                return ""
+            rgb = bg.convert("RGB")
             thumb_name = safe_filename(output_name or os.path.splitext(os.path.basename(path))[0])
-            rgb.save(os.path.join(nd, thumb_name + ".jpg"), quality=82)
+            _save_thumbnail_atomic(rgb, os.path.join(d, jid + ".jpg"))
+            _save_thumbnail_atomic(rgb, os.path.join(nd, thumb_name + ".jpg"))
             return f"/api/thumb?id={jid}"
         except Exception:
             return ""
