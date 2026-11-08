@@ -454,14 +454,16 @@ def test_journal_ilegivel_bloqueia_reprocessamento_automatico(app, sample_png, t
     shutil.copyfile(sample_png, source)
     marker = tmp_path / "origem-sem-reconciliacao.png.autorip.json"
     marker.write_text('{"version":1,"phase":"success","output":"arquivo.PRT"', encoding="utf-8")
-    logs_before = len(app.log_lines)
+    def warnings():
+        return [item for item in app.log_lines
+                if "journal invalido" in item.lower() and source.name in item]
 
+    warnings_before = len(warnings())
     assert app._recover_marked_source(str(source), app.s) is True
     assert app._recover_marked_source(str(source), app.s) is True
     assert source.is_file()
     assert marker.is_file()
-    assert len(app.log_lines) == logs_before + 1
-    assert "journal invalido" in app.log_lines[-1].lower()
+    assert len(warnings()) == warnings_before + 1
 
     # Remover manualmente o registro invalido libera a arte para nova analise.
     marker.unlink()
