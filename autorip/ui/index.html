@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutoRIP</title>
+<style>
+:root{--c:#00aeef;--m:#ec008c;--y:#ffd800;--k:#1a1a1a;--paper:#fff8e1}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Bangers","Comic Sans MS","Chalkboard SE","Marker Felt",Impact,sans-serif;color:var(--k);background:var(--paper);
+ background-image:radial-gradient(circle at 25% 25%,rgba(0,174,239,.18) 0 6px,transparent 7px),radial-gradient(circle at 75% 25%,rgba(236,0,140,.16) 0 6px,transparent 7px),radial-gradient(circle at 25% 75%,rgba(255,216,0,.35) 0 6px,transparent 7px),radial-gradient(circle at 75% 75%,rgba(26,26,26,.10) 0 6px,transparent 7px);background-size:44px 44px;min-height:100vh;letter-spacing:.5px}
+/* ---- intro: aneis concentricos (estilo desenho classico) ---- */
+#intro{position:fixed;inset:0;z-index:99;display:grid;place-items:center;background:var(--k);animation:introOut .5s 1.5s forwards}
+#intro .ring{position:absolute;border-radius:50%;border:26px solid;animation:ring 1.3s ease-in forwards}
+#intro .r1{border-color:var(--c);width:140vmax;height:140vmax}#intro .r2{border-color:var(--m);width:105vmax;height:105vmax;animation-delay:.1s}
+#intro .r3{border-color:var(--y);width:70vmax;height:70vmax;animation-delay:.2s}#intro .r4{border-color:#fff;width:35vmax;height:35vmax;animation-delay:.3s}
+#intro h1{position:relative;font-size:clamp(48px,12vw,140px);margin:0;color:#fff;text-shadow:6px 6px 0 var(--m);animation:pop .6s .2s both}
+@keyframes ring{from{transform:scale(.05);opacity:1}to{transform:scale(1);opacity:.9}}
+@keyframes introOut{to{clip-path:circle(0% at 50% 50%);visibility:hidden}}
+@keyframes pop{0%{transform:scale(0) rotate(-12deg)}60%{transform:scale(1.25,.85)}80%{transform:scale(.92,1.1)}100%{transform:scale(1)}}
+/* ---- topo ---- */
+header{display:flex;align-items:center;gap:18px;padding:14px 28px;background:var(--k);border-bottom:8px solid;border-image:linear-gradient(90deg,var(--c) 25%,var(--m) 25% 50%,var(--y) 50% 75%,#fff 75%) 1}
+.logo{font-size:44px;line-height:1;display:flex}
+.logo span{display:inline-block;animation:bounce 1.6s infinite}
+.logo span:nth-child(1){color:var(--c)}.logo span:nth-child(2){color:var(--m);animation-delay:.1s}.logo span:nth-child(3){color:var(--y);animation-delay:.2s}
+.logo span:nth-child(n+4){color:#fff;animation-delay:.3s}
+@keyframes bounce{0%,100%{transform:translateY(0) scale(1,1)}20%{transform:translateY(0) scale(1.15,.8)}50%{transform:translateY(-12px) scale(.9,1.15)}80%{transform:translateY(0) scale(1.1,.88)}}
+header .sp{flex:1}header small{color:#ccc;font-family:monospace}
+button,.btn{font-family:inherit;font-size:20px;padding:10px 22px;border:4px solid var(--k);border-radius:14px;background:var(--y);color:var(--k);cursor:pointer;box-shadow:5px 5px 0 var(--k);transition:transform .12s}
+button:hover{animation:boing .5s}button:active{transform:translate(4px,4px) scale(1.04,.92);box-shadow:1px 1px 0 var(--k)}
+button.c{background:var(--c)}button.m{background:var(--m);color:#fff}button.k{background:var(--k);color:#fff;border-color:#fff}
+@keyframes boing{0%{transform:scale(1)}30%{transform:scale(1.2,.8)}55%{transform:scale(.88,1.15)}75%{transform:scale(1.07,.95)}100%{transform:scale(1)}}
+main{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;padding:24px 28px;max-width:1300px;margin:auto}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+.card{background:#fff;border:5px solid var(--k);border-radius:22px;padding:18px 22px;box-shadow:8px 8px 0 var(--k)}
+.card h2{margin:0 0 12px;font-size:30px}.card h2 i{font-style:normal;padding:0 8px;border-radius:8px;color:#fff}
+.h-c i{background:var(--c)}.h-m i{background:var(--m)}.h-y i{background:var(--y);color:var(--k)}.h-k i{background:var(--k)}
+/* ---- interruptor automatico ---- */
+.auto{display:flex;align-items:center;gap:16px}
+.sw{width:110px;height:52px;border-radius:30px;border:5px solid var(--k);background:#ddd;position:relative;cursor:pointer;transition:background .25s}
+.sw::after{content:"";position:absolute;top:3px;left:4px;width:34px;height:34px;border-radius:50%;background:var(--k);transition:left .25s cubic-bezier(.5,1.8,.5,.8)}
+.sw.on{background:var(--m)}.sw.on::after{left:60px;background:#fff;border:4px solid var(--k)}
+.paths{font-family:monospace;font-size:13px;word-break:break-all;margin-top:12px;line-height:1.5}.paths b{font-family:"Comic Sans MS",sans-serif}
+/* ---- drop ---- */
+#drop{border:5px dashed var(--c);border-radius:20px;padding:28px;text-align:center;font-size:24px;background:rgba(0,174,239,.07);margin-top:14px;transition:.2s}
+#drop.over{background:var(--y);transform:scale(1.04) rotate(-1deg);border-color:var(--m)}
+#drop input[type=file]{display:none}.row{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;font-size:18px}
+input[type=text],input[type=number],input[type=password]{font-family:monospace;font-size:15px;padding:7px 10px;border:3px solid var(--k);border-radius:10px;width:100%}
+/* ---- fila com gotas correndo ---- */
+.job{margin:10px 0;font-size:18px;overflow:hidden}.bar{height:34px;border:4px solid var(--k);border-radius:20px;background:#eee;position:relative;overflow:hidden;margin-top:4px}
+.fill{height:100%;background:linear-gradient(90deg,var(--c) 0 25%,var(--m) 25% 50%,var(--y) 50% 75%,var(--k) 75%);background-size:60px 100%;transition:width .4s;animation:stripes 1s linear infinite}
+@keyframes stripes{to{background-position:60px 0}}
+.drop{position:absolute;top:-4px;font-size:26px;transition:left .4s;animation:run .35s infinite alternate}
+@keyframes run{from{transform:translateY(0) rotate(-8deg)}to{transform:translateY(-6px) rotate(8deg)}}
+.st{font-size:14px;margin-left:8px;padding:2px 10px;border-radius:12px;color:#fff;background:var(--k)}.st.pronto{background:var(--c)}.st.erro{background:var(--m)}.st.processando{background:var(--y);color:var(--k)}
+.hd{display:flex;align-items:center;gap:10px;margin:0 0 12px}.hd h2{margin:0;flex:1}.cnt{font-size:18px;padding:2px 12px;border-radius:14px;border:3px solid var(--k);background:#fff}
+.sm{font-size:15px;padding:4px 12px;border-width:3px;border-radius:11px;box-shadow:3px 3px 0 var(--k)}
+.logbox{height:240px;overflow:auto;border:4px solid var(--k);border-radius:16px;background:#fff;padding:4px 6px}
+.ll{display:flex;gap:10px;align-items:baseline;padding:6px 6px;border-bottom:2px dashed #e2e2e2;font:15px/1.35 "Comic Sans MS","Chalkboard SE",sans-serif}.ll:last-child{border:0}
+.ll time{font:12px monospace;color:#777;min-width:58px}.tag{font-size:12px;letter-spacing:.5px;padding:1px 9px;border-radius:10px;color:#fff;min-width:74px;text-align:center;background:var(--k)}
+.tag.ok{background:var(--c)}.tag.erro{background:var(--m)}.tag.rip{background:var(--y);color:var(--k)}.tag.rede{background:#7b4bd6}
+.empty{text-align:center;padding:18px;font-size:17px;color:#666}
+.pq{display:flex;gap:12px;align-items:center;padding:8px 4px;border-bottom:3px dashed #e2e2e2}.pq:last-child{border:0}
+.pq img,.pq .ph{width:64px;height:52px;object-fit:contain;border:3px solid var(--k);border-radius:10px;background:#fff;display:grid;place-items:center;font-size:24px}
+.pq .nm{font-size:19px;word-break:break-all}.pq small{font:12px monospace;color:#666}.pq .gr{flex:1;min-width:0}.pq .bt{display:flex;gap:6px;flex-wrap:wrap}
+.pq .nx{background:var(--y);padding:0 8px;border-radius:8px;font-size:13px;border:2px solid var(--k)}
+/* ---- fim: iris ---- */
+#fim{position:fixed;inset:0;z-index:90;display:grid;place-items:center;pointer-events:none;background:var(--k);clip-path:circle(0% at 50% 50%)}
+#fim.go{animation:iris 2.4s ease-in-out}
+#fim h1{color:#fff;font-size:clamp(34px,8vw,90px);text-align:center;text-shadow:5px 5px 0 var(--m)}
+@keyframes iris{0%{clip-path:circle(0% at 50% 50%)}25%,70%{clip-path:circle(75% at 50% 50%)}100%{clip-path:circle(0% at 50% 50%)}}
+/* ---- configuracoes ---- */
+dialog{border:6px solid var(--k);border-radius:24px;padding:22px 26px;width:min(760px,94vw);box-shadow:10px 10px 0 var(--m);background:#fff;font-family:inherit}
+dialog::backdrop{background:rgba(0,0,0,.55)}dialog[open]{animation:pop .45s}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;max-height:62vh;overflow:auto;padding:4px}
+.grid label{font-size:16px;display:block}.grid .full{grid-column:1/-1}.grid h3{grid-column:1/-1;margin:10px 0 0;font-size:24px;border-bottom:4px solid var(--m)}
+.msg{color:var(--m);min-height:22px}
+</style></head><body>
+<div id="intro"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="ring r4"></div><h1>AutoRIP!</h1></div>
+<div id="fim"><h1>É ISSO AÍ,<br>PESSOAL!</h1></div>
+<header><img id="blogo" alt="" style="height:52px;display:none"><div class="logo" id="logo"></div><div class="sp"></div><span id="off" style="display:none;background:var(--y);border:3px solid #fff;border-radius:14px;padding:4px 12px;margin-right:12px;font-size:18px"></span><small id="ver"></small><button class="m" onclick="openCfg()">⚙ Configurações</button></header>
+<main>
+ <section>
+  <div class="card h-m"><h2><i>Automático</i></h2>
+   <div class="auto"><div class="sw" id="sw" onclick="toggleAuto()"></div><div id="autoTxt" style="font-size:24px"></div></div>
+   <div class="paths"><b>Pasta de entrada:</b> <span id="pin"></span><br><b>Saída (.PRT):</b> <span id="pout"></span><br><b>Perfil ICC:</b> <span id="picc"></span></div>
+  </div>
+  <div class="card h-c" style="margin-top:24px"><h2><i>Manual</i></h2>
+   <div id="drop">🖨️ Arraste a arte aqui (PNG com fundo transparente)<br><small style="font-size:15px">ou</small><br><br><button class="c" onclick="document.getElementById('file').click()">Escolher arquivo</button><input id="file" type="file" multiple accept=".png,.tif,.tiff,.jpg,.jpeg">
+    <div class="row">Largura (cm): <input id="wcm" type="number" step="0.1" placeholder="auto" style="width:130px"></div></div>
+  </div>
+  <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Fila de impressão</i></h2><span class="cnt" id="pqn">0</span></div>
+   <div style="font-size:15px;margin-bottom:6px">Arquivos <b>.PRT</b> prontos, esperando o PrintExp. O mais antigo vai primeiro.</div><div id="pq"><div class="empty">Nada esperando impressão 🎉</div></div></div>
+ </section>
+ <section>
+  <div class="card h-m"><h2><i>Fila de RIP</i></h2><div id="jobs"><em>Nenhum trabalho ainda…</em></div></div>
+  <div class="card h-c" style="margin-top:24px"><h2><i>Agente de IA</i></h2><div style="font-size:16px">Pesquisa na internet como aprimorar o RIP. <b>Só sugere</b>, não muda nada sozinho.</div>
+   <div class="row" style="justify-content:flex-start"><button class="c" onclick="askAgent()">🔎 Pesquisar melhorias</button></div><div id="agentOut" style="white-space:pre-wrap;font:14px/1.5 sans-serif;margin-top:10px"></div></div>
+  <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Registro</i></h2><button class="sm" onclick="copyLog()">📋 Copiar</button></div><div class="logbox" id="log"></div></div>
+ </section>
+</main>
+<dialog id="dlg"><h2 style="margin-top:0">⚙ Configurações</h2><div id="loginBox"><p id="loginTxt"></p>
+ <input type="password" id="pw" placeholder="senha"><div id="pw2box" style="margin-top:8px;display:none"><input type="password" id="pw2" placeholder="repita a senha"></div>
+ <p class="msg" id="lmsg"></p><button class="k" onclick="doLogin()">Entrar</button> <button onclick="dlg.close()">Fechar</button></div>
+ <div id="cfgBox" style="display:none"><div class="grid" id="grid"></div><p class="msg" id="cmsg"></p>
+ <button class="c" onclick="saveCfg()">Salvar</button> <button onclick="dlg.close()">Fechar</button></div></dialog>
+<script>
+const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new Set(),first=true;
+let brandShown="";function setBrand(n,has){if(n!==brandShown){brandShown=n;$("logo").innerHTML="";n.split("").forEach(ch=>{const s=document.createElement("span");s.textContent=ch===" "?"\u00a0":ch;$("logo").appendChild(s)});document.title=n}const b=$("blogo");if(has&&!b.src){b.src="/api/brand-logo?"+Date.now();b.style.display=""}if(!has){b.style.display="none";b.removeAttribute("src")}}
+setBrand("AutoRIP",false);
+async function api(path,opt={}){opt.headers=Object.assign({},opt.headers,token?{"X-Token":token}:{});const r=await fetch(path,opt);return{ok:r.ok,d:await r.json()}}
+async function poll(){try{const {d}=await api("/api/state");hasPass=d.has_pass;setBrand(d.brand,d.has_logo);{const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending?" · "+d.pending+" aviso(s) na fila":"")}$("ver").textContent="v"+d.version;
+ $("pin").textContent=d.hot_folder;$("pout").textContent=d.output_folder;$("picc").textContent=d.icc;
+ $("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";
+ $("jobs").innerHTML=d.jobs.length?"":"<em>Nenhum trabalho ainda…</em>";
+ d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";const p=Math.round(j.progress*100);
+  e.innerHTML=(j.thumb?`<img src="${j.thumb}" style="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff">`:"")+`${j.name}<span class="st ${j.status}">${j.status}</span><div class="bar"><div class="fill" style="width:${p}%"></div><div class="drop" style="left:calc(${p}% - 14px)">${["💧","🎨","💧","🖨️"][p%4]}</div></div>`+(j.error?`<small style="color:var(--m)">${j.error}</small>`:"");$("jobs").appendChild(e);
+  if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
+ first=false;renderLog(d.log);}catch(e){}}
+let lastLog="";
+function tagOf(m){const r=[[/^OK/,"ok","PRONTO"],[/^ERRO|falhou/i,"erro","ERRO"],[/^RIP/,"rip","RIP"],[/^Impresso/,"","IMPRESSO"],[/^Integra|^Trello|^Fila offline|^Agente/,"rede","REDE"],[/^Modo auto/,"rip","AUTO"],[/^Configura/,"","CONFIG"],[/^Removido/,"erro","FILA"]];
+ for(const [re,c,t] of r)if(re.test(m))return[c,t,m.replace(/^(OK|RIP|ERRO):?\s*/,"")];return["","INFO",m]}
+function renderLog(lines){const key=lines.join("\n");if(key===lastLog)return;lastLog=key;const L=$("log");const atEnd=L.scrollTop+L.clientHeight>=L.scrollHeight-24;L.innerHTML="";
+ if(!lines.length){L.innerHTML='<div class="empty">Sem eventos ainda…</div>';return}
+ lines.forEach(l=>{const t=l.slice(0,8),m=l.slice(9),[c,tg,msg]=tagOf(m),e=document.createElement("div");e.className="ll";
+  const a=document.createElement("time");a.textContent=t;const b=document.createElement("span");b.className="tag "+c;b.textContent=tg;const x=document.createElement("span");x.textContent=msg;e.append(a,b,x);L.appendChild(e)});
+ if(atEnd)L.scrollTop=L.scrollHeight}
+function copyLog(){navigator.clipboard&&navigator.clipboard.writeText(lastLog)}
+function ago(ts){const s=Math.max(0,Date.now()/1000-ts);return s<90?"agora":s<3600?Math.round(s/60)+" min":s<86400?Math.round(s/3600)+" h":Math.round(s/86400)+" d"}
+async function pollPrints(){try{const {d}=await api("/api/prints");$("pqn").textContent=d.length;const box=$("pq");box.innerHTML="";
+ if(!d.length){box.innerHTML='<div class="empty">Nada esperando impressão 🎉</div>';return}
+ d.forEach((p,i)=>{const r=document.createElement("div");r.className="pq";const im=document.createElement("img");im.src=p.thumb;im.onerror=()=>{const ph=document.createElement("div");ph.className="ph";ph.textContent="🖨️";im.replaceWith(ph)};
+  const g=document.createElement("div");g.className="gr";const n=document.createElement("div");n.className="nm";n.textContent=p.name;if(i===0){const nx=document.createElement("span");nx.className="nx";nx.textContent="próximo";n.append(" ",nx)}
+  const sm=document.createElement("small");sm.textContent=`${p.width_cm.toFixed(1)} × ${p.height_cm.toFixed(1)} cm · ${p.mb} MB · há ${ago(p.mtime)}`;g.append(n,sm);
+  const bt=document.createElement("div");bt.className="bt";const ok=document.createElement("button");ok.className="sm c";ok.textContent="✔ Impresso";ok.onclick=()=>markPrinted(p.name);
+  const del=document.createElement("button");del.className="sm m";del.textContent="🗑";del.title="Remover da fila (pede senha)";del.onclick=()=>delPrint(p.name);bt.append(ok,del);r.append(im,g,bt);box.appendChild(r)})}catch(e){}}
+async function markPrinted(n){await api("/api/prints/printed",{method:"POST",body:JSON.stringify({name:n})});pollPrints();poll()}
+async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+" da fila? O arquivo será apagado."))return;const r=await api("/api/prints/delete",{method:"POST",body:JSON.stringify({name:n})});if(!r.ok)token="";pollPrints();poll()}
+function celebrate(){const f=$("fim");f.classList.remove("go");void f.offsetWidth;f.classList.add("go")}
+async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
+async function toggleAuto(){await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});poll()}
+async function upload(files){for(const f of files){const w=$("wcm").value;await fetch(`/api/upload?name=${encodeURIComponent(f.name)}&width=${w}`,{method:"POST",body:f})}poll()}
+$("file").onchange=e=>upload(e.target.files);
+const dz=$("drop");["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over")}));
+["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over")}));dz.addEventListener("drop",e=>upload(e.dataTransfer.files));
+const SCHEMA=[["h","Pastas e perfil"],["icc_path","Perfil ICC (caminho completo)","t",1],["hot_folder","Pasta de entrada (hot folder)","t",1],["output_folder","Pasta de saída (.PRT)","t",1],["printed_folder","Pasta dos já impressos","t"],["done_folder","Pasta dos concluídos","t"],["error_folder","Pasta de erros","t"],
+["h","Impressão"],["dpi_x","DPI horizontal","n"],["dpi_y","DPI vertical","n"],["mirror","Espelhar (DTF)","b"],["margin_top_in","Margem topo (pol)","n"],["margin_bottom_in","Margem fim (pol)","n"],["small_drop_ratio","Volume gota pequena / grande","n"],
+["h","Branco automático"],["white_enabled","Gerar branco","b"],["white_density","Densidade do branco (0 a 1)","n"],["white_choke_mm","Recuo do branco (mm)","n"],["white_fill_holes_mm","Fechar furos (mm)","n"],["white_alpha_threshold","Alpha mínimo (0 a 1)","n"],
+["h","Rede"],["offline_mode","Modo offline (sem internet: desliga integrações e agente)","b"],
+["h","Marca do cliente"],["brand_name","Nome do programa","t"],["label_enabled","Etiqueta (arquivo e medidas) nas margens","b"],["watermark_opacity","Opacidade da marca d'água (0 a 1)","n"],["@logo"],["@wm"],
+["h","Integrações de pedidos"],["webhook_url","Webhook (URL, recebe JSON ao concluir)","t",1],["trello_key","Trello — API key","t"],["trello_token","Trello — token","t"],["trello_in_list","Trello — ID da lista de ENTRADA (anexos viram arte)","t"],["trello_out_list","Trello — ID da lista de PRONTOS","t"],["notion_token","Notion — token","t"],["notion_db","Notion — ID do banco (título: Name)","t"],["jira_url","Jira — URL (https://empresa.atlassian.net)","t"],["jira_email","Jira — e-mail","t"],["jira_token","Jira — API token","t"],["jira_project","Jira — chave do projeto","t"],
+["h","Agente de IA"],["anthropic_key","Chave da API Anthropic","t",1],["anthropic_model","Modelo","t"],
+["h","Modo automático"],["auto_mode","Ligar automático ao abrir","b"],["poll_seconds","Intervalo de vigia (s)","n"]];
+function openCfg(){$("dlg").showModal();$("lmsg").textContent="";if(token){showCfg()}else{$("loginBox").style.display="";$("cfgBox").style.display="none";
+ $("loginTxt").textContent=hasPass?"Digite a senha para abrir as configurações.":"Primeiro acesso: crie uma senha (mínimo 4 caracteres).";$("pw2box").style.display=hasPass?"none":""}}
+async function doLogin(){let r;if(hasPass)r=await api("/api/login",{method:"POST",body:JSON.stringify({password:$("pw").value})});
+ else{if($("pw").value!==$("pw2").value){$("lmsg").textContent="As senhas não conferem";return}r=await api("/api/setpass",{method:"POST",body:JSON.stringify({new:$("pw").value})})}
+ if(r.ok){token=r.d.token;showCfg()}else $("lmsg").textContent=r.d.error}
+async function showCfg(){const {ok,d}=await api("/api/settings");if(!ok){token="";return openCfg()}$("loginBox").style.display="none";$("cfgBox").style.display="";
+ const g=$("grid");g.innerHTML="";window._cfg=d;SCHEMA.forEach(f=>{if(f[0]==="h"){g.innerHTML+=`<h3>${f[1]}</h3>`;return}if(f[0]==="@logo"){g.innerHTML+=`<label>Logo da marca (PNG)<input type="file" accept="image/*" onchange="upImg('logo',this)"></label>`;return}if(f[0]==="@wm"){g.innerHTML+=`<label>Marca d'água (PNG)<input type="file" accept="image/*" onchange="upImg('watermark',this)"></label>`;return}const [k,lab,t,full]=f;
+  g.innerHTML+=t==="b"?`<label><input type="checkbox" id="f_${k}" ${d[k]?"checked":""}> ${lab}</label>`:`<label class="${full?"full":""}">${lab}<input id="f_${k}" type="${t==="n"?"number":"text"}" step="any" value="${d[k]}"></label>`});
+ g.innerHTML+=`<h3>Limite de tinta (%)</h3>`+["K","C","M","Y"].map(c=>`<label>${c}<input type="number" id="ink_${c}" value="${d.ink_limit[c]}"></label>`).join("")}
+async function upImg(kind,el){const f=el.files[0];if(!f)return;const r=await api("/api/"+kind,{method:"POST",body:f});$("cmsg").textContent=r.ok?"Imagem enviada! 🎉":(r.d.error||"erro");poll()}
+async function saveCfg(){const o={};SCHEMA.forEach(f=>{if(f[0]==="h"||f[0][0]==="@")return;const [k,,t]=f,e=$("f_"+k);o[k]=t==="b"?e.checked:t==="n"?(Number.isInteger(window._cfg[k])?parseInt(e.value):parseFloat(e.value)):e.value});
+ o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=parseInt($("ink_"+c).value));
+ const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok)poll()}
+poll();pollPrints();setInterval(poll,1000);setInterval(pollPrints,3000);
+</script></body></html>
