@@ -1,6 +1,8 @@
 import hashlib
 import sys
 
+import pytest
+
 from autorip import updater
 
 
@@ -42,3 +44,40 @@ def test_install_staged_executa_somente_hash_conferente(tmp_path, monkeypatch):
     state = {"pending": str(path), "sha256": hashlib.sha256(b"installer").hexdigest()}
     assert updater.install_staged(state) is True
     assert calls and calls[0][0][0] == [str(path), "/VERYSILENT", "/NORESTART"]
+
+
+def test_stage_falha_de_rede_preserva_aplicacao_e_registra_erro(tmp_path, monkeypatch):
+    import json
+    import urllib.error
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+
+    def unavailable():
+        raise urllib.error.URLError("rede indisponivel")
+
+    monkeypatch.setattr(updater, "_latest_release", unavailable)
+    logs = []
+    assert updater.stage_latest(str(tmp_path), "0.8.4", log=logs.append) is None
+    state = json.loads((tmp_path / "update_state.json").read_text())
+    assert state["error"] == "URLError"
+    assert any("indisponível" in line for line in logs)
+    assert not (tmp_path / "updates").exists()
+
+
+@pytest.mark.parametrize("failure", ["manifest", "installer"])
+def test_stage_remove_download_parcial_apos_falha(tmp_path, monkeypatch, failure):
+    from pathlib import Path
+    import urllib.error
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater, "_latest_release", lambda: {
+        "tag": "v1.0.0", "version": (1, 0, 0),
+        "manifest_url": "manifest", "installer_url": "installer"})
+
+    def download(url, path, limit):
+        if url == failure:
+            Path(path).write_bytes(b"download interrompido")
+            raise urllib.error.URLError("interrompido")
+        Path(path).write_bytes(b"a" * 64 + b"  AutoRIP_Setup.exe\n")
+
+    monkeypatch.setattr(updater, "_download", download)
+    assert updater.stage_latest(str(tmp_path), "0.8.4") is None
+    assert list((tmp_path / "updates").iterdir()) == []

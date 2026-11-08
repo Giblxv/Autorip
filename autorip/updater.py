@@ -162,6 +162,7 @@ def stage_latest(home, current_version, *, offline=False, force=False, log=lambd
         except (OSError, ValueError, TypeError):
             pass
     checked = {"checked_at": time.time(), "current": str(current_version)}
+    manifest_path = installer_path = None
     try:
         release = _latest_release()
         if not release or release["version"] <= _version(current_version):
@@ -192,6 +193,8 @@ def stage_latest(home, current_version, *, offline=False, force=False, log=lambd
         return checked
     except Exception as exc:
         for path in (manifest_path, installer_path):
+            if path is None:
+                continue
             try: os.remove(path)
             except OSError: pass
         checked["error"] = type(exc).__name__
