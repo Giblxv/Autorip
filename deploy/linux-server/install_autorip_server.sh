@@ -50,6 +50,15 @@ if [[ -f "${PROJECT_ROOT}/requirements-dev.txt" ]]; then
 fi
 chown -R root:root "${INSTALL_ROOT}"
 
+# Acesso remoto opcional, ativado por padrão para a imagem do servidor.
+if [[ "${AUTORIP_INSTALL_REMOTE_ACCESS:-1}" == "1" ]]; then
+  install -m 0755 "${PROJECT_ROOT}/deploy/linux-server/install_remote_access.sh" /tmp/autorip-install-remote-access.sh
+  AUTORIP_LAN_CIDR="${AUTORIP_LAN_CIDR:-192.168.0.0/16}" \
+    AUTORIP_DESKTOP_USER="${AUTORIP_DESKTOP_USER:-}" \
+    /tmp/autorip-install-remote-access.sh
+  rm -f /tmp/autorip-install-remote-access.sh
+fi
+
 python3 -m venv --clear "${INSTALL_ROOT}/venv"
 "${INSTALL_ROOT}/venv/bin/python" -m pip install --upgrade pip
 "${INSTALL_ROOT}/venv/bin/python" -m pip install -r "${INSTALL_ROOT}/requirements.txt"
@@ -88,8 +97,12 @@ install -m 0644 "${PROJECT_ROOT}/deploy/linux-server/autorip.service" /etc/syste
 if [[ "${SERVICE_USER}" != "${SHARE_USER}" ]]; then
   usermod -a -G "${SERVICE_USER}" "${SHARE_USER}"
 fi
-printf 'Defina a senha do compartilhamento SMB para o login comum (%s):\n' "${SHARE_USER}"
-smbpasswd -a "${SHARE_USER}"
+if [[ -n "${AUTORIP_SMB_PASSWORD:-}" ]]; then
+  printf '%s\n%s\n' "${AUTORIP_SMB_PASSWORD}" "${AUTORIP_SMB_PASSWORD}" | smbpasswd -a -s "${SHARE_USER}"
+else
+  printf 'Defina a senha do compartilhamento SMB para o login comum (%s):\n' "${SHARE_USER}"
+  smbpasswd -a "${SHARE_USER}"
+fi
 smbpasswd -e "${SHARE_USER}"
 
 # Inclui somente a configuração gerenciada pelo AutoRIP, preservando o smb.conf existente.

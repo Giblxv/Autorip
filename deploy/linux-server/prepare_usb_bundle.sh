@@ -10,6 +10,8 @@ OUT="${1:-${ROOT}/dist/autorip-linux-server}"
 mkdir -p "${OUT}/deploy/linux-server" "${OUT}/docs"
 cp -a "${ROOT}/deploy/linux-server/autorip.service" \
       "${ROOT}/deploy/linux-server/install_autorip_server.sh" \
+      "${ROOT}/deploy/linux-server/install_remote_access.sh" \
+      "${ROOT}/deploy/linux-server/build_autorip_iso.sh" \
       "${OUT}/deploy/linux-server/"
 cp -a "${ROOT}/README.md" "${ROOT}/docs/LINUX_SERVIDOR_DESKTOP.md" "${OUT}/docs/"
 cp -a "${ROOT}/autorip" "${ROOT}/autorip_gui.py" "${ROOT}/requirements.txt" "${OUT}/"

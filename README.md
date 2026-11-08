@@ -44,7 +44,7 @@ O comando posicional também mantém um journal por entrada em `.autorip_manual`
 
 ### PC servidor Linux com interface gráfica
 
-Para operar um PC dedicado na rede local, use Ubuntu Desktop LTS com Ethernet e o instalador em `deploy/linux-server/install_autorip_server.sh`. Ele instala o AutoRIP em um ambiente Python isolado, cria o serviço `systemd`, mantém um único worker ativo no boot e configura compartilhamentos Samba separados para entrada, saída, concluídos e erros. A interface gráfica do Ubuntu fica disponível para manutenção local; não inicie uma segunda cópia do AutoRIP pela GUI enquanto o serviço estiver ativo. O PrintExp pode permanecer em outro computador, abrindo os PRTs pela pasta `AutoRIP-Saida`.
+Para operar um PC dedicado na rede local, use Ubuntu Desktop LTS com Ethernet e o instalador em `deploy/linux-server/install_autorip_server.sh`. Ele instala o AutoRIP em um ambiente Python isolado, cria o serviço `systemd`, mantém um único worker ativo no boot, configura compartilhamentos Samba separados para entrada, saída, concluídos e erros e instala XRDP/Cockpit para administração remota restrita à rede interna. A interface gráfica do Ubuntu fica disponível para manutenção local; não inicie uma segunda cópia do AutoRIP pela GUI enquanto o serviço estiver ativo. O PrintExp pode permanecer em outro computador, abrindo os PRTs pela pasta `AutoRIP-Saida`.
 
 O manual completo está em [docs/LINUX_SERVIDOR_DESKTOP.md](docs/LINUX_SERVIDOR_DESKTOP.md). A configuração recomendada usa armazenamento local no servidor e apenas disponibiliza os diretórios pela rede; não monte a hot-folder ou a saída como volume SMB dentro do próprio servidor.
 

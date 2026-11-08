@@ -21,6 +21,22 @@ O serviço processa somente os caminhos locais em `/srv/autorip`. Os computadore
 
 ## Instalação
 
+### Criar a ISO automática
+
+Se quiser criar uma mídia única que apague o SSD escolhido e instale tudo automaticamente, use um PC Linux x86_64 ou qualquer máquina capaz de manipular a ISO Ubuntu amd64:
+
+```bash
+sudo apt update
+sudo apt install -y xorriso openssl
+./deploy/linux-server/build_autorip_iso.sh \
+  ubuntu-24.04-desktop-amd64.iso \
+  autorip-server.iso
+```
+
+O gerador solicita hostname, usuário/senha administrativo, senha Samba e CIDR da rede local. A ISO instala Ubuntu Desktop, AutoRIP, Samba, XRDP, Cockpit e o serviço automático. Ela usa o layout automático do Ubuntu e pode apagar o maior disco selecionado pelo instalador; desconecte outros discos antes de inicializar a mídia, deixando conectado somente o SSD de destino e o dispositivo usado para boot.
+
+As senhas são embutidas na ISO criada. Trate o arquivo como confidencial e apague-o depois da instalação. O ICC não é embutido: copie-o para `/var/lib/autorip/perfil.icc` após o primeiro boot.
+
 1. Instale Ubuntu Desktop LTS no PC dedicado, com o PC ligado por Ethernet. A interface gráfica é útil para manutenção local; o worker do AutoRIP será iniciado como serviço, sem abrir uma segunda instância pela GUI.
 2. Atualize o sistema e instale Git:
 
@@ -39,6 +55,16 @@ sudo ./deploy/linux-server/install_autorip_server.sh
 O instalador solicita uma senha para o login compartilhado `autorip`. Essa é a senha usada no Windows para abrir os compartilhamentos.
 
 O worker começa automaticamente no boot. O Ubuntu Desktop fornece a interface para manutenção, terminal, navegador e diagnóstico; não execute uma segunda cópia de `python -m autorip --gui` enquanto o serviço estiver ativo, pois ela iniciaria outro worker. O estado operacional deve ser acompanhado por `systemctl` e `journalctl`.
+
+O instalador também instala **XRDP** e **Cockpit**. No Windows, abra `mstsc.exe` e conecte-se ao IP do servidor para acessar a área de trabalho. Para administração rápida, use `https://IP-DO-SERVIDOR:9090` no navegador. As regras do firewall são criadas para `AUTORIP_LAN_CIDR` (padrão `192.168.0.0/16`); para outra rede, instale com:
+
+```bash
+sudo AUTORIP_LAN_CIDR=192.168.1.0/24 \
+  AUTORIP_DESKTOP_USER=nome-do-usuario \
+  ./deploy/linux-server/install_autorip_server.sh
+```
+
+Não encaminhe as portas 3389 ou 9090 no roteador. Para acesso fora da rede, use VPN.
 
 ## Perfil ICC
 
