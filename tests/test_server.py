@@ -388,6 +388,31 @@ def test_hot_folder_retry_sidecar_apos_enqueue_no_mesmo_processo(app, sample_png
     assert len([name for name in os.listdir(app.s.output_folder) if name.endswith(".PRT")]) == 1
 
 
+def test_troca_de_senha_revoga_sessoes_anteriores(panel, app):
+    origin = {"Origin": panel, "Sec-Fetch-Site": "same-origin"}
+    first = json.dumps({"new": "senha-inicial-123"}).encode()
+    status, body, _ = request(panel, "/api/setpass", "POST", first, origin)
+    assert status == 200
+    old_token = json.loads(body)["token"]
+    assert old_token
+
+    status, body, _ = request(panel, "/api/setpass", "POST",
+        json.dumps({"password": "senha-inicial-123", "new": "nova-senha-456"}).encode(),
+        {**origin, "X-Token": old_token})
+    assert status == 200
+    new_token = json.loads(body)["token"]
+    assert new_token != old_token
+
+    status, _, _ = request(panel, "/api/settings", headers={"X-Token": old_token})
+    assert status == 401
+    status, _, _ = request(panel, "/api/settings", headers={"X-Token": new_token})
+    assert status == 200
+
+    status, _, _ = request(panel, "/api/login", "POST",
+        json.dumps({"password": "senha-inicial-123"}).encode(), origin)
+    assert status == 401
+
+
 def test_post_cross_site_e_operacoes_sem_sessao_sao_bloqueados(panel, app):
     body = json.dumps({"on": False}).encode()
     status, _, _ = request(panel, "/api/auto", "POST", body, {
