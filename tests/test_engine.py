@@ -239,3 +239,15 @@ def test_largura_omitida_usa_dpi_da_imagem(tmp_path):
         str(source), str(output))
     assert info["width_cm"] == pytest.approx(2.54, abs=0.002)
     assert read_header(output)["n_dots"] == 300
+
+@pytest.mark.parametrize("dpi_x,dpi_y", [(720, 72), (72, 720)])
+def test_fechamento_branco_funciona_com_raio_zero_em_um_eixo(dpi_x, dpi_y):
+    alpha = np.ones((64, 64), dtype=np.float32)
+    alpha[31:34, 31:34] = 0
+    settings = Settings(dpi_x=dpi_x, dpi_y=dpi_y, white_fill_holes_mm=0.1,
+                        white_choke_mm=0, label_enabled=False)
+    levels = Rip(settings)._white_levels(alpha)
+    assert np.all(levels[31:34, 31:34] == 3)
+    # A operacao nao deve recortar o bloco nem apagar bordas opacas.
+    assert levels.shape == alpha.shape
+    assert np.all(levels == 3)
