@@ -171,3 +171,27 @@ def test_watcher_success_sem_hash_exato_vai_para_erros(sample_png, tmp_path):
     assert (errors / source.name).is_file()
     assert not (done / source.name).exists()
     assert prt.is_file()
+
+
+def test_watcher_nao_repete_rip_com_journal_corrompido(tmp_path, sample_png):
+    import shutil
+
+    hot, output, done, errors = (tmp_path / n for n in ("hot", "out", "done", "errors"))
+    processing = hot / ".autorip_processing"
+    processing.mkdir(parents=True)
+    source = processing / "pedido-antigo.png"
+    shutil.copyfile(sample_png, source)
+    marker = processing / "pedido-antigo.png.autorip.json"
+    marker.write_text('{"version": 1, "phase": "success", "target": "done"', encoding="utf-8")
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0, margin_bottom_in=0,
+                        label_enabled=False, hot_folder=str(hot),
+                        output_folder=str(output), done_folder=str(done), error_folder=str(errors))
+    logs = []
+    assert run_once(settings, Rip(settings), log=logs.append) == 0
+    assert source.is_file() and marker.is_file()
+    assert not list(output.glob("*.PRT"))
+    assert any("Journal invalido" in item for item in logs)
+
+    marker.unlink()
+    assert run_once(settings, Rip(settings), log=logs.append) == 1
+    assert (output / "pedido-antigo.PRT").is_file()
