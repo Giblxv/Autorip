@@ -13,7 +13,6 @@ import re
 import subprocess
 import tempfile
 import time
-import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -44,6 +43,12 @@ class _SafeReleaseRedirect(urllib.request.HTTPRedirectHandler):
 def _version(value):
     match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?", str(value or "").strip())
     return tuple(int(part) for part in match.groups()) if match else (0, 0, 0)
+
+
+def _safe_release_tag(tag):
+    """Release tag SemVer curta; nunca permite separadores de caminho."""
+    return (type(tag) is str and len(tag) <= 80
+            and re.fullmatch(r"v?\d{1,6}\.\d{1,6}\.\d{1,6}(?:[-+][A-Za-z0-9][A-Za-z0-9.+-]*)?", tag) is not None)
 
 
 def _allowed_download_url(url):
@@ -79,7 +84,7 @@ def _latest_release(timeout=15):
         return None
     tag = data.get("tag_name")
     assets = data.get("assets")
-    if not isinstance(tag, str) or not isinstance(assets, list):
+    if not _safe_release_tag(tag) or not isinstance(assets, list):
         return None
     by_name = {asset.get("name"): asset for asset in assets if isinstance(asset, dict)}
     installer = by_name.get("AutoRIP_Setup.exe")
@@ -167,7 +172,12 @@ def stage_latest(home, current_version, *, offline=False, force=False, log=lambd
     manifest_path = installer_path = None
     try:
         release = _latest_release()
-        if not release or release["version"] <= _version(current_version):
+        if not release:
+            _write_state(home, checked)
+            return None
+        if not _safe_release_tag(release.get("tag")):
+            raise ValueError("Tag de atualização inválida ou insegura.")
+        if release["version"] <= _version(current_version):
             _write_state(home, checked)
             return None
         update_dir = os.path.join(home, "updates")
