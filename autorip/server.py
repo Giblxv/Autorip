@@ -46,6 +46,23 @@ def home_dir():
     return h
 
 
+def _save_thumbnail_atomic(image, destination):
+    """Escreve JPEG completo antes de substituir uma miniatura visivel no painel."""
+    directory = os.path.dirname(destination)
+    fd, temporary = tempfile.mkstemp(prefix=".thumb.", suffix=".part", dir=directory)
+    try:
+        with os.fdopen(fd, "wb") as target:
+            image.save(target, format="JPEG", quality=82)
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temporary, destination)
+    finally:
+        try:
+            os.remove(temporary)
+        except OSError:
+            pass
+
+
 class App:
     def __init__(self):
         self.home = home_dir()
@@ -64,6 +81,7 @@ class App:
         self.upload_lock = threading.Lock()
         self.login_attempts = {}
         self.archive_pending = {}
+        self.invalid_journal_alerts = set()
         self.queued_sources = set()
         self.source_jobs = {}
         self._watch_locks = []
@@ -207,8 +225,23 @@ class App:
 
     def _recover_marked_source(self, source, settings):
         marker = read_archive_marker(source)
-        if not marker:
+        if marker is None:
+            if os.path.lexists(source + ".autorip.json"):
+                with self.lock:
+                    first_warning = source not in self.invalid_journal_alerts
+                    if first_warning:
+                        if len(self.invalid_journal_alerts) >= 256:
+                            self.invalid_journal_alerts.clear()
+                        self.invalid_journal_alerts.add(source)
+                if first_warning:
+                    self.log("ATENCAO: journal invalido em " + os.path.basename(source)
+                             + "; arte preservada para revisao manual, sem repetir RIP.")
+                return True
+            with self.lock:
+                self.invalid_journal_alerts.discard(source)
             return False
+        with self.lock:
+            self.invalid_journal_alerts.discard(source)
         if not source_signature_matches(source, marker):
             self.log(f"Aviso: journal sem identidade correspondente; preservando {os.path.basename(source)} em erros.")
             self._archive_input(source, settings.error_folder, None, "pasta de erros")
@@ -262,7 +295,7 @@ class App:
                     try:
                         job = {"id": marker["job_id"], "name": marker.get("name", os.path.basename(source)),
                                "out": output or os.path.join(marker.get("output_dir", ""), marker.get("output", ""))}
-                        integrations.outbox_add(self.home, job, info)
+                        integrations.outbox_add(self.home, job, info, services=services)
                     except Exception as outbox_error:
                         self.log(f"Recuperacao aguardando registro na outbox ({type(outbox_error).__name__}).")
                         return True
@@ -282,13 +315,26 @@ class App:
         return True
 
     def _cleanup_manual_folder(self, source):
+        inbox = os.path.realpath(self.inbox)
+        parent = os.path.realpath(os.path.dirname(source))
         try:
-            inbox = os.path.realpath(self.inbox)
-            parent = os.path.realpath(os.path.dirname(source))
-            if parent != inbox and os.path.commonpath((inbox, parent)) == inbox:
+            inside = parent != inbox and os.path.commonpath((inbox, parent)) == inbox
+        except ValueError:
+            return
+        if not inside:
+            return
+        # Windows pode manter o arquivo recém-movido aberto por alguns milissegundos
+        # devido ao antivírus/indexador. Nunca removemos conteúdo: somente tentamos
+        # rmdir em uma pasta que precisa estar vazia, com retry idempotente.
+        for attempt in range(10):
+            try:
                 os.rmdir(parent)
-        except (OSError, ValueError):
-            pass
+                return
+            except FileNotFoundError:
+                return
+            except OSError:
+                if attempt < 9:
+                    time.sleep(0.05)
 
     def _manual_pending_bytes(self):
         total = 0
@@ -372,11 +418,19 @@ class App:
                 job["status"] = "processando"
             self.log(f"RIP: {job['name']}")
             out = None
+            # A entrada pode desaparecer depois de entrar na fila; essa falha nao
+            # pode encerrar o unico worker e bloquear os pedidos seguintes.
+            try:
+                source_signature = _signature(path)
+            except OSError:
+                source_signature = None
             marker = {"phase": "processing", "target": "done", "job_id": job["id"],
                       "name": job["name"], "output_dir": settings.output_folder,
                       "started_ns": time.time_ns(), "metadata_written": False,
-                      "outbox_handled": False, "source_signature": list(_signature(path) or ())}
+                      "outbox_handled": False, "source_signature": list(source_signature or ())}
             try:
+                if source_signature is None:
+                    raise FileNotFoundError("Arte da fila ausente ou insegura para processamento.")
                 out = next_available_path(settings.output_folder, os.path.splitext(job["name"])[0] + ".PRT")
                 marker["output"] = os.path.basename(out)
                 if move:
@@ -394,7 +448,10 @@ class App:
                 info = rip.process(path, out, width_cm, progress=prog, before_publish=before_publish)
                 out = info.pop("output_path")
             except Exception as e:
-                if move:
+                # Nao cria journal fantasma nem arquivamento pendente para uma
+                # entrada removida enquanto aguardava o worker.
+                archive_source = move and os.path.isfile(path) and not os.path.islink(path)
+                if archive_source:
                     marker.update(phase="error", target="error", error=str(e)[:500])
                     try:
                         write_archive_marker(path, marker)
@@ -404,7 +461,7 @@ class App:
                     job.update(status="erro", error=str(e)[:500])
                 self.log(f"ERRO {job['name']}: {type(e).__name__}: {e}")
                 traceback.print_exc()
-                if move:
+                if archive_source:
                     self._archive_input(path, settings.error_folder, job, "pasta de erros")
                 self._release_source(path)
                 self._finish_output_use()
@@ -425,7 +482,7 @@ class App:
             outbox_handled = not services
             try:
                 if services:
-                    integrations.outbox_add(self.home, job, info)
+                    integrations.outbox_add(self.home, job, info, services=services)
                 outbox_handled = True
             except Exception as integration_error:
                 self.log(f"Aviso: RIP pronto, mas nao foi possivel enfileirar notificacao: {integration_error}")
@@ -463,7 +520,8 @@ class App:
                 if not settings.offline_mode:
                     offline_check = lambda: self.s.offline_mode
                     integrations.outbox_flush(settings, self.home, self.log, offline_check=offline_check)
-                    integrations.pull_trello(settings, seen, self.log, offline_check=offline_check)
+                    integrations.pull_trello(settings, seen, self.log,
+                                            offline_check=offline_check, seen_home=self.home)
             except Exception as e: self.log(f"Integracao/entrada: falhou ({type(e).__name__})")
             with self.settings_lock:
                 poll_seconds = self.s.poll_seconds
@@ -562,10 +620,15 @@ class App:
                 a = w.getchannel("A").point(lambda v: int(v * settings.watermark_opacity)); w.putalpha(a)
                 bg.alpha_composite(w, ((im.width - w.width) // 2, (im.height - w.height) // 2))
             d = os.path.join(self.home, "thumbs"); os.makedirs(d, exist_ok=True)
-            rgb = bg.convert("RGB"); rgb.save(os.path.join(d, jid + ".jpg"), quality=82)
+            if os.path.islink(d):
+                return ""
             nd = os.path.join(d, "by_name"); os.makedirs(nd, exist_ok=True)
+            if os.path.islink(nd):
+                return ""
+            rgb = bg.convert("RGB")
             thumb_name = safe_filename(output_name or os.path.splitext(os.path.basename(path))[0])
-            rgb.save(os.path.join(nd, thumb_name + ".jpg"), quality=82)
+            _save_thumbnail_atomic(rgb, os.path.join(d, jid + ".jpg"))
+            _save_thumbnail_atomic(rgb, os.path.join(nd, thumb_name + ".jpg"))
             return f"/api/thumb?id={jid}"
         except Exception:
             return ""
@@ -664,6 +727,25 @@ class App:
             metadata = f + ".meta.json"
             try: os.remove(metadata)
             except OSError: pass
+
+            # Apaga tambem os previews do PRT excluido, sem seguir symlinks.
+            thumbs_root = os.path.join(self.home, "thumbs")
+            preview_names = [("by_name", os.path.splitext(os.path.basename(f))[0] + ".jpg")]
+            with self.lock:
+                for job in self.jobs:
+                    if job.get("out") == f:
+                        preview_names.append(("", job["id"] + ".jpg"))
+                        job["thumb"] = ""
+            if not os.path.islink(thumbs_root):
+                for subdir, filename in preview_names:
+                    folder = os.path.join(thumbs_root, subdir)
+                    thumb = os.path.join(folder, filename)
+                    if (not os.path.islink(folder) and not os.path.islink(thumb)
+                            and os.path.isfile(thumb)):
+                        try:
+                            os.remove(thumb)
+                        except OSError:
+                            self.log("Aviso: miniatura antiga nao pode ser removida.")
         self.log(f"Removido da fila: {os.path.basename(f)}")
 
     # ---- senha ----
@@ -682,6 +764,9 @@ class App:
                 json.dump(dict(salt=salt, hash=self._hash(pw, salt)), target)
                 target.flush(); os.fsync(target.fileno())
             os.replace(temporary, self.auth_path)
+            # Uma troca de senha invalida tokens antigos (incluindo de outras abas).
+            with self.lock:
+                self.tokens.clear()
         except BaseException:
             try: os.close(fd)
             except OSError: pass
@@ -818,6 +903,17 @@ class H(BaseHTTPRequestHandler):
             tokens = tuple(APP.tokens)
         return bool(incoming) and any(secrets.compare_digest(incoming, token) for token in tokens)
 
+    def _host_allowed(self):
+        """Aceita apenas o Host do painel local e a porta real do servidor."""
+        try:
+            parsed = urlparse("//" + self.headers.get("Host", ""))
+            return (parsed.hostname in ("127.0.0.1", "localhost")
+                    and parsed.port == self.server.server_address[1]
+                    and not parsed.username and not parsed.password
+                    and not parsed.path and not parsed.query and not parsed.fragment)
+        except ValueError:
+            return False
+
     def _origin_allowed(self):
         origin = self.headers.get("Origin")
         fetch_site = self.headers.get("Sec-Fetch-Site")
@@ -906,12 +1002,19 @@ class H(BaseHTTPRequestHandler):
         return length
 
     def do_GET(self):
+        if not self._host_allowed():
+            return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
         if u.path == "/api/state":
             global LAST_CLIENT_SEEN
             LAST_CLIENT_SEEN = time.monotonic()
+            if not self._auth():
+                # Mantem o monitor do browser vivo na tela de login, sem expor
+                # filas, nomes de artes, logs ou caminhos de producao.
+                return self._send(200, dict(version=__version__, has_pass=APP.has_pass(),
+                                            brand="AutoRIP", has_logo=False, locked=True))
             with APP.lock:
                 jobs = [dict(job) for job in APP.jobs[-12:]]
                 logs = list(APP.log_lines[-60:])
@@ -939,8 +1042,9 @@ class H(BaseHTTPRequestHandler):
                                         jobs=jobs, log=logs, hot_folder=hot_folder, output_folder=output_folder,
                                         icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo))
         if u.path == "/api/prints":
-            return self._send(200, APP.list_prints())
+            return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/thumb":
+            if not self._auth(): return self._send(401, {"error": "login"})
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
             thumbs_root = os.path.realpath(os.path.join(APP.home, "thumbs"))
             f = os.path.join(thumbs_root, "by_name", nm + ".jpg") if nm else os.path.join(thumbs_root, jid + ".jpg")
@@ -965,6 +1069,8 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {"error": "nao encontrado"})
 
     def do_POST(self):
+        if not self._host_allowed():
+            return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if not self._origin_allowed():
             return self._send(403, {"error": "origem da requisicao nao autorizada"})
@@ -973,7 +1079,8 @@ class H(BaseHTTPRequestHandler):
                 if not self._auth(): return self._send(401, {"error": "login"})
                 on = self._json().get("on")
                 if type(on) is not bool: raise ValueError("O estado automatico precisa ser booleano.")
-                with APP.settings_lock: APP.auto = on
+                # Persistir a escolha antes de alterar o estado em memoria.
+                APP.apply_settings({"auto_mode": on})
                 APP.log("Modo automatico " + ("LIGADO" if on else "desligado"))
                 return self._send(200, {"auto": on})
             if u.path == "/api/shutdown":
@@ -982,6 +1089,7 @@ class H(BaseHTTPRequestHandler):
                 threading.Thread(target=shutdown_server, daemon=True).start()
                 return
             if u.path == "/api/upload":
+                if not self._auth(): return self._send(401, {"error": "login"})
                 q = parse_qs(u.query)
                 name = safe_filename(q.get("name", ["arte.png"])[0])
                 if not name.lower().endswith(EXTS):
@@ -1069,6 +1177,22 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {"error": "nao encontrado"})
 
 
+def _can_close_idle_browser(app):
+    """Autoriza desligamento por inatividade apenas quando nao ha producao.
+
+    A queda de polling do navegador nao significa fim de um RIP ou das
+    integracoes em execucao. O comando explicito /api/shutdown permanece.
+    """
+    with app.settings_lock:
+        automatic = app.auto
+        settings = app.s
+        trello_active = (not settings.offline_mode and bool(settings.trello_key)
+                         and bool(settings.trello_token) and bool(settings.trello_in_list))
+    with app.lock:
+        pending = bool(app.queued_sources or app.archive_pending) or not app.q.empty()
+    return not (automatic or trello_active or pending)
+
+
 def serve(port=8765, open_browser=True, status_callback=None):
     global APP, HTTP_SERVER, LAST_CLIENT_SEEN
     def report(message):
@@ -1137,7 +1261,8 @@ def serve(port=8765, open_browser=True, status_callback=None):
     if open_browser:
         def browser_monitor():
             while HTTP_SERVER is srv:
-                if time.monotonic() - LAST_CLIENT_SEEN > 15:
+                if (time.monotonic() - LAST_CLIENT_SEEN > 15
+                        and _can_close_idle_browser(APP)):
                     srv.shutdown()
                     return
                 time.sleep(2)

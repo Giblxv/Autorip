@@ -1,5 +1,6 @@
 """Motor do RIP: PNG -> (ICC) CMYK -> meio-tom estocastico 2 bits + branco automatico -> .PRT"""
 import os
+import io
 import shutil
 import tempfile
 import numpy as np
@@ -10,6 +11,7 @@ from .prt import PrtWriter, plane_bytes_for, HEADER_SIZE
 from .paths import publish_unique_file
 
 MAX_INPUT_PIXELS = 80_000_000
+MIN_FREE_DISK_BYTES = 128 * 1024 * 1024  # reserva para logs, journal e sistema
 STRIP = 512  # reduz o pico de memoria em folhas largas
 MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
 _BYTES_PER_RENDER_PIXEL = 48  # planos, alpha, CMYK float e buffers temporários
@@ -46,6 +48,28 @@ class Rip:
             except Exception as exc:
                 self.icc_error = f"Perfil ICC indisponivel ou invalido: {exc}"
 
+    def _source_rgba(self, source: Image.Image) -> Image.Image:
+        embedded = source.info.get("icc_profile")
+        if not embedded:
+            return source.convert("RGBA")
+        try:
+            profile = ImageCms.ImageCmsProfile(io.BytesIO(embedded))
+            if source.mode in ("RGBA", "P", "PA"):
+                color = source.convert("RGB")
+            elif source.mode == "LA":
+                color = source.getchannel("L")
+            else:
+                color = source
+            flags = ImageCms.Flags.BLACKPOINTCOMPENSATION if self.s.black_point_comp else 0
+            rgb = ImageCms.profileToProfile(color, profile, ImageCms.createProfile("sRGB"),
+                                           outputMode="RGB", renderingIntent=self.s.intent, flags=flags)
+            rgba = rgb.convert("RGBA")
+            if source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info:
+                rgba.putalpha(source.convert("RGBA").getchannel("A"))
+            return rgba
+        except Exception as exc:
+            raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc
+
     # ---------- cor ----------
     def _to_cmyk(self, rgb: Image.Image) -> np.ndarray:
         if self.transform is not None:
@@ -78,10 +102,10 @@ class Rip:
         mask = original_mask
         fh = s.white_fill_holes_mm / 25.4
         ry, rx = int(round(fh * s.dpi_y)), int(round(fh * s.dpi_x))
-        if rx > 0 and ry > 0:
+        if rx > 0 or ry > 0:
             st = np.ones((2 * ry + 1, 2 * rx + 1), bool)
             pad = np.pad(mask, ((ry, ry), (rx, rx)))
-            mask = ndi.binary_closing(pad, structure=st)[ry:-ry, rx:-rx]
+            mask = ndi.binary_closing(pad, structure=st)[ry:ry + a.shape[0], rx:rx + a.shape[1]]
         # recuo (choke) para o branco nao aparecer na borda
         cm = s.white_choke_mm / 25.4
         cy, cx = int(round(cm * s.dpi_y)), int(round(cm * s.dpi_x))
@@ -129,27 +153,32 @@ class Rip:
                 raise ValueError(f"Imagem excede o limite de {MAX_INPUT_PIXELS:,} pixels; reduza a arte antes do RIP.")
             if opened.width <= 0 or opened.height <= 0:
                 raise ValueError("A imagem precisa ter largura e altura maiores que zero.")
+            orientation = opened.getexif().get(274, 1)
             source = ImageOps.exif_transpose(opened)
             has_alpha = source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info
-            dpi = source.info.get("dpi", (300, 300))[0] or 300
+            source_dpi = source.info.get("dpi", (300, 300))
+            source_dpi_x, source_dpi_y = source_dpi[0] or 300, source_dpi[1] or 300
+            if orientation in (5, 6, 7, 8):
+                source_dpi_x, source_dpi_y = source_dpi_y, source_dpi_x
             source.load()
-            im = source.convert("RGBA")
-        w_cm = width_cm or (im.width / dpi * 2.54)
+            im = self._source_rgba(source)
+        w_cm = width_cm if width_cm is not None else (im.width / source_dpi_x * 2.54)
         if not np.isfinite(w_cm) or w_cm <= 0:
             raise ValueError("A largura de impressão precisa ser um número positivo.")
         n_dots = int(round(w_cm / 2.54 * s.dpi_x))
-        art_rows = int(round((im.height / im.width) * w_cm / 2.54 * s.dpi_y))
+        physical_ratio = (im.height / source_dpi_y) / (im.width / source_dpi_x)
+        art_rows = int(round(physical_ratio * w_cm / 2.54 * s.dpi_y))
         if n_dots <= 0 or art_rows <= 0:
             raise ValueError("A largura ou a resolucao escolhida gera uma arte sem pixels de saida; aumente as medidas.")
         top = int(round(s.margin_top_in * s.dpi_y)); bot = int(round(s.margin_bottom_in * s.dpi_y))
         n_rows = top + art_rows + bot
         if n_rows <= 0 or n_rows >= 2**32 or n_dots >= 2**32:
             raise ValueError("As dimensoes de saida excedem o limite representavel pelo formato PRT.")
-        self._labels = self._make_labels(os.path.basename(png_path), w_cm, art_rows / s.dpi_y * 2.54, n_dots, top, art_rows, bot) if s.label_enabled else []
+        labels = self._make_labels(os.path.basename(png_path), w_cm, art_rows / s.dpi_y * 2.54, n_dots, top, art_rows, bot) if s.label_enabled else []
         estimated_bytes = HEADER_SIZE + n_rows * 12 * plane_bytes_for(n_dots)
         free_bytes = shutil.disk_usage(out_dir).free
-        if estimated_bytes > free_bytes:
-            raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB.")
+        if estimated_bytes + MIN_FREE_DISK_BYTES > free_bytes:
+            raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB, alem de 128 MiB de reserva livre.")
         fill_rows = int(round(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         choke_rows = int(round(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         halo = 2 * fill_rows + choke_rows + 2
@@ -166,7 +195,7 @@ class Rip:
             while y < n_rows:
                 y1 = min(n_rows, y + strip_rows)
                 a0, a1 = max(0, y - halo), min(n_rows, y1 + halo)       # com halo para morfologia
-                planes_full = self._render(im, a0, a1, top, art_rows, n_dots)
+                planes_full = self._render(im, a0, a1, top, art_rows, n_dots, labels)
                 o = y - a0
                 blk = [p[o:o + (y1 - y)] for p in planes_full]
                 wr.write_block(blk)
@@ -195,7 +224,7 @@ class Rip:
         result["output_path"] = out_path
         return result
 
-    def _render(self, im, a0, a1, top, art_rows, n_dots):
+    def _render(self, im, a0, a1, top, art_rows, n_dots, labels):
         s = self.s
         h = a1 - a0
         planes = [np.zeros((h, n_dots), np.uint8) for _ in range(12)]
@@ -220,7 +249,7 @@ class Rip:
                 lvl = self._white_levels(full_alpha, a0)
                 for pidx in s.white_planes:
                     planes[pidx] = lvl
-        for (ly, lx, lab) in getattr(self, "_labels", []):                 # etiqueta em K (plano 0)
+        for (ly, lx, lab) in labels:                 # etiqueta em K (plano 0)
             ys, ye = max(ly, a0), min(ly + lab.shape[0], a1)
             if ye > ys:
                 seg = lab[ys - ly:ye - ly]

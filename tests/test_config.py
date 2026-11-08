@@ -75,7 +75,8 @@ def test_canonicalize_folders_resolve_symlink_antes_de_parent(tmp_path):
         pytest.skip("symlink indisponivel neste ambiente")
     raw = link / ".." / "hot"
     expected = os.path.realpath(str(raw))
-    assert expected != os.path.realpath(os.path.abspath(str(raw)))
+    if expected == os.path.realpath(os.path.abspath(str(raw))):
+        pytest.skip("Plataforma normaliza segmentos .. antes de resolver o symlink")
 
     settings = Settings(
         hot_folder=str(raw),

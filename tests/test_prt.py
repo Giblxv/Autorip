@@ -68,3 +68,39 @@ def test_read_rows_rejeita_intervalo_fora_do_arquivo(tmp_path):
     writer.close()
     with pytest.raises(ValueError, match="intervalo"):
         read_rows(path, 0, 3)
+
+
+
+def test_writer_sincroniza_arquivo_completo_antes_de_fechar(tmp_path, monkeypatch):
+    from autorip import prt
+
+    original_fsync = prt.os.fsync
+    synchronized = []
+
+    def spy(fd):
+        synchronized.append(fd)
+        return original_fsync(fd)
+
+    monkeypatch.setattr(prt.os, "fsync", spy)
+    writer = PrtWriter(tmp_path / "duravel.PRT", 300, 300, 1, 8)
+    writer.write_block([np.zeros((1, 8), dtype=np.uint8)] * 12)
+    writer.close()
+    assert writer.f.closed
+    assert len(synchronized) == 1
+
+
+def test_rip_nao_publica_arquivo_se_fsync_falhar(tmp_path, sample_png, monkeypatch):
+    from autorip import prt
+    from autorip.config import Settings
+    from autorip.engine import Rip
+
+    def unavailable(_fd):
+        raise OSError("falha de sincronizacao")
+
+    monkeypatch.setattr(prt.os, "fsync", unavailable)
+    result = tmp_path / "sem-fsync.PRT"
+    with pytest.raises(OSError, match="sincronizacao"):
+        Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False)).process(
+            str(sample_png), str(result), width_cm=2.54)
+    assert not result.exists()
+    assert not list(tmp_path.glob("*.part"))
