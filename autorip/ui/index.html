@@ -155,7 +155,7 @@ const SCHEMA=[["h","Pastas e perfil"],["icc_path","Perfil ICC (caminho completo)
 ["h","Marca do cliente"],["brand_name","Nome do programa","t"],["label_enabled","Etiqueta (arquivo e medidas) nas margens","b"],["watermark_opacity","Opacidade da marca d'água (0 a 1)","n"],["@logo"],["@wm"],
 ["h","Integrações de pedidos"],["webhook_url","Webhook (URL, recebe JSON ao concluir)","t",1],["trello_key","Trello — API key","p"],["trello_token","Trello — token","p"],["trello_in_list","Trello — ID da lista de ENTRADA (anexos viram arte)","t"],["trello_out_list","Trello — ID da lista de PRONTOS","t"],["notion_token","Notion — token","p"],["notion_db","Notion — ID do banco (título: Name)","t"],["jira_url","Jira — URL (https://empresa.atlassian.net)","t"],["jira_email","Jira — e-mail","t"],["jira_token","Jira — API token","p"],["jira_project","Jira — chave do projeto","t"],
 ["h","Agente de IA"],["anthropic_key","Chave da API Anthropic","p",1],["anthropic_model","Modelo","t"],
-["h","Modo automático"],["auto_mode","Ligar automático ao abrir","b"],["poll_seconds","Intervalo de vigia (s)","n"]];
+ ["h","Modo automático"],["auto_mode","Ligar automático ao abrir","b"],["auto_update","Atualizar automaticamente pelo GitHub","b"],["poll_seconds","Intervalo de vigia (s)","n"]];
 function openCfg(){$("dlg").showModal();$("lmsg").textContent="";if(token){showCfg()}else{$("loginBox").style.display="";$("cfgBox").style.display="none";
  $("loginTxt").textContent=hasPass?"Digite a senha para abrir as configurações.":"Primeiro acesso: crie uma senha (mínimo 8 caracteres).";$("pw2box").style.display=hasPass?"none":""}}
 async function doLogin(){let r;if(hasPass)r=await api("/api/login",{method:"POST",body:JSON.stringify({password:$("pw").value})});

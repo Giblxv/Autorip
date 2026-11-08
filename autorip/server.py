@@ -11,7 +11,7 @@ from .watcher import EXTS, _signature, _stable
 from .paths import (ProcessLock, safe_filename, move_unique, next_available_path,
                     read_archive_marker, remove_archive_marker, write_archive_marker,
                     file_sha256, find_marked_output, source_signature_matches)
-from . import integrations, agent
+from . import integrations, agent, updater
 from PIL import Image, ImageDraw, ImageOps
 
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024
@@ -92,8 +92,17 @@ class App:
             self.log("AVISO: sem perfil ICC; a conversao CMYK generica do Pillow nao substitui o perfil da impressora.")
         threading.Thread(target=self._worker, daemon=True).start()
         threading.Thread(target=self._watch, daemon=True).start()
+        if getattr(sys, "frozen", False) and self.s.auto_update and not self.s.offline_mode:
+            threading.Thread(target=self._check_for_update, daemon=True).start()
 
     # ---- log / jobs ----
+    def _check_for_update(self):
+        state = updater.stage_latest(self.home, __version__, offline=self.s.offline_mode, log=self.log)
+        if not state or not updater.install_staged(state, log=self.log):
+            return
+        self.log(f"Atualização {state.get('version', '')} iniciada; o AutoRIP será reiniciado.")
+        threading.Timer(1.5, os._exit, args=(0,)).start()
+
     def log(self, msg):
         with self.lock:
             self.log_lines.append(time.strftime("%H:%M:%S ") + msg); self.log_lines[:] = self.log_lines[-200:]

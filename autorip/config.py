@@ -64,6 +64,7 @@ class Settings:
     done_folder: str = "feito"
     error_folder: str = "erro"
     auto_mode: bool = True
+    auto_update: bool = True
     poll_seconds: float = 2.0
 
     def canonicalize_folders(self, base=None):
@@ -88,7 +89,7 @@ class Settings:
             if value < minimum or value > maximum:
                 raise ValueError(f"Configuracao invalida: {name} precisa estar entre {minimum} e {maximum}.")
 
-        for name in ("black_point_comp", "mirror", "white_enabled", "offline_mode", "label_enabled", "auto_mode"):
+        for name in ("black_point_comp", "mirror", "white_enabled", "offline_mode", "label_enabled", "auto_mode", "auto_update"):
             if type(getattr(self, name)) is not bool:
                 raise ValueError(f"Configuracao invalida: {name} precisa ser verdadeiro ou falso.")
 

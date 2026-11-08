@@ -7,7 +7,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -46,6 +46,14 @@ jobs:
           if (-not (Test-Path 'Output\AutoRIP_Setup.exe')) { throw 'AutoRIP_Setup.exe não foi gerado' }
           Get-Item 'dist\AutoRIP\AutoRIP.exe', 'Output\AutoRIP_Setup.exe' | Select-Object FullName, Length
 
+      - name: Create release checksums
+        shell: powershell
+        run: |
+          $exe = (Get-FileHash 'dist\AutoRIP\AutoRIP.exe' -Algorithm SHA256).Hash.ToLower()
+          $setup = (Get-FileHash 'Output\AutoRIP_Setup.exe' -Algorithm SHA256).Hash.ToLower()
+          "$exe  AutoRIP.exe" | Out-File -Encoding ascii SHA256SUMS.txt
+          "$setup  AutoRIP_Setup.exe" | Out-File -Encoding ascii -Append SHA256SUMS.txt
+
       - name: Upload executable and installer
         uses: actions/upload-artifact@v4
         with:
@@ -54,4 +62,15 @@ jobs:
           path: |
             dist/AutoRIP/AutoRIP.exe
             Output/AutoRIP_Setup.exe
+            SHA256SUMS.txt
           retention-days: 14
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/AutoRIP/AutoRIP.exe
+            Output/AutoRIP_Setup.exe
+            SHA256SUMS.txt
