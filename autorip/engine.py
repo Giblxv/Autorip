@@ -29,7 +29,7 @@ def _blue_noise(h=256, w=256, sx=1.0, sy=None, seed=7):
 class Rip:
     def __init__(self, s: Settings):
         self.s = s.validate()
-        self.noise = _blue_noise(256, 256, sx=1.0)
+        self.noise = _blue_noise(256, 256, sx=1.0, sy=s.dpi_y / s.dpi_x)
         self.transform = None
         self.icc_error = None
         if s.icc_path:
