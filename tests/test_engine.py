@@ -142,3 +142,12 @@ def test_reticula_muda_com_grade_de_impressao_sem_alterar_cobertura(dpi_x, dpi_y
 def test_resolucao_padrao_preserva_reticula_existente():
     rip = Rip(Settings(label_enabled=False))
     assert np.array_equal(rip.noise, engine._blue_noise())
+
+
+def test_etiqueta_nome_longo_nao_perde_final_com_dimensoes():
+    settings = Settings(dpi_x=300, dpi_y=300, mirror=False)
+    labels = Rip(settings)._make_labels("W" * 170 + ".png", 20, 10, 2362, 120, 100, 120)
+    assert len(labels) == 2
+    for _, _, pixels in labels:
+        assert np.any(pixels[:, int(pixels.shape[1] * 0.8):])
+        assert pixels.shape[1] <= 2362
