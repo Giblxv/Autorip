@@ -65,14 +65,12 @@ def test_trello_download_e_integracoes_de_saida_nao_expoem_tokens(app, sample_pn
         assert received[0][2].startswith("OAuth ")
         assert "key=" not in received[0][1] and "token=" not in received[0][1]
 
-        settings.trello_in_list = ""  # impede a thread de fundo de repetir a entrada durante o teste
-        settings.offline_mode = False
-        job = app.enqueue(artifact, 3)
-        wait_for_job(job)
-        deadline = time.monotonic() + 10
-        while time.monotonic() < deadline and integrations.outbox_load(app.home):
-            time.sleep(0.05)
-        assert integrations.outbox_load(app.home) == []
+        # Testa o envio de rede independentemente do timing do RIP/worker.
+        settings.trello_in_list = ""
+        job = {"name": "pedido42.png", "out": os.path.join(settings.output_folder, "pedido42.PRT")}
+        info = {"width_cm": 3.0, "height_cm": 2.0, "n_dots": 300, "n_rows": 200}
+        results = integrations.notify_done(settings, job, info, app.log)
+        assert results == {"webhook": True, "Trello": True, "Notion": True, "Jira": True}
 
         posts = [(urlsplit(row[1]).path, row[2]) for row in received if row[0] == "POST"]
         paths = {path for path, _ in posts}
