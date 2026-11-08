@@ -284,3 +284,38 @@ def test_trello_falha_de_publicacao_nao_registra_anexo_como_baixado(
         integrations.pull_trello(settings, seen)
     assert not seen
     assert not list(hot.glob(".trello.*.part"))
+
+
+def test_trello_integrado_recupera_falha_e_nao_redispara_anexo_valido(
+        tmp_path, sample_png, monkeypatch):
+    import shutil
+
+    home = tmp_path / "home"
+    home.mkdir()
+    hot = tmp_path / "hot"
+    hot.mkdir()
+    settings = Settings(offline_mode=False, hot_folder=str(hot), trello_key="K",
+                        trello_token="T", trello_in_list="L")
+    cards = [{"name": "Pedidos", "attachments": [
+        {"id": "erro", "name": "falha.png",
+         "url": "https://trello.com/1/falha.png"},
+        {"id": "sucesso", "name": "ok.png",
+         "url": "https://trello.com/1/ok.png"}]}]
+    monkeypatch.setattr(integrations, "_req", lambda *_a, **_kw: cards)
+    calls = []
+
+    def download(url, path, headers, **kwargs):
+        calls.append(url)
+        if url.endswith("falha.png"):
+            raise ValueError("imagem invalida")
+        shutil.copyfile(sample_png, path)
+
+    monkeypatch.setattr(integrations, "_download_attachment", download)
+    assert integrations.pull_trello(settings, set(), seen_home=str(home)) == 1
+    assert json.loads((home / "trello_seen.json").read_text()) == ["sucesso"]
+    (hot / "ok.png").unlink()  # consumo pelo watcher antes do reinicio
+
+    assert integrations.pull_trello(settings, set(), seen_home=str(home)) == 0
+    assert calls == ["https://trello.com/1/falha.png", "https://trello.com/1/ok.png",
+                     "https://trello.com/1/falha.png"]
+    assert not (hot / "ok.png").exists()
