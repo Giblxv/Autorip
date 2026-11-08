@@ -385,11 +385,19 @@ class App:
                 job["status"] = "processando"
             self.log(f"RIP: {job['name']}")
             out = None
+            # A entrada pode desaparecer depois de entrar na fila; essa falha nao
+            # pode encerrar o unico worker e bloquear os pedidos seguintes.
+            try:
+                source_signature = _signature(path)
+            except OSError:
+                source_signature = None
             marker = {"phase": "processing", "target": "done", "job_id": job["id"],
                       "name": job["name"], "output_dir": settings.output_folder,
                       "started_ns": time.time_ns(), "metadata_written": False,
-                      "outbox_handled": False, "source_signature": list(_signature(path) or ())}
+                      "outbox_handled": False, "source_signature": list(source_signature or ())}
             try:
+                if source_signature is None:
+                    raise FileNotFoundError("Arte da fila ausente ou insegura para processamento.")
                 out = next_available_path(settings.output_folder, os.path.splitext(job["name"])[0] + ".PRT")
                 marker["output"] = os.path.basename(out)
                 if move:
@@ -407,7 +415,10 @@ class App:
                 info = rip.process(path, out, width_cm, progress=prog, before_publish=before_publish)
                 out = info.pop("output_path")
             except Exception as e:
-                if move:
+                # Nao cria journal fantasma nem arquivamento pendente para uma
+                # entrada removida enquanto aguardava o worker.
+                archive_source = move and os.path.isfile(path) and not os.path.islink(path)
+                if archive_source:
                     marker.update(phase="error", target="error", error=str(e)[:500])
                     try:
                         write_archive_marker(path, marker)
@@ -417,7 +428,7 @@ class App:
                     job.update(status="erro", error=str(e)[:500])
                 self.log(f"ERRO {job['name']}: {type(e).__name__}: {e}")
                 traceback.print_exc()
-                if move:
+                if archive_source:
                     self._archive_input(path, settings.error_folder, job, "pasta de erros")
                 self._release_source(path)
                 self._finish_output_use()
@@ -476,7 +487,8 @@ class App:
                 if not settings.offline_mode:
                     offline_check = lambda: self.s.offline_mode
                     integrations.outbox_flush(settings, self.home, self.log, offline_check=offline_check)
-                    integrations.pull_trello(settings, seen, self.log, offline_check=offline_check)
+                    integrations.pull_trello(settings, seen, self.log,
+                                            offline_check=offline_check, seen_home=self.home)
             except Exception as e: self.log(f"Integracao/entrada: falhou ({type(e).__name__})")
             with self.settings_lock:
                 poll_seconds = self.s.poll_seconds
@@ -695,6 +707,9 @@ class App:
                 json.dump(dict(salt=salt, hash=self._hash(pw, salt)), target)
                 target.flush(); os.fsync(target.fileno())
             os.replace(temporary, self.auth_path)
+            # Uma troca de senha invalida tokens antigos (incluindo de outras abas).
+            with self.lock:
+                self.tokens.clear()
         except BaseException:
             try: os.close(fd)
             except OSError: pass
@@ -831,6 +846,17 @@ class H(BaseHTTPRequestHandler):
             tokens = tuple(APP.tokens)
         return bool(incoming) and any(secrets.compare_digest(incoming, token) for token in tokens)
 
+    def _host_allowed(self):
+        """Aceita apenas o Host do painel local e a porta real do servidor."""
+        try:
+            parsed = urlparse("//" + self.headers.get("Host", ""))
+            return (parsed.hostname in ("127.0.0.1", "localhost")
+                    and parsed.port == self.server.server_address[1]
+                    and not parsed.username and not parsed.password
+                    and not parsed.path and not parsed.query and not parsed.fragment)
+        except ValueError:
+            return False
+
     def _origin_allowed(self):
         origin = self.headers.get("Origin")
         fetch_site = self.headers.get("Sec-Fetch-Site")
@@ -919,6 +945,8 @@ class H(BaseHTTPRequestHandler):
         return length
 
     def do_GET(self):
+        if not self._host_allowed():
+            return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
@@ -978,6 +1006,8 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {"error": "nao encontrado"})
 
     def do_POST(self):
+        if not self._host_allowed():
+            return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if not self._origin_allowed():
             return self._send(403, {"error": "origem da requisicao nao autorizada"})
@@ -995,6 +1025,7 @@ class H(BaseHTTPRequestHandler):
                 threading.Thread(target=shutdown_server, daemon=True).start()
                 return
             if u.path == "/api/upload":
+                if not self._auth(): return self._send(401, {"error": "login"})
                 q = parse_qs(u.query)
                 name = safe_filename(q.get("name", ["arte.png"])[0])
                 if not name.lower().endswith(EXTS):
