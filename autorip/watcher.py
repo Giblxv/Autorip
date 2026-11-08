@@ -70,6 +70,12 @@ def _write_metadata(output, info):
 def _recover_marked(source, s, log, archive_pending, seen):
     marker = read_archive_marker(source)
     if marker is None:
+        if os.path.lexists(archive_marker_path(source)):
+            # Journal ilegivel: nao e possivel provar que nenhum PRT foi publicado.
+            # Manter arte e marcador originais para reconciliacao manual.
+            log("[AVISO] Journal invalido em " + os.path.basename(source)
+                + "; arte preservada para revisao manual, sem repetir RIP.")
+            return True
         return False
     if not source_signature_matches(source, marker):
         log(f"[AVISO] Journal sem identidade correspondente; preservando {os.path.basename(source)} em erros.")
@@ -167,8 +173,7 @@ def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None):
         try:
             signature = _signature(path)
         except OSError:
-            # O arquivo pode ter sido movido/apagado apos os.listdir().
-            # Nao interromper a recuperacao dos outros trabalhos.
+            # A origem pode desaparecer depois de os.listdir().
             continue
         if signature is None:
             continue

@@ -79,10 +79,10 @@ class Rip:
         mask = original_mask
         fh = s.white_fill_holes_mm / 25.4
         ry, rx = int(round(fh * s.dpi_y)), int(round(fh * s.dpi_x))
-        if rx > 0 and ry > 0:
+        if rx > 0 or ry > 0:
             st = np.ones((2 * ry + 1, 2 * rx + 1), bool)
             pad = np.pad(mask, ((ry, ry), (rx, rx)))
-            mask = ndi.binary_closing(pad, structure=st)[ry:-ry, rx:-rx]
+            mask = ndi.binary_closing(pad, structure=st)[ry:ry + a.shape[0], rx:rx + a.shape[1]]
         # recuo (choke) para o branco nao aparecer na borda
         cm = s.white_choke_mm / 25.4
         cy, cx = int(round(cm * s.dpi_y)), int(round(cm * s.dpi_x))
@@ -139,7 +139,7 @@ class Rip:
                 source_dpi_x, source_dpi_y = source_dpi_y, source_dpi_x
             source.load()
             im = source.convert("RGBA")
-        w_cm = width_cm or (im.width / source_dpi_x * 2.54)
+        w_cm = width_cm if width_cm is not None else (im.width / source_dpi_x * 2.54)
         if not np.isfinite(w_cm) or w_cm <= 0:
             raise ValueError("A largura de impressão precisa ser um número positivo.")
         n_dots = int(round(w_cm / 2.54 * s.dpi_x))

@@ -222,3 +222,134 @@ def test_trello_falha_ao_persistir_nao_marca_id_como_confirmado(
     # A arte foi publicada; em caso de queda no meio, o operador consegue
     # identificar e reconciliar o trabalho antes de retomar a importacao.
     assert (hot / "pedido.png").exists()
+
+def test_trello_anexo_invalido_nao_bloqueia_proximo_do_mesmo_lote(
+        tmp_path, sample_png, monkeypatch):
+    import shutil
+
+    hot = tmp_path / "hot"
+    hot.mkdir()
+    settings = Settings(offline_mode=False, hot_folder=str(hot), trello_key="K",
+                        trello_token="T", trello_in_list="L")
+    cards = [{"name": "Pedidos", "attachments": [
+        {"id": "ruim", "name": "corrompida.png",
+         "url": "https://trello.com/1/bad.png?private=nao-expor"},
+        {"id": "bom", "name": "valida.png",
+         "url": "https://trello.com/1/good.png"},
+    ]}]
+    monkeypatch.setattr(integrations, "_req", lambda *_a, **_kw: cards)
+    attempts, logs = [], []
+
+    def download(url, path, headers, **kwargs):
+        attempts.append(url)
+        if "bad.png" in url:
+            raise ValueError("URL confidencial: private=nao-expor")
+        shutil.copyfile(sample_png, path)
+
+    monkeypatch.setattr(integrations, "_download_attachment", download)
+    seen = set()
+    assert integrations.pull_trello(settings, seen, logs.append) == 1
+    assert seen == {"bom"}
+    assert (hot / "valida.png").is_file()
+    assert not (hot / "corrompida.png").exists()
+    assert not list(hot.glob(".trello.*.part"))
+    assert len(attempts) == 2
+    assert any("ValueError" in log for log in logs)
+    assert all("private=nao-expor" not in log for log in logs)
+
+
+def test_trello_falha_de_publicacao_nao_registra_anexo_como_baixado(
+        tmp_path, sample_png, monkeypatch):
+    import shutil
+
+    hot = tmp_path / "hot"
+    hot.mkdir()
+    settings = Settings(offline_mode=False, hot_folder=str(hot), trello_key="K",
+                        trello_token="T", trello_in_list="L")
+    cards = [{"name": "Pedido", "attachments": [
+        {"id": "pendente", "name": "pedido.png",
+         "url": "https://trello.com/1/file.png"}]}]
+    monkeypatch.setattr(integrations, "_req", lambda *_a, **_kw: cards)
+    monkeypatch.setattr(integrations, "_download_attachment",
+                        lambda url, path, headers, **kw: shutil.copyfile(sample_png, path))
+
+    def cannot_publish(*args):
+        raise OSError("disco cheio ao publicar")
+
+    monkeypatch.setattr(integrations, "publish_unique_file", cannot_publish)
+    seen = set()
+    with pytest.raises(OSError, match="disco cheio"):
+        integrations.pull_trello(settings, seen)
+    assert not seen
+    assert not list(hot.glob(".trello.*.part"))
+
+
+def test_trello_integrado_recupera_falha_e_nao_redispara_anexo_valido(
+        tmp_path, sample_png, monkeypatch):
+    import shutil
+
+    home = tmp_path / "home"
+    home.mkdir()
+    hot = tmp_path / "hot"
+    hot.mkdir()
+    settings = Settings(offline_mode=False, hot_folder=str(hot), trello_key="K",
+                        trello_token="T", trello_in_list="L")
+    cards = [{"name": "Pedidos", "attachments": [
+        {"id": "erro", "name": "falha.png",
+         "url": "https://trello.com/1/falha.png"},
+        {"id": "sucesso", "name": "ok.png",
+         "url": "https://trello.com/1/ok.png"}]}]
+    monkeypatch.setattr(integrations, "_req", lambda *_a, **_kw: cards)
+    calls = []
+
+    def download(url, path, headers, **kwargs):
+        calls.append(url)
+        if url.endswith("falha.png"):
+            raise ValueError("imagem invalida")
+        shutil.copyfile(sample_png, path)
+
+    monkeypatch.setattr(integrations, "_download_attachment", download)
+    assert integrations.pull_trello(settings, set(), seen_home=str(home)) == 1
+    assert json.loads((home / "trello_seen.json").read_text()) == ["sucesso"]
+    (hot / "ok.png").unlink()  # consumo pelo watcher antes do reinicio
+
+    assert integrations.pull_trello(settings, set(), seen_home=str(home)) == 0
+    assert calls == ["https://trello.com/1/falha.png", "https://trello.com/1/ok.png",
+                     "https://trello.com/1/falha.png"]
+    assert not (hot / "ok.png").exists()
+
+def test_outbox_preserva_canal_pendente_apos_desativacao_parcial(tmp_path, monkeypatch):
+    settings = Settings(offline_mode=False, webhook_url="https://example.invalid/hook",
+                        trello_key="K", trello_token="T", trello_out_list="OUT")
+    integrations.outbox_add(str(tmp_path), {"id": "pending", "name": "arte.png"}, {})
+    calls = []
+
+    def notify(s, job, info, log, offline_check=None, already_sent=()):
+        missing = set(integrations.enabled_services(s)) - set(already_sent)
+        calls.append(missing)
+        return {name: name == "webhook" for name in missing}
+
+    monkeypatch.setattr(integrations, "notify_done", notify)
+    assert integrations.outbox_flush(settings, str(tmp_path)) == 0
+    settings.trello_token = ""
+    assert integrations.outbox_flush(settings, str(tmp_path)) == 0
+    pending = integrations.outbox_load(str(tmp_path))
+    assert len(pending) == 1 and pending[0]["sent"] == ["webhook"]
+    settings.trello_token = "T"
+    monkeypatch.setattr(integrations, "notify_done",
+                        lambda s, job, info, log, **kwargs: {"Trello": True})
+    assert integrations.outbox_flush(settings, str(tmp_path)) == 1
+    assert integrations.outbox_load(str(tmp_path)) == []
+    assert calls[0] == {"webhook", "Trello"}
+
+
+
+def test_outbox_registra_destinos_ainda_em_modo_offline(tmp_path, monkeypatch):
+    integrations.outbox_add(str(tmp_path), {"id": "offline"}, {},
+                            services={"webhook", "Trello"})
+    settings = Settings(offline_mode=False, webhook_url="https://example.invalid/hook")
+    monkeypatch.setattr(integrations, "notify_done", lambda *args, **kwargs: {"webhook": True})
+    assert integrations.outbox_flush(settings, str(tmp_path)) == 0
+    item = integrations.outbox_load(str(tmp_path))[0]
+    assert item["required"] == ["Trello", "webhook"]
+    assert item["sent"] == ["webhook"]

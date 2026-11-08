@@ -263,7 +263,13 @@ def pull_trello(s, seen: set, log=print, offline_check=None, seen_home=None):
             fd, temporary = tempfile.mkstemp(prefix=".trello.", suffix=".part", dir=s.hot_folder)
             os.close(fd)
             try:
-                _download_attachment(url, temporary, headers, allow_loopback=allow_loopback)
+                try:
+                    _download_attachment(url, temporary, headers, allow_loopback=allow_loopback)
+                except Exception as exc:
+                    # Um anexo invalido nao bloqueia os proximos; falhas no disco
+                    # ao publicar/registrar recibos permanecem fatais.
+                    log(f"Trello: anexo ignorado por falha no download ({type(exc).__name__}).")
+                    continue
                 if _is_offline(s, offline_check):
                     continue
                 destination = publish_unique_file(temporary, os.path.join(s.hot_folder, name))
@@ -281,8 +287,6 @@ def pull_trello(s, seen: set, log=print, offline_check=None, seen_home=None):
                     seen.add(identifier)
                 count += 1
                 log(f"Trello: baixado {os.path.basename(destination)} (cartao {safe_filename(card.get('name', ''))})")
-            except Exception:
-                raise
             finally:
                 try: os.remove(temporary)
                 except OSError: pass
@@ -327,18 +331,24 @@ def outbox_load(home):
         sent = item.get("sent", [])
         if not isinstance(sent, list) or any(not isinstance(name, str) for name in sent):
             raise ValueError("Campo de status invalido na outbox; os avisos locais foram preservados.")
+        required = item.get("required", [])
+        if not isinstance(required, list) or any(not isinstance(name, str) for name in required):
+            raise ValueError("Destinos invalidos na outbox; os avisos locais foram preservados.")
     return items
 
 
-def outbox_add(home, job, info):
+def outbox_add(home, job, info, *, services=None):
     with _OUTBOX_LOCK:
         items = outbox_load(home)
         job_id = job.get("id")
         if job_id and any(item.get("job_id") == job_id for item in items):
             return False
-        items.append({"id": secrets.token_hex(12), "job_id": job_id,
-                      "job": {k: job.get(k) for k in ("name", "out")},
-                      "info": info, "sent": []})
+        item = {"id": secrets.token_hex(12), "job_id": job_id,
+                "job": {k: job.get(k) for k in ("name", "out")},
+                "info": info, "sent": []}
+        if services is not None:
+            item["required"] = sorted(set(services))
+        items.append(item)
         _atomic_json(_outbox_path(home), items)
         return True
 
@@ -347,11 +357,18 @@ def outbox_flush(s, home, log=print, offline_check=None):
     """Retenta cada servico pendente e remove somente notificacoes confirmadas."""
     if _is_offline(s, offline_check):
         return 0
+    active = _enabled(s)
+    if not active:
+        return 0
     with _OUTBOX_FLUSH_LOCK:
         with _OUTBOX_LOCK:
             items = outbox_load(home)
             changed = False
             for item in items:
+                targets = sorted(set(item.get("required", [])) | active)
+                if item.get("required") != targets:
+                    item["required"] = targets
+                    changed = True
                 if not item.get("id"):
                     item["id"] = secrets.token_hex(12)
                     changed = True
@@ -359,14 +376,12 @@ def outbox_flush(s, home, log=print, offline_check=None):
                 _atomic_json(_outbox_path(home), items)
         if not items:
             return 0
-        required = _enabled(s)
-        if not required:
-            return 0
         updates = {}
         completed_ids = set()
         for item in items:
             if _is_offline(s, offline_check):
                 break
+            required = set(item["required"])
             job, info = item.get("job", {}), item.get("info", {})
             sent = set(item.get("sent", []))
             if not isinstance(job, dict) or not isinstance(info, dict):
