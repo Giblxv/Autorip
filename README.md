@@ -1,4 +1,4 @@
-# AutoRIP 0.8.3 — automação de pré-impressão DTF / DTF UV
+# AutoRIP 0.8.4 — automação de pré-impressão DTF / DTF UV
 
 O AutoRIP organiza uma etapa de pré-impressão: importa artes raster, converte cores, prepara a base branca e gera arquivos `.PRT` para fluxo com PrintExp. Ele não substitui o software/driver do fabricante e **o formato PRT deste projeto foi inferido de uma referência, não de uma especificação oficial**. Antes de produção, valide em uma impressora de teste: abertura no PrintExp, ordem de canais, dimensão, escala, branco, orientação e densidade. Comece com material de baixo custo; o arquivo pode não ser compatível com todo equipamento.
 
@@ -81,6 +81,7 @@ O workflow do GitHub Actions executa a mesma suíte em pushes e pull requests pa
 - **0.8.1:** journal com hash do PRT antes da publicação, recovery seguro do CLI posicional, sidecar/outbox recuperáveis e idempotentes, proteção contra PRT homônimo e liberação de locks antigos de saída após jobs ativos.
 - **0.8.2:** modo `--headless`/`--no-browser` para rodar como worker local, sem abrir navegador; atalho de segundo plano e inicialização automática no Windows.
 - **0.8.3:** encerramento seguro pelo painel e atalhos explícitos de modo direto no menu Iniciar e na área de trabalho.
+- **0.8.4:** executável Windows nativo por padrão, integrações locais sem navegador e painel web apenas com `--web`.
 - **0.8.0:** publicação PRT/arquivos no-clobber por rename atômico ou criação exclusiva; locks de hot-folder/saída; histórico recuperável, retry/backoff e cópia cross-volume; limite de nomes, quota agregada de uploads e proteções do painel; sidecar de dimensões, URLs de miniaturas seguras, endpoint de logo confinado e CI.
 - **0.7.0:** fila durável de notificações com retry parcial; isolamento de credenciais; URLs/redirects de integração protegidos; validação de configuração e do PRT; hot-folder recuperável e sem colisões; fila de impressão mais segura; limites de entrada/fila; testes automatizados portáteis.
 - **0.6.0:** fila local de impressão com miniaturas, registro do trabalho e gravação do PRT em arquivo temporário antes da publicação.
