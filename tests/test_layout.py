@@ -39,3 +39,33 @@ def test_auto_pack_rejeita_item_largo_demais(tmp_path):
     info = inspect_image(str(path))
     with pytest.raises(ValueError, match="excede"):
         auto_pack([make_item(info, 57)], sheet_width_cm=57, margin_cm=1)
+
+
+@pytest.mark.parametrize("fmt", ["PNG", "TIFF"])
+def test_inspecao_nao_decodifica_pixels_e_preserva_formato(tmp_path, monkeypatch, fmt):
+    from PIL import ImageFile
+    path = tmp_path / ("cabecalho." + fmt.lower())
+    Image.new("RGBA", (120, 60), (20, 40, 60, 128)).save(path, format=fmt, dpi=(300, 300))
+
+    def forbid_decode(*args, **kwargs):
+        pytest.fail("A inspecao de metadados nao deve decodificar pixels")
+
+    monkeypatch.setattr(ImageFile.ImageFile, "load", forbid_decode)
+    info = inspect_image(str(path))
+    assert (info.width_px, info.height_px) == (120, 60)
+    assert info.format == fmt and info.has_alpha
+
+
+@pytest.mark.parametrize("orientation", [1, 3, 5, 6, 7, 8])
+def test_inspecao_exif_preserva_dimensoes_fisicas(tmp_path, orientation):
+    path = tmp_path / "orientada.jpg"
+    exif = Image.Exif()
+    exif[274] = orientation
+    Image.new("RGB", (200, 100), "blue").save(path, exif=exif, dpi=(100, 200))
+    info = inspect_image(str(path))
+    swapped = orientation in (5, 6, 7, 8)
+    assert (info.width_px, info.height_px) == ((100, 200) if swapped else (200, 100))
+    assert (info.dpi_x, info.dpi_y) == ((200, 100) if swapped else (100, 200))
+    assert info.width_cm == pytest.approx(1.27 if swapped else 5.08)
+    assert info.height_cm == pytest.approx(5.08 if swapped else 1.27)
+    assert info.format == "JPEG"
