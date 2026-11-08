@@ -37,3 +37,7 @@ erro/
 .autorip_manual/
 *.icc
 *.icm
+
+# Binarios de backup ficam no historico Git; releases no GitHub sao o canal de entrega.
+backup/**/*.exe
+backup/**/*.msi
