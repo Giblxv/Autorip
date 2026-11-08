@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import time
 import threading
 from http.server import ThreadingHTTPServer
@@ -18,6 +19,17 @@ from conftest import wait_for_job
 
 def _source_signature(path):
     return list(server_module._signature(path))
+
+
+def test_main_headless_nao_abre_navegador(monkeypatch):
+    called = {}
+    monkeypatch.setattr(server_module, "serve", lambda **kwargs: called.update(kwargs))
+    monkeypatch.setattr(sys, "argv", ["AutoRIP.exe", "--headless"])
+    monkeypatch.delenv("AUTORIP_NOBROWSER", raising=False)
+
+    server_module.main()
+
+    assert called == {"open_browser": False}
 
 
 @pytest.fixture

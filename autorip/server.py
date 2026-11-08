@@ -1103,4 +1103,5 @@ def main():
     if sys.stdout is None:                                    # .exe sem console
         lf = open(os.path.join(home_dir(), "autorip.log"), "a", buffering=1)
         sys.stdout = sys.stderr = lf
-    serve(open_browser=os.environ.get("AUTORIP_NOBROWSER") != "1")
+    headless = "--headless" in sys.argv or "--no-browser" in sys.argv
+    serve(open_browser=(not headless and os.environ.get("AUTORIP_NOBROWSER") != "1"))
