@@ -34,6 +34,13 @@ def test_install_staged_rejeita_hash_incorreto(tmp_path, monkeypatch):
     assert calls == []
 
 
+def test_stage_registra_falha_de_rede_sem_lancar_erro_secundario(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater, "_latest_release", lambda: (_ for _ in ()).throw(OSError("sem rede")))
+    assert updater.stage_latest(str(tmp_path), "0.8.5", force=True) is None
+    assert (tmp_path / "update_state.json").is_file()
+
+
 def test_install_staged_executa_somente_hash_conferente(tmp_path, monkeypatch):
     path = tmp_path / "AutoRIP_Setup.exe"
     path.write_bytes(b"installer")
