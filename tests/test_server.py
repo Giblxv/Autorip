@@ -76,6 +76,53 @@ def request(base, path, method="GET", data=None, headers=None):
         return error.code, error.read(), error.headers
 
 
+def test_excluir_prt_apaga_metadados_e_miniaturas_associadas(app):
+    path = os.path.join(app.s.output_folder, "remover.PRT")
+    writer = PrtWriter(path, 300, 300, 1, 8)
+    writer.write_block([np.zeros((1, 8), dtype=np.uint8)] * 12)
+    writer.close()
+    with open(path + ".meta.json", "w", encoding="utf-8") as metadata:
+        metadata.write("{}")
+
+    root = os.path.join(app.home, "thumbs")
+    by_name = os.path.join(root, "by_name")
+    os.makedirs(by_name, exist_ok=True)
+    named = os.path.join(by_name, "remover.jpg")
+    job_preview = os.path.join(root, "job-teste.jpg")
+    unrelated = os.path.join(by_name, "outra-arte.jpg")
+    for thumbnail in (named, job_preview, unrelated):
+        with open(thumbnail, "wb") as target:
+            target.write(b"preview")
+
+    job = {"id": "job-teste", "out": path, "thumb": "/api/thumb?id=job-teste"}
+    app.jobs.append(job)
+    app.delete_print("remover.PRT")
+    assert not os.path.exists(path)
+    assert not os.path.exists(path + ".meta.json")
+    assert not os.path.exists(named)
+    assert not os.path.exists(job_preview)
+    assert os.path.isfile(unrelated)
+    assert job["thumb"] == ""
+
+
+def test_excluir_prt_nao_segue_symlink_de_thumbnail(app, tmp_path):
+    path = os.path.join(app.s.output_folder, "seguro.PRT")
+    writer = PrtWriter(path, 300, 300, 1, 8)
+    writer.write_block([np.zeros((1, 8), dtype=np.uint8)] * 12)
+    writer.close()
+    outside = tmp_path / "externo.jpg"
+    outside.write_bytes(b"nao remover")
+    by_name = os.path.join(app.home, "thumbs", "by_name")
+    os.makedirs(by_name, exist_ok=True)
+    link = os.path.join(by_name, "seguro.jpg")
+    try:
+        os.symlink(outside, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks indisponiveis")
+    app.delete_print("seguro.PRT")
+    assert outside.read_bytes() == b"nao remover"
+
+
 def test_configuracoes_nao_revelam_segredos_e_resposta_tem_headers(panel, app):
     app.s.trello_token = "TOKEN-QUE-NAO-PODE-SAIR"
     app.tokens.add("sessao-teste")
