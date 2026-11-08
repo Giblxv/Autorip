@@ -131,7 +131,7 @@ class Rip:
             dpi = source.info.get("dpi", (300, 300))[0] or 300
             source.load()
             im = source.convert("RGBA")
-        w_cm = width_cm or (im.width / dpi * 2.54)
+        w_cm = width_cm if width_cm is not None else (im.width / dpi * 2.54)
         if not np.isfinite(w_cm) or w_cm <= 0:
             raise ValueError("A largura de impressão precisa ser um número positivo.")
         n_dots = int(round(w_cm / 2.54 * s.dpi_x))
