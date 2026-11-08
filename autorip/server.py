@@ -282,13 +282,26 @@ class App:
         return True
 
     def _cleanup_manual_folder(self, source):
+        inbox = os.path.realpath(self.inbox)
+        parent = os.path.realpath(os.path.dirname(source))
         try:
-            inbox = os.path.realpath(self.inbox)
-            parent = os.path.realpath(os.path.dirname(source))
-            if parent != inbox and os.path.commonpath((inbox, parent)) == inbox:
+            inside = parent != inbox and os.path.commonpath((inbox, parent)) == inbox
+        except ValueError:
+            return
+        if not inside:
+            return
+        # Windows pode manter o arquivo recém-movido aberto por alguns milissegundos
+        # devido ao antivírus/indexador. Nunca removemos conteúdo: somente tentamos
+        # rmdir em uma pasta que precisa estar vazia, com retry idempotente.
+        for attempt in range(10):
+            try:
                 os.rmdir(parent)
-        except (OSError, ValueError):
-            pass
+                return
+            except FileNotFoundError:
+                return
+            except OSError:
+                if attempt < 9:
+                    time.sleep(0.05)
 
     def _manual_pending_bytes(self):
         total = 0

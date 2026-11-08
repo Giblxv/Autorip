@@ -168,6 +168,24 @@ def test_journal_recupera_upload_manual_pendente(app, sample_png):
     assert app.auto is False
 
 
+def test_limpeza_de_upload_manual_re_tenta_lock_temporario(app, monkeypatch):
+    folder = os.path.join(app.inbox, "retry-cleanup")
+    os.makedirs(folder)
+    original_rmdir = os.rmdir
+    attempts = {"count": 0}
+
+    def flaky_rmdir(path):
+        if path == os.path.realpath(folder) and attempts["count"] < 2:
+            attempts["count"] += 1
+            raise PermissionError("arquivo ainda sendo liberado")
+        return original_rmdir(path)
+
+    monkeypatch.setattr(server_module.os, "rmdir", flaky_rmdir)
+    app._cleanup_manual_folder(os.path.join(folder, "arte.png"))
+    assert attempts["count"] == 2
+    assert not os.path.exists(folder)
+
+
 def test_journal_recria_sidecar_e_outbox_apos_crash_de_publicacao(app, sample_png):
     from autorip import integrations
 
