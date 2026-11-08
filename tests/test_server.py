@@ -402,7 +402,7 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     assert status == 400
 
     raw = sample_png.read_bytes()
-    headers = {**origin, "Content-Type": "application/octet-stream"}
+    headers = {**origin, "Content-Type": "application/octet-stream", "X-Token": token}
     pending = os.path.join(app.inbox, "pendente")
     os.makedirs(pending)
     with open(os.path.join(pending, "reserva.bin"), "wb") as target:
