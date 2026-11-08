@@ -694,3 +694,43 @@ def test_geracao_de_preview_recusa_diretorio_symlink(app, sample_png, tmp_path):
     assert not list(outside.iterdir())
 
 
+
+def test_journal_ilegivel_bloqueia_reprocessamento_automatico(app, sample_png, tmp_path):
+    import shutil
+
+    source = tmp_path / "origem-sem-reconciliacao.png"
+    shutil.copyfile(sample_png, source)
+    marker = tmp_path / "origem-sem-reconciliacao.png.autorip.json"
+    marker.write_text('{"version":1,"phase":"success","output":"arquivo.PRT"', encoding="utf-8")
+    def warnings():
+        return [item for item in app.log_lines
+                if "journal invalido" in item.lower() and source.name in item]
+
+    warnings_before = len(warnings())
+    assert app._recover_marked_source(str(source), app.s) is True
+    assert app._recover_marked_source(str(source), app.s) is True
+    assert source.is_file()
+    assert marker.is_file()
+    assert len(warnings()) == warnings_before + 1
+
+    # Remover manualmente o registro invalido libera a arte para nova analise.
+    marker.unlink()
+    assert app._recover_marked_source(str(source), app.s) is False
+
+
+def test_journal_symlink_bloqueia_rip_e_preserva_evidencia(app, sample_png, tmp_path):
+    import shutil
+
+    source = tmp_path / "com-marcador-symlink.png"
+    shutil.copyfile(sample_png, source)
+    external = tmp_path / "evidencia.json"
+    external.write_text("conteudo-externo", encoding="utf-8")
+    marker = tmp_path / "com-marcador-symlink.png.autorip.json"
+    try:
+        os.symlink(external, marker)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink indisponivel")
+    assert app._recover_marked_source(str(source), app.s) is True
+    assert marker.is_symlink()
+    assert external.read_text(encoding="utf-8") == "conteudo-externo"
+    assert source.is_file()

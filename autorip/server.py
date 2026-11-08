@@ -81,6 +81,7 @@ class App:
         self.upload_lock = threading.Lock()
         self.login_attempts = {}
         self.archive_pending = {}
+        self.invalid_journal_alerts = set()
         self.queued_sources = set()
         self.source_jobs = {}
         self._watch_locks = []
@@ -224,8 +225,23 @@ class App:
 
     def _recover_marked_source(self, source, settings):
         marker = read_archive_marker(source)
-        if not marker:
+        if marker is None:
+            if os.path.lexists(source + ".autorip.json"):
+                with self.lock:
+                    first_warning = source not in self.invalid_journal_alerts
+                    if first_warning:
+                        if len(self.invalid_journal_alerts) >= 256:
+                            self.invalid_journal_alerts.clear()
+                        self.invalid_journal_alerts.add(source)
+                if first_warning:
+                    self.log("ATENCAO: journal invalido em " + os.path.basename(source)
+                             + "; arte preservada para revisao manual, sem repetir RIP.")
+                return True
+            with self.lock:
+                self.invalid_journal_alerts.discard(source)
             return False
+        with self.lock:
+            self.invalid_journal_alerts.discard(source)
         if not source_signature_matches(source, marker):
             self.log(f"Aviso: journal sem identidade correspondente; preservando {os.path.basename(source)} em erros.")
             self._archive_input(source, settings.error_folder, None, "pasta de erros")
