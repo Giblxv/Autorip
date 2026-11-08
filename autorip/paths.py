@@ -237,7 +237,7 @@ def next_available_path(folder, name):
 
 
 def publish_unique_file(source, preferred_path):
-    """Publica sem substituir: hard-link atômico ou cópia O_EXCL em FS incompatível; sufixa colisões."""
+    """Publica sem substituir: hard-link ou staging privado + rename atomico sem clobber."""
     folder = _canonical_folder(os.path.dirname(preferred_path))
     preferred_path = os.path.join(folder, os.path.basename(preferred_path))
     os.makedirs(folder, exist_ok=True)
@@ -253,25 +253,33 @@ def publish_unique_file(source, preferred_path):
         except OSError as link_error:
             if link_error.errno == errno.EXDEV:
                 raise
-            try:
-                fd = os.open(destination, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-            except FileExistsError:
-                continue
-            identity = os.fstat(fd)
+            # Nunca copie diretamente para o nome final: o PrintExp pode observar
+            # um PRT parcial. Primeiro grave um temporario oculto e sincronize.
+            fd, temporary = tempfile.mkstemp(prefix=".publish.", suffix=".part", dir=folder)
             try:
                 with os.fdopen(fd, "wb") as target, open(source, "rb") as origin:
                     shutil.copyfileobj(origin, target, 1024 * 1024)
                     target.flush()
                     os.fsync(target.fileno())
-            except BaseException:
+                for fallback_index in range(index, 1_000_000):
+                    final = os.path.join(folder, _suffixed_name(safe, fallback_index))
+                    try:
+                        _rename_noreplace(temporary, final)
+                        return final
+                    except FileExistsError:
+                        continue
+                    except NotImplementedError as exc:
+                        raise OSError(
+                            errno.ENOTSUP,
+                            "Publicacao atomica sem sobrescrita indisponivel neste filesystem.",
+                            final,
+                        ) from exc
+                raise FileExistsError("Nao foi possivel encontrar nome livre para publicar.")
+            finally:
                 try:
-                    current = os.lstat(destination)
-                    if (current.st_dev, current.st_ino) == (identity.st_dev, identity.st_ino):
-                        os.remove(destination)
+                    os.remove(temporary)
                 except OSError:
                     pass
-                raise
-            return destination
     raise FileExistsError("Nao foi possivel reservar um nome unico depois de 1.000.000 tentativas.")
 
 
