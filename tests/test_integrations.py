@@ -192,3 +192,35 @@ def test_trello_recibo_corrompido_suspende_download_sem_apagar_registro(tmp_path
     with pytest.raises(ValueError, match="Registro de anexos Trello invalido"):
         integrations.pull_trello(settings, set(), seen_home=str(home))
     assert ledger.read_text(encoding="utf-8") == '{"corrompido": true}'
+
+
+def test_trello_falha_ao_persistir_nao_marca_id_como_confirmado(
+        tmp_path, sample_png, monkeypatch):
+    import shutil
+
+    home = tmp_path / "home"
+    home.mkdir()
+    hot = tmp_path / "hot"
+    hot.mkdir()
+    settings = Settings(offline_mode=False, hot_folder=str(hot), trello_key="K",
+                        trello_token="T", trello_in_list="L")
+    card = [{"name": "Pedido", "attachments": [{
+        "id": "trello-attachment-002", "name": "pedido.png",
+        "url": "https://trello.com/1/file.png"}]}]
+    monkeypatch.setattr(integrations, "_req", lambda *_a, **_kw: card)
+    monkeypatch.setattr(integrations, "_download_attachment",
+                        lambda url, path, headers, **kw: shutil.copyfile(sample_png, path))
+
+    def save_fails(*_args, **_kwargs):
+        raise OSError("falha de disco ao registrar recibo")
+
+    monkeypatch.setattr(integrations, "_atomic_json", save_fails)
+    seen = set()
+    with pytest.raises(OSError, match="registrar recibo"):
+        integrations.pull_trello(settings, seen, seen_home=str(home))
+
+    assert not seen
+    assert not (home / "trello_seen.json").exists()
+    # A arte foi publicada; em caso de queda no meio, o operador consegue
+    # identificar e reconciliar o trabalho antes de retomar a importacao.
+    assert (hot / "pedido.png").exists()
