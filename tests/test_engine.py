@@ -249,3 +249,10 @@ def test_fechamento_branco_funciona_com_raio_zero_em_um_eixo(dpi_x, dpi_y):
     # A operacao nao deve recortar o bloco nem apagar bordas opacas.
     assert levels.shape == alpha.shape
     assert np.all(levels == 3)
+def test_etiqueta_nome_longo_nao_perde_final_com_dimensoes():
+    settings = Settings(dpi_x=300, dpi_y=300, mirror=False)
+    labels = Rip(settings)._make_labels("W" * 170 + ".png", 20, 10, 2362, 120, 100, 120)
+    assert len(labels) == 2
+    for _, _, pixels in labels:
+        assert np.any(pixels[:, int(pixels.shape[1] * 0.8):])
+        assert pixels.shape[1] <= 2362

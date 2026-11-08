@@ -103,10 +103,11 @@ class Rip:
         text = f"{name} {w_cm:.3f} x {h_cm:.3f} cm".replace(f"{w_cm:.3f}", f"{w_cm:.3f}".replace(".", ",")).replace(f"{h_cm:.3f}", f"{h_cm:.3f}".replace(".", ","))
         try: font = ImageFont.load_default(size=28)
         except TypeError: font = ImageFont.load_default()
-        tmp = Image.new("L", (2400, 60), 0); d = ImageDraw.Draw(tmp)
-        box = d.textbbox((0, 0), text, font=font); d.text((-box[0], -box[1]), text, fill=255, font=font)
+        probe = ImageDraw.Draw(Image.new("L", (1, 1)))
+        box = probe.textbbox((0, 0), text, font=font)
         bw, bh = box[2] - box[0], box[3] - box[1]
-        tmp = tmp.crop((0, 0, bw, bh))
+        tmp = Image.new("L", (max(1, bw), max(1, bh)), 0)
+        ImageDraw.Draw(tmp).text((-box[0], -box[1]), text, fill=255, font=font)
         h_rows = min(int(0.30 / 2.54 * s.dpi_y), top - 8, bot - 8)               # texto com 3 mm de altura
         if h_rows < 20: return []
         w_dots = int(h_rows / s.dpi_y * 2.54 * (bw / bh) / 2.54 * s.dpi_x)
