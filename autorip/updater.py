@@ -46,9 +46,9 @@ def _version(value):
 
 
 def _safe_release_tag(tag):
-    """Release tag SemVer curta; nunca permite separadores de caminho."""
-    return (type(tag) is str and len(tag) <= 80
-            and re.fullmatch(r"v?\d{1,6}\.\d{1,6}\.\d{1,6}(?:[-+][A-Za-z0-9][A-Za-z0-9.+-]*)?", tag) is not None)
+    """Aceita apenas tags oficiais estáveis vMAJOR.MINOR.PATCH, sem path syntax."""
+    return (type(tag) is str and
+            re.fullmatch(r"v(?:0|[1-9][0-9]{0,5})\.(?:0|[1-9][0-9]{0,5})\.(?:0|[1-9][0-9]{0,5})", tag) is not None)
 
 
 def _allowed_download_url(url):

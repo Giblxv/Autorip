@@ -85,7 +85,7 @@ def test_cache_recente_valido_mantem_intervalo_de_consultas(tmp_path, monkeypatc
     assert updater.stage_latest(str(tmp_path), "0.8.4") is None
 
 
-@pytest.mark.parametrize("tag", ["0.8.7", "v1.2.3", "v1.2.3-rc.1", "1.2.3+build.4"])
+@pytest.mark.parametrize("tag", ["v0.8.7", "v1.2.3"])
 def test_tag_semver_segura_e_aceita(tag):
     assert updater._safe_release_tag(tag)
 
@@ -93,6 +93,7 @@ def test_tag_semver_segura_e_aceita(tag):
 @pytest.mark.parametrize("tag", [
     "../v1.2.3", "v1.2.3/path", r"v1.2.3\\..\\evil", "v1.2.3\x00",
     "v1.2.3/../../install", "v1.2.3" + "a" * 100, "v1.2.3 ext", "",
+    "0.8.7", "v01.2.3", "v1.2.3-rc.1", "v1.2.3+build.4", "v١.2.3",
 ])
 def test_tag_de_release_insegura_e_rejeitada(tag):
     assert not updater._safe_release_tag(tag)

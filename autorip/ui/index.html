@@ -103,7 +103,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}dialog[open]{animation:pop .45s}
  <div id="cfgBox" style="display:none"><div class="grid" id="grid"></div><p class="msg" id="cmsg"></p>
  <button class="c" onclick="saveCfg()">Salvar</button> <button onclick="dlg.close()">Fechar</button></div></dialog>
 <script>
-const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new Set(),first=true;
+const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new Set(),first=true,pendingUploads=[];
 let brandShown="";function setBrand(n,has){if(n!==brandShown){brandShown=n;$("logo").innerHTML="";n.split("").forEach(ch=>{const s=document.createElement("span");s.textContent=ch===" "?"\u00a0":ch;$("logo").appendChild(s)});document.title=n}const b=$("blogo");if(has&&!b.src){b.src="/api/brand-logo?"+Date.now();b.style.display=""}if(!has){b.style.display="none";b.removeAttribute("src")}}
 setBrand("AutoRIP",false);
 async function api(path,opt={}){opt.headers=Object.assign({},opt.headers,token?{"X-Token":token}:{});const r=await fetch(path,opt);return{ok:r.ok,d:await r.json()}}
@@ -144,7 +144,7 @@ async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+
 function celebrate(){const f=$("fim");f.classList.remove("go");void f.offsetWidth;f.classList.add("go")}
 async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
 async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});if(!r.ok){token="";openCfg();return}poll()}
-async function upload(files){if(!token){openCfg();return}for(const f of files){const w=$("wcm").value;const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(w)}`,{method:"POST",body:f});if(!r.ok){alert(`${f.name}: ${r.d.error||"falha no upload"}`);break}}poll();$("file").value=""}
+async function upload(files){const selected=Array.from(files||[]);if(!selected.length)return;if(!token){pendingUploads=selected;openCfg();return}for(const f of selected){const w=$("wcm").value;const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(w)}`,{method:"POST",body:f});if(!r.ok){alert(`${f.name}: ${r.d.error||"falha no upload"}`);break}}poll();$("file").value=""}
 $("file").onchange=e=>upload(e.target.files);
 const dz=$("drop");["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over")}));
 ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over")}));dz.addEventListener("drop",e=>upload(e.dataTransfer.files));
@@ -160,7 +160,7 @@ function openCfg(){$("dlg").showModal();$("lmsg").textContent="";if(token){showC
  $("loginTxt").textContent=hasPass?"Digite a senha para abrir as configurações.":"Primeiro acesso: crie uma senha (mínimo 8 caracteres).";$("pw2box").style.display=hasPass?"none":""}}
 async function doLogin(){let r;if(hasPass)r=await api("/api/login",{method:"POST",body:JSON.stringify({password:$("pw").value})});
  else{if($("pw").value.length<8){$("lmsg").textContent="Use pelo menos 8 caracteres";return}if($("pw").value!==$("pw2").value){$("lmsg").textContent="As senhas não conferem";return}r=await api("/api/setpass",{method:"POST",body:JSON.stringify({new:$("pw").value})})}
- if(r.ok){token=r.d.token;showCfg()}else $("lmsg").textContent=r.d.error}
+	 if(r.ok){token=r.d.token;showCfg();if(pendingUploads.length){const queued=pendingUploads;pendingUploads=[];upload(queued)}}else $("lmsg").textContent=r.d.error}
 async function showCfg(){const {ok,d}=await api("/api/settings");if(!ok){token="";return openCfg()}$("loginBox").style.display="none";$("cfgBox").style.display="";
  const g=$("grid");g.replaceChildren();window._cfg=d;SCHEMA.forEach(f=>{if(f[0]==="h"){const h=document.createElement("h3");h.textContent=f[1];g.appendChild(h);return}
   if(f[0]==="@logo"||f[0]==="@wm"){const label=document.createElement("label");label.appendChild(document.createTextNode(f[0]==="@logo"?"Logo da marca (PNG)":"Marca d'água (PNG)"));const file=document.createElement("input");file.type="file";file.accept="image/*";file.addEventListener("change",()=>upImg(f[0]==="@logo"?"logo":"watermark",file));label.appendChild(file);g.appendChild(label);return}

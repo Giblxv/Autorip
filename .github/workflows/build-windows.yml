@@ -25,6 +25,13 @@ jobs:
             requirements.txt
             requirements-dev.txt
 
+      - name: Conferir versao da tag e do instalador
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python tools/check_release_version.py "$env:RELEASE_TAG"
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
