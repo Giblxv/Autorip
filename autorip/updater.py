@@ -57,6 +57,24 @@ def _allowed_download_url(url):
             and (parsed.hostname or "").lower().rstrip(".") in _ALLOWED_DOWNLOAD_HOSTS)
 
 
+def _release_asset_url(url, tag, filename):
+    """A API deve apontar para artefatos publicados no proprio repositorio.
+
+    CDNs autorizados continuam validos apenas como redirects de _download().
+    """
+    if (type(url) is not str or type(tag) is not str
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+-]{0,79}", tag)):
+        return False
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        return (parsed.scheme == "https" and parsed.hostname == "github.com"
+                and parsed.port is None and not parsed.username and not parsed.password
+                and not parsed.query and not parsed.fragment
+                and parsed.path == f"/{REPOSITORY}/releases/download/{tag}/{filename}")
+    except ValueError:
+        return False
+
+
 def _read_limited(response, limit):
     length = response.headers.get("Content-Length")
     if length and length.isdigit() and int(length) > limit:
@@ -93,7 +111,8 @@ def _latest_release(timeout=15):
         return None
     installer_url = installer.get("browser_download_url")
     manifest_url = manifest.get("browser_download_url")
-    if not (_allowed_download_url(installer_url) and _allowed_download_url(manifest_url)):
+    if not (_release_asset_url(installer_url, tag, "AutoRIP_Setup.exe")
+            and _release_asset_url(manifest_url, tag, "SHA256SUMS.txt")):
         return None
     return {"tag": tag, "version": _version(tag), "installer_url": installer_url,
             "manifest_url": manifest_url, "published_at": data.get("published_at", "")}

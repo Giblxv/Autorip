@@ -711,6 +711,25 @@ class App:
             metadata = f + ".meta.json"
             try: os.remove(metadata)
             except OSError: pass
+
+            # Apaga tambem os previews do PRT excluido, sem seguir symlinks.
+            thumbs_root = os.path.join(self.home, "thumbs")
+            preview_names = [("by_name", os.path.splitext(os.path.basename(f))[0] + ".jpg")]
+            with self.lock:
+                for job in self.jobs:
+                    if job.get("out") == f:
+                        preview_names.append(("", job["id"] + ".jpg"))
+                        job["thumb"] = ""
+            if not os.path.islink(thumbs_root):
+                for subdir, filename in preview_names:
+                    folder = os.path.join(thumbs_root, subdir)
+                    thumb = os.path.join(folder, filename)
+                    if (not os.path.islink(folder) and not os.path.islink(thumb)
+                            and os.path.isfile(thumb)):
+                        try:
+                            os.remove(thumb)
+                        except OSError:
+                            self.log("Aviso: miniatura antiga nao pode ser removida.")
         self.log(f"Removido da fila: {os.path.basename(f)}")
 
     # ---- senha ----
@@ -975,6 +994,11 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/state":
             global LAST_CLIENT_SEEN
             LAST_CLIENT_SEEN = time.monotonic()
+            if not self._auth():
+                # Mantem o monitor do browser vivo na tela de login, sem expor
+                # filas, nomes de artes, logs ou caminhos de producao.
+                return self._send(200, dict(version=__version__, has_pass=APP.has_pass(),
+                                            brand="AutoRIP", has_logo=False, locked=True))
             with APP.lock:
                 jobs = [dict(job) for job in APP.jobs[-12:]]
                 logs = list(APP.log_lines[-60:])
@@ -1002,8 +1026,9 @@ class H(BaseHTTPRequestHandler):
                                         jobs=jobs, log=logs, hot_folder=hot_folder, output_folder=output_folder,
                                         icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo))
         if u.path == "/api/prints":
-            return self._send(200, APP.list_prints())
+            return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/thumb":
+            if not self._auth(): return self._send(401, {"error": "login"})
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
             thumbs_root = os.path.realpath(os.path.join(APP.home, "thumbs"))
             f = os.path.join(thumbs_root, "by_name", nm + ".jpg") if nm else os.path.join(thumbs_root, jid + ".jpg")
@@ -1038,7 +1063,8 @@ class H(BaseHTTPRequestHandler):
                 if not self._auth(): return self._send(401, {"error": "login"})
                 on = self._json().get("on")
                 if type(on) is not bool: raise ValueError("O estado automatico precisa ser booleano.")
-                with APP.settings_lock: APP.auto = on
+                # Persistir a escolha antes de alterar o estado em memoria.
+                APP.apply_settings({"auto_mode": on})
                 APP.log("Modo automatico " + ("LIGADO" if on else "desligado"))
                 return self._send(200, {"auto": on})
             if u.path == "/api/shutdown":
