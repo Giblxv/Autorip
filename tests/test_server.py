@@ -76,6 +76,23 @@ def request(base, path, method="GET", data=None, headers=None):
         return error.code, error.read(), error.headers
 
 
+def test_painel_rejeita_host_remoto_e_porta_incorreta(panel):
+    porta = int(panel.rsplit(":", 1)[1])
+    for host in (f"evil.example:{porta}", f"127.0.0.1:{porta + 1}",
+                 f"127.0.0.1:{porta}@evil.example"):
+        status, body, _ = request(panel, "/api/state", headers={"Host": host})
+        assert status == 403
+        assert json.loads(body)["error"] == "host local nao autorizado"
+        status, _, _ = request(panel, "/api/login", "POST",
+                               json.dumps({"password": "qualquer"}).encode(),
+                               headers={"Host": host})
+        assert status == 403
+
+    status, _, _ = request(panel, "/api/state",
+                           headers={"Host": f"localhost:{porta}"})
+    assert status == 200
+
+
 def test_configuracoes_nao_revelam_segredos_e_resposta_tem_headers(panel, app):
     app.s.trello_token = "TOKEN-QUE-NAO-PODE-SAIR"
     app.tokens.add("sessao-teste")
@@ -388,6 +405,31 @@ def test_hot_folder_retry_sidecar_apos_enqueue_no_mesmo_processo(app, sample_png
     assert len([name for name in os.listdir(app.s.output_folder) if name.endswith(".PRT")]) == 1
 
 
+def test_troca_de_senha_revoga_sessoes_anteriores(panel, app):
+    origin = {"Origin": panel, "Sec-Fetch-Site": "same-origin"}
+    first = json.dumps({"new": "senha-inicial-123"}).encode()
+    status, body, _ = request(panel, "/api/setpass", "POST", first, origin)
+    assert status == 200
+    old_token = json.loads(body)["token"]
+    assert old_token
+
+    status, body, _ = request(panel, "/api/setpass", "POST",
+        json.dumps({"password": "senha-inicial-123", "new": "nova-senha-456"}).encode(),
+        {**origin, "X-Token": old_token})
+    assert status == 200
+    new_token = json.loads(body)["token"]
+    assert new_token != old_token
+
+    status, _, _ = request(panel, "/api/settings", headers={"X-Token": old_token})
+    assert status == 401
+    status, _, _ = request(panel, "/api/settings", headers={"X-Token": new_token})
+    assert status == 200
+
+    status, _, _ = request(panel, "/api/login", "POST",
+        json.dumps({"password": "senha-inicial-123"}).encode(), origin)
+    assert status == 401
+
+
 def test_post_cross_site_e_operacoes_sem_sessao_sao_bloqueados(panel, app):
     body = json.dumps({"on": False}).encode()
     status, _, _ = request(panel, "/api/auto", "POST", body, {
@@ -400,6 +442,26 @@ def test_post_cross_site_e_operacoes_sem_sessao_sao_bloqueados(panel, app):
     status, response, _ = request(panel, "/api/auto", "POST", body,
                                   {**origin, "X-Token": "sessao-teste"})
     assert status == 200 and json.loads(response)["auto"] is False
+
+
+def test_upload_rejeita_sessao_ausente_ou_invalida(panel, app, sample_png, monkeypatch):
+    raw = sample_png.read_bytes()
+    called = []
+
+    def forbidden(*args, **kwargs):
+        called.append(True)
+        pytest.fail("Upload sem sessao nao pode chegar ao disco nem a fila")
+
+    monkeypatch.setattr(app, "receive_upload", forbidden)
+    for headers in (
+        {"Content-Type": "application/octet-stream"},
+        {"Content-Type": "application/octet-stream", "X-Token": "invalido"},
+    ):
+        status, body, _ = request(panel, "/api/upload?name=nao-autorizado.png",
+                                  "POST", raw, headers)
+        assert status == 401
+        assert json.loads(body)["error"] == "login"
+    assert called == []
 
 
 def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_png, monkeypatch):
@@ -420,7 +482,7 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     assert status == 400
 
     raw = sample_png.read_bytes()
-    headers = {**origin, "Content-Type": "application/octet-stream"}
+    headers = {**origin, "Content-Type": "application/octet-stream", "X-Token": token}
     pending = os.path.join(app.inbox, "pendente")
     os.makedirs(pending)
     with open(os.path.join(pending, "reserva.bin"), "wb") as target:
@@ -446,6 +508,61 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
                            {"Origin": "http://evil.example", "Sec-Fetch-Site": "cross-site"})
     assert status == 403
 
+
+def test_worker_sobrevive_a_arte_removida_antes_do_processamento(app, sample_png, tmp_path):
+    from conftest import wait_for_job
+
+    missing = tmp_path / "arte-removida.png"
+    missing.write_bytes(sample_png.read_bytes())
+    missing.unlink()
+
+    # A primeira falha nao pode matar o worker que processa o pedido seguinte.
+    failed = app.enqueue(str(missing), width_cm=2.54, move_to_done=True)
+    valid = app.enqueue(str(sample_png), width_cm=2.54, move_to_done=False)
+    wait_for_job(failed, timeout=15)
+    wait_for_job(valid, timeout=30)
+
+    assert failed["status"] == "erro"
+    assert valid["status"] == "pronto"
+    assert valid["out"] and os.path.isfile(valid["out"])
+    assert not (tmp_path / "arte-removida.png.autorip.json").exists()
+    assert str(missing) not in app.archive_pending
+
+
+def test_modo_automatico_persiste_entre_reinicios(panel, app):
+    from autorip.config import Settings
+
+    app.tokens.add("sessao-auto")
+    headers = {"X-Token": "sessao-auto", "Origin": panel, "Sec-Fetch-Site": "same-origin"}
+    for enabled in (True, False):
+        status, body, _ = request(panel, "/api/auto", "POST",
+                                  json.dumps({"on": enabled}).encode(), headers)
+        assert status == 200
+        assert json.loads(body)["auto"] is enabled
+        assert app.auto is enabled
+        assert app.s.auto_mode is enabled
+        assert Settings.load(app.cfg_path, base=app.home).auto_mode is enabled
+
+
+def test_modo_automatico_nao_ativa_se_salvar_configuracao_falhar(
+        panel, app, monkeypatch):
+    from autorip.config import Settings
+
+    app.tokens.add("sessao-auto")
+    previous = app.auto
+    assert previous is False
+
+    def cannot_save(self, path):
+        raise OSError("disco indisponivel durante a persistencia")
+
+    monkeypatch.setattr(Settings, "save", cannot_save)
+    status, _, _ = request(panel, "/api/auto", "POST",
+                           json.dumps({"on": True}).encode(),
+                           {"X-Token": "sessao-auto", "Origin": panel})
+    assert status == 500
+    assert app.auto is previous
+    assert app.s.auto_mode is False
+    assert json.loads(open(app.cfg_path, encoding="utf-8").read())["auto_mode"] is False
 
 def test_journal_ilegivel_bloqueia_reprocessamento_automatico(app, sample_png, tmp_path):
     import shutil

@@ -83,3 +83,29 @@ def test_cache_recente_valido_mantem_intervalo_de_consultas(tmp_path, monkeypatc
 
     monkeypatch.setattr(updater, "_latest_release", forbidden)
     assert updater.stage_latest(str(tmp_path), "0.8.4") is None
+
+
+@pytest.mark.parametrize("tag", ["0.8.7", "v1.2.3", "v1.2.3-rc.1", "1.2.3+build.4"])
+def test_tag_semver_segura_e_aceita(tag):
+    assert updater._safe_release_tag(tag)
+
+
+@pytest.mark.parametrize("tag", [
+    "../v1.2.3", "v1.2.3/path", r"v1.2.3\\..\\evil", "v1.2.3\x00",
+    "v1.2.3/../../install", "v1.2.3" + "a" * 100, "v1.2.3 ext", "",
+])
+def test_tag_de_release_insegura_e_rejeitada(tag):
+    assert not updater._safe_release_tag(tag)
+
+
+def test_stage_nao_baixa_release_com_tag_insegura(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater, "_latest_release", lambda: {
+        "tag": "v999.0.0/caminho", "version": (999, 0, 0),
+        "installer_url": "https://github.com/file", "manifest_url": "https://github.com/manifest",
+    })
+    def forbidden(*args, **kwargs):
+        pytest.fail("Release com tag insegura nao pode baixar arquivos")
+    monkeypatch.setattr(updater, "_download", forbidden)
+    assert updater.stage_latest(str(tmp_path), "0.8.7", force=True) is None
+    assert not (tmp_path / "updates").exists()

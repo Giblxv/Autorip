@@ -144,7 +144,7 @@ async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+
 function celebrate(){const f=$("fim");f.classList.remove("go");void f.offsetWidth;f.classList.add("go")}
 async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
 async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});if(!r.ok){token="";openCfg();return}poll()}
-async function upload(files){for(const f of files){const w=$("wcm").value;const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(w)}`,{method:"POST",body:f});if(!r.ok){alert(`${f.name}: ${r.d.error||"falha no upload"}`);break}}poll();$("file").value=""}
+async function upload(files){if(!token){openCfg();return}for(const f of files){const w=$("wcm").value;const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(w)}`,{method:"POST",body:f});if(!r.ok){alert(`${f.name}: ${r.d.error||"falha no upload"}`);break}}poll();$("file").value=""}
 $("file").onchange=e=>upload(e.target.files);
 const dz=$("drop");["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over")}));
 ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over")}));dz.addEventListener("drop",e=>upload(e.dataTransfer.files));
