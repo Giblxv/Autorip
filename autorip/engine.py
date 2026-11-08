@@ -150,7 +150,7 @@ class Rip:
         n_rows = top + art_rows + bot
         if n_rows <= 0 or n_rows >= 2**32 or n_dots >= 2**32:
             raise ValueError("As dimensoes de saida excedem o limite representavel pelo formato PRT.")
-        self._labels = self._make_labels(os.path.basename(png_path), w_cm, art_rows / s.dpi_y * 2.54, n_dots, top, art_rows, bot) if s.label_enabled else []
+        labels = self._make_labels(os.path.basename(png_path), w_cm, art_rows / s.dpi_y * 2.54, n_dots, top, art_rows, bot) if s.label_enabled else []
         estimated_bytes = HEADER_SIZE + n_rows * 12 * plane_bytes_for(n_dots)
         free_bytes = shutil.disk_usage(out_dir).free
         if estimated_bytes > free_bytes:
@@ -171,7 +171,7 @@ class Rip:
             while y < n_rows:
                 y1 = min(n_rows, y + strip_rows)
                 a0, a1 = max(0, y - halo), min(n_rows, y1 + halo)       # com halo para morfologia
-                planes_full = self._render(im, a0, a1, top, art_rows, n_dots)
+                planes_full = self._render(im, a0, a1, top, art_rows, n_dots, labels)
                 o = y - a0
                 blk = [p[o:o + (y1 - y)] for p in planes_full]
                 wr.write_block(blk)
@@ -200,7 +200,7 @@ class Rip:
         result["output_path"] = out_path
         return result
 
-    def _render(self, im, a0, a1, top, art_rows, n_dots):
+    def _render(self, im, a0, a1, top, art_rows, n_dots, labels):
         s = self.s
         h = a1 - a0
         planes = [np.zeros((h, n_dots), np.uint8) for _ in range(12)]
@@ -225,7 +225,7 @@ class Rip:
                 lvl = self._white_levels(full_alpha, a0)
                 for pidx in s.white_planes:
                     planes[pidx] = lvl
-        for (ly, lx, lab) in getattr(self, "_labels", []):                 # etiqueta em K (plano 0)
+        for (ly, lx, lab) in labels:                 # etiqueta em K (plano 0)
             ys, ye = max(ly, a0), min(ly + lab.shape[0], a1)
             if ye > ys:
                 seg = lab[ys - ly:ye - ly]
