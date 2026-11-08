@@ -831,6 +831,17 @@ class H(BaseHTTPRequestHandler):
             tokens = tuple(APP.tokens)
         return bool(incoming) and any(secrets.compare_digest(incoming, token) for token in tokens)
 
+    def _host_allowed(self):
+        """Aceita apenas o Host do painel local e a porta real do servidor."""
+        try:
+            parsed = urlparse("//" + self.headers.get("Host", ""))
+            return (parsed.hostname in ("127.0.0.1", "localhost")
+                    and parsed.port == self.server.server_address[1]
+                    and not parsed.username and not parsed.password
+                    and not parsed.path and not parsed.query and not parsed.fragment)
+        except ValueError:
+            return False
+
     def _origin_allowed(self):
         origin = self.headers.get("Origin")
         fetch_site = self.headers.get("Sec-Fetch-Site")
@@ -919,6 +930,8 @@ class H(BaseHTTPRequestHandler):
         return length
 
     def do_GET(self):
+        if not self._host_allowed():
+            return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
@@ -978,6 +991,8 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {"error": "nao encontrado"})
 
     def do_POST(self):
+        if not self._host_allowed():
+            return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if not self._origin_allowed():
             return self._send(403, {"error": "origem da requisicao nao autorizada"})
