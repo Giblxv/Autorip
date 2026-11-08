@@ -62,16 +62,18 @@ def test_mudanca_de_hot_folder_mantem_recuperacao_antiga(app, sample_png, tmp_pa
     app.apply_settings({"hot_folder": str(new_hot), "auto_mode": True, "poll_seconds": 0.25})
 
     deadline = time.monotonic() + 15
+    archived = os.path.join(app.s.done_folder, "interrompido.png")
     job = None
     while time.monotonic() < deadline:
         job = next((item for item in app.jobs if item["name"] == "interrompido.png"), None)
-        if job and job["status"] in ("pronto", "erro"):
+        if (job and job["status"] in ("pronto", "erro")
+                and os.path.isfile(archived) and not os.path.exists(abandoned)):
             break
         time.sleep(0.05)
 
     assert job is not None and job["status"] == "pronto"
     assert not os.path.exists(abandoned)
-    assert os.path.isfile(os.path.join(app.s.done_folder, "interrompido.png"))
+    assert os.path.isfile(archived)
     assert os.path.isfile(os.path.join(app.home, "hot_folders.json"))
 
 
