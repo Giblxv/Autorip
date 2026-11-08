@@ -85,6 +85,19 @@ def test_verifica_espaco_estimado_antes_de_criar_temporario(monkeypatch, sample_
     assert not list(tmp_path.glob("*.part"))
 
 
+def test_rip_preserva_128_mib_de_reserva_de_disco(monkeypatch, sample_png, tmp_path):
+    # Existe espaco suficiente para o arquivo, mas nao para a reserva minima.
+    livre = engine.MIN_FREE_DISK_BYTES + 10
+    monkeypatch.setattr(engine.shutil, "disk_usage",
+                        lambda path: SimpleNamespace(free=livre))
+    destination = tmp_path / "sem-reserva.PRT"
+    with pytest.raises(ValueError, match="128 MiB"):
+        Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False)).process(
+            str(sample_png), str(destination), 2.54)
+    assert not destination.exists()
+    assert not list(tmp_path.glob("*.part"))
+
+
 def test_rejeita_tira_acima_do_orcamento_de_memoria(monkeypatch, sample_png, tmp_path):
     monkeypatch.setattr(engine, "MAX_STRIP_MEMORY_BYTES", 1)
     with pytest.raises(ValueError, match="memória"):
