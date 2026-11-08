@@ -447,39 +447,49 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     assert status == 403
 
 
-def test_navegador_ocioso_nao_encerra_producao_ativa(app):
-    assert server_module._can_close_idle_browser(app) is True
 
-    app.auto = True
-    assert server_module._can_close_idle_browser(app) is False
-    app.auto = False
+def _idle_monitor_fake_app():
+    """Contexto isolado para evitar consumir a fila do worker real nos testes."""
+    import queue
+    from types import SimpleNamespace
+    from autorip.config import Settings
 
-    with app.lock:
-        app.queued_sources.add("trabalho-em-rip")
-    assert server_module._can_close_idle_browser(app) is False
-    with app.lock:
-        app.queued_sources.clear()
-
-    app.q.put(("pendente", "arte.png", None, True))
-    assert server_module._can_close_idle_browser(app) is False
-    app.q.get_nowait()
-
-    with app.lock:
-        app.archive_pending["arquivo-pendente"] = (None,)
-    assert server_module._can_close_idle_browser(app) is False
-    with app.lock:
-        app.archive_pending.clear()
-
-    assert server_module._can_close_idle_browser(app) is True
+    return SimpleNamespace(
+        settings_lock=threading.RLock(), lock=threading.RLock(),
+        auto=False, s=Settings(), queued_sources=set(),
+        archive_pending={}, q=queue.Queue())
 
 
-def test_navegador_ocioso_nao_encerra_monitoramento_trello_ativo(app):
-    app.auto = False
-    app.s.offline_mode = False
-    app.s.trello_key = "KEY"
-    app.s.trello_token = "TOKEN"
-    app.s.trello_in_list = "LIST"
-    assert server_module._can_close_idle_browser(app) is False
+def test_navegador_ocioso_nao_encerra_producao_ativa():
+    state = _idle_monitor_fake_app()
+    assert server_module._can_close_idle_browser(state) is True
 
-    app.s.offline_mode = True
-    assert server_module._can_close_idle_browser(app) is True
+    state.auto = True
+    assert server_module._can_close_idle_browser(state) is False
+    state.auto = False
+
+    state.queued_sources.add("trabalho-em-rip")
+    assert server_module._can_close_idle_browser(state) is False
+    state.queued_sources.clear()
+
+    state.q.put(("pendente", "arte.png", None, True))
+    assert server_module._can_close_idle_browser(state) is False
+    state.q.get_nowait()
+
+    state.archive_pending["arquivo-pendente"] = ("destino", None, "erros", 100, 0)
+    assert server_module._can_close_idle_browser(state) is False
+    state.archive_pending.clear()
+
+    assert server_module._can_close_idle_browser(state) is True
+
+
+def test_navegador_ocioso_nao_encerra_monitoramento_trello_ativo():
+    state = _idle_monitor_fake_app()
+    state.s.offline_mode = False
+    state.s.trello_key = "KEY"
+    state.s.trello_token = "TOKEN"
+    state.s.trello_in_list = "LIST"
+    assert server_module._can_close_idle_browser(state) is False
+
+    state.s.offline_mode = True
+    assert server_module._can_close_idle_browser(state) is True
