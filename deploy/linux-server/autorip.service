@@ -1,0 +1,23 @@
+[Unit]
+Description=AutoRIP automatic hot-folder worker
+After=network-online.target local-fs.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=autorip
+Group=autorip
+WorkingDirectory=/opt/autorip
+EnvironmentFile=-/etc/autorip/autorip.env
+ExecStart=/opt/autorip/venv/bin/python -m autorip --watch --config /var/lib/autorip/autorip.json
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/autorip /srv/autorip
+
+[Install]
+WantedBy=multi-user.target
