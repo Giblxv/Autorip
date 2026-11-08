@@ -76,6 +76,23 @@ def request(base, path, method="GET", data=None, headers=None):
         return error.code, error.read(), error.headers
 
 
+def test_painel_rejeita_host_remoto_e_porta_incorreta(panel):
+    porta = int(panel.rsplit(":", 1)[1])
+    for host in (f"evil.example:{porta}", f"127.0.0.1:{porta + 1}",
+                 f"127.0.0.1:{porta}@evil.example"):
+        status, body, _ = request(panel, "/api/state", headers={"Host": host})
+        assert status == 403
+        assert json.loads(body)["error"] == "host local nao autorizado"
+        status, _, _ = request(panel, "/api/login", "POST",
+                               json.dumps({"password": "qualquer"}).encode(),
+                               headers={"Host": host})
+        assert status == 403
+
+    status, _, _ = request(panel, "/api/state",
+                           headers={"Host": f"localhost:{porta}"})
+    assert status == 200
+
+
 def test_configuracoes_nao_revelam_segredos_e_resposta_tem_headers(panel, app):
     app.s.trello_token = "TOKEN-QUE-NAO-PODE-SAIR"
     app.tokens.add("sessao-teste")
