@@ -302,3 +302,11 @@ def test_perfil_incompativel_com_modo_da_arte_falha(tmp_path):
     Image.new("RGB", (20, 20), "blue").save(source, icc_profile=profile)
     with pytest.raises(ValueError, match="ICC.*entrada"):
         Rip(Settings()).process(str(source), str(tmp_path / "nao-criar.PRT"), width_cm=1)
+
+def test_etiqueta_nome_longo_nao_perde_final_com_dimensoes():
+    settings = Settings(dpi_x=300, dpi_y=300, mirror=False)
+    labels = Rip(settings)._make_labels("W" * 170 + ".png", 20, 10, 2362, 120, 100, 120)
+    assert len(labels) == 2
+    for _, _, pixels in labels:
+        assert np.any(pixels[:, int(pixels.shape[1] * 0.8):])
+        assert pixels.shape[1] <= 2362
