@@ -117,7 +117,7 @@ def test_publicacao_no_clobber_preserva_arquivo_criado_durante_rip(monkeypatch, 
     monkeypatch.setattr(engine.os, "link", create_competing_file)
     info = Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False)).process(
         str(sample_png), str(output), 2.54)
-    assert open(output, "rb").read() == b"arquivo de outro processo"
+    assert output.read_bytes() == b"arquivo de outro processo"
     assert info["output_path"] == str(tmp_path / "corrida_001.PRT")
     assert read_header(info["output_path"])["n_channels"] == 12
 
