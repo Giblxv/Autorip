@@ -1,0 +1,57 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller
+
+      - name: Build one-file executable
+        run: .\build_windows.bat
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: powershell
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss'
+
+      - name: Verify artifacts
+        shell: powershell
+        run: |
+          if (-not (Test-Path 'dist\AutoRIP\AutoRIP.exe')) { throw 'AutoRIP.exe não foi gerado' }
+          if (-not (Test-Path 'Output\AutoRIP_Setup.exe')) { throw 'AutoRIP_Setup.exe não foi gerado' }
+          Get-Item 'dist\AutoRIP\AutoRIP.exe', 'Output\AutoRIP_Setup.exe' | Select-Object FullName, Length
+
+      - name: Upload executable and installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoRIP-Windows-${{ github.sha }}
+          if-no-files-found: error
+          path: |
+            dist/AutoRIP/AutoRIP.exe
+            Output/AutoRIP_Setup.exe
+          retention-days: 14

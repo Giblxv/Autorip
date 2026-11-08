@@ -15,8 +15,10 @@ A base branca respeita o alfa/transparência e oferece controles de densidade, r
 ### Windows
 
 1. Instale Python 3.10+ e Inno Setup 6.
-2. Execute `build_windows.bat` para gerar `Output\AutoRIP_Setup.exe`.
+2. Execute `build_windows.bat` para gerar o executável one-file `dist\AutoRIP\AutoRIP.exe` e, com o Inno Setup 6 instalado, o instalador único `Output\AutoRIP_Setup.exe`.
 3. Para preparar o pacote em um computador conectado e compilar depois sem internet, use `preparar_offline.bat` e, no computador de build, `build_windows_offline.bat`.
+
+Também existe o workflow manual **Build Windows** no GitHub Actions. Ele compila em Windows, gera os dois arquivos e publica ambos como artefato baixável por 14 dias. O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
 
 O instalador é por usuário e não precisa de privilégios administrativos. A configuração inicial fica em `%APPDATA%\AutoRIP\autorip.json`; atualizações não sobrescrevem a configuração existente.
 
