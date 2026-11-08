@@ -46,6 +46,23 @@ def home_dir():
     return h
 
 
+def _save_thumbnail_atomic(image, destination):
+    """Escreve JPEG completo antes de substituir uma miniatura visivel no painel."""
+    directory = os.path.dirname(destination)
+    fd, temporary = tempfile.mkstemp(prefix=".thumb.", suffix=".part", dir=directory)
+    try:
+        with os.fdopen(fd, "wb") as target:
+            image.save(target, format="JPEG", quality=82)
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temporary, destination)
+    finally:
+        try:
+            os.remove(temporary)
+        except OSError:
+            pass
+
+
 class App:
     def __init__(self):
         self.home = home_dir()
@@ -575,10 +592,15 @@ class App:
                 a = w.getchannel("A").point(lambda v: int(v * settings.watermark_opacity)); w.putalpha(a)
                 bg.alpha_composite(w, ((im.width - w.width) // 2, (im.height - w.height) // 2))
             d = os.path.join(self.home, "thumbs"); os.makedirs(d, exist_ok=True)
-            rgb = bg.convert("RGB"); rgb.save(os.path.join(d, jid + ".jpg"), quality=82)
+            if os.path.islink(d):
+                return ""
             nd = os.path.join(d, "by_name"); os.makedirs(nd, exist_ok=True)
+            if os.path.islink(nd):
+                return ""
+            rgb = bg.convert("RGB")
             thumb_name = safe_filename(output_name or os.path.splitext(os.path.basename(path))[0])
-            rgb.save(os.path.join(nd, thumb_name + ".jpg"), quality=82)
+            _save_thumbnail_atomic(rgb, os.path.join(d, jid + ".jpg"))
+            _save_thumbnail_atomic(rgb, os.path.join(nd, thumb_name + ".jpg"))
             return f"/api/thumb?id={jid}"
         except Exception:
             return ""
@@ -677,6 +699,25 @@ class App:
             metadata = f + ".meta.json"
             try: os.remove(metadata)
             except OSError: pass
+
+            # Apaga tambem os previews do PRT excluido, sem seguir symlinks.
+            thumbs_root = os.path.join(self.home, "thumbs")
+            preview_names = [("by_name", os.path.splitext(os.path.basename(f))[0] + ".jpg")]
+            with self.lock:
+                for job in self.jobs:
+                    if job.get("out") == f:
+                        preview_names.append(("", job["id"] + ".jpg"))
+                        job["thumb"] = ""
+            if not os.path.islink(thumbs_root):
+                for subdir, filename in preview_names:
+                    folder = os.path.join(thumbs_root, subdir)
+                    thumb = os.path.join(folder, filename)
+                    if (not os.path.islink(folder) and not os.path.islink(thumb)
+                            and os.path.isfile(thumb)):
+                        try:
+                            os.remove(thumb)
+                        except OSError:
+                            self.log("Aviso: miniatura antiga nao pode ser removida.")
         self.log(f"Removido da fila: {os.path.basename(f)}")
 
     # ---- senha ----
@@ -695,6 +736,9 @@ class App:
                 json.dump(dict(salt=salt, hash=self._hash(pw, salt)), target)
                 target.flush(); os.fsync(target.fileno())
             os.replace(temporary, self.auth_path)
+            # Uma troca de senha invalida tokens antigos (incluindo de outras abas).
+            with self.lock:
+                self.tokens.clear()
         except BaseException:
             try: os.close(fd)
             except OSError: pass
@@ -831,6 +875,17 @@ class H(BaseHTTPRequestHandler):
             tokens = tuple(APP.tokens)
         return bool(incoming) and any(secrets.compare_digest(incoming, token) for token in tokens)
 
+    def _host_allowed(self):
+        """Aceita apenas o Host do painel local e a porta real do servidor."""
+        try:
+            parsed = urlparse("//" + self.headers.get("Host", ""))
+            return (parsed.hostname in ("127.0.0.1", "localhost")
+                    and parsed.port == self.server.server_address[1]
+                    and not parsed.username and not parsed.password
+                    and not parsed.path and not parsed.query and not parsed.fragment)
+        except ValueError:
+            return False
+
     def _origin_allowed(self):
         origin = self.headers.get("Origin")
         fetch_site = self.headers.get("Sec-Fetch-Site")
@@ -919,6 +974,8 @@ class H(BaseHTTPRequestHandler):
         return length
 
     def do_GET(self):
+        if not self._host_allowed():
+            return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
@@ -978,6 +1035,8 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {"error": "nao encontrado"})
 
     def do_POST(self):
+        if not self._host_allowed():
+            return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if not self._origin_allowed():
             return self._send(403, {"error": "origem da requisicao nao autorizada"})
@@ -995,6 +1054,7 @@ class H(BaseHTTPRequestHandler):
                 threading.Thread(target=shutdown_server, daemon=True).start()
                 return
             if u.path == "/api/upload":
+                if not self._auth(): return self._send(401, {"error": "login"})
                 q = parse_qs(u.query)
                 name = safe_filename(q.get("name", ["arte.png"])[0])
                 if not name.lower().endswith(EXTS):
