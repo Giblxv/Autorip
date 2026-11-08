@@ -64,6 +64,7 @@ class App:
         self.upload_lock = threading.Lock()
         self.login_attempts = {}
         self.archive_pending = {}
+        self.invalid_journal_alerts = set()
         self.queued_sources = set()
         self.source_jobs = {}
         self._watch_locks = []
@@ -207,8 +208,25 @@ class App:
 
     def _recover_marked_source(self, source, settings):
         marker = read_archive_marker(source)
-        if not marker:
+        if marker is None:
+            if os.path.lexists(source + ".autorip.json"):
+                # Sem um journal legivel nao ha prova de que nenhum PRT foi publicado.
+                # Preservar a arte evita um RIP duplicado; remover o marker libera revisao manual.
+                key = os.path.normcase(os.path.abspath(source))
+                with self.lock:
+                    if len(self.invalid_journal_alerts) >= 256:
+                        self.invalid_journal_alerts.clear()
+                    first_warning = key not in self.invalid_journal_alerts
+                    self.invalid_journal_alerts.add(key)
+                if first_warning:
+                    self.log("ATENCAO: journal invalido em " + os.path.basename(source)
+                             + "; arte preservada para revisao manual, sem repetir RIP.")
+                return True
+            with self.lock:
+                self.invalid_journal_alerts.discard(os.path.normcase(os.path.abspath(source)))
             return False
+        with self.lock:
+            self.invalid_journal_alerts.discard(os.path.normcase(os.path.abspath(source)))
         if not source_signature_matches(source, marker):
             self.log(f"Aviso: journal sem identidade correspondente; preservando {os.path.basename(source)} em erros.")
             self._archive_input(source, settings.error_folder, None, "pasta de erros")
@@ -958,11 +976,13 @@ class H(BaseHTTPRequestHandler):
                 body = source.read()
             return self._send(200, body, "text/html; charset=utf-8")
         if u.path == "/api/state":
+            global LAST_CLIENT_SEEN
+            # Host ja foi validado; polling do estado reservado tambem conta como
+            # atividade do painel sem revelar qualquer dado privado.
+            LAST_CLIENT_SEEN = time.monotonic()
             if not self._auth():
                 return self._send(200, dict(version=__version__, has_pass=APP.has_pass(),
                                             brand="AutoRIP", has_logo=False, locked=True))
-            global LAST_CLIENT_SEEN
-            LAST_CLIENT_SEEN = time.monotonic()
             with APP.lock:
                 jobs = [dict(job) for job in APP.jobs[-12:]]
                 logs = list(APP.log_lines[-60:])
@@ -1131,6 +1151,41 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {"error": "nao encontrado"})
 
 
+def _can_close_idle_browser(app):
+    """Fecha o painel ocioso somente se nao houver producao ou recuperacao pendente."""
+    with app.settings_lock:
+        automatic = app.auto
+        settings = app.s
+        trello_active = (not settings.offline_mode and bool(settings.trello_key)
+                         and bool(settings.trello_token) and bool(settings.trello_in_list))
+        hot_folders = list(getattr(app, "_known_hot_folders", ()))
+        current_hot = os.path.normcase(os.path.realpath(settings.hot_folder))
+        if current_hot not in hot_folders:
+            hot_folders.append(current_hot)
+    if automatic or trello_active:
+        return False
+    with app.lock:
+        jobs = list(getattr(app, "jobs", ()))
+        pending = (bool(app.queued_sources or app.archive_pending)
+                   or any(job.get("archive_pending") for job in jobs)
+                   or not app.q.empty())
+    if pending:
+        return False
+    # Jobs whose journal could not be persisted may not be in archive_pending or
+    # the bounded 50-job UI history; their source in processing is authoritative.
+    for hot_folder in hot_folders:
+        processing = os.path.join(hot_folder, ".autorip_processing")
+        try:
+            names = os.listdir(processing)
+        except FileNotFoundError:
+            continue
+        except OSError:
+            return False
+        if any(name.lower().endswith(EXTS) for name in names):
+            return False
+    return True
+
+
 def serve(port=8765, open_browser=True, status_callback=None):
     global APP, HTTP_SERVER, LAST_CLIENT_SEEN
     def report(message):
@@ -1199,7 +1254,8 @@ def serve(port=8765, open_browser=True, status_callback=None):
     if open_browser:
         def browser_monitor():
             while HTTP_SERVER is srv:
-                if time.monotonic() - LAST_CLIENT_SEEN > 15:
+                if (time.monotonic() - LAST_CLIENT_SEEN > 15
+                        and _can_close_idle_browser(APP)):
                     srv.shutdown()
                     return
                 time.sleep(2)

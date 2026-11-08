@@ -723,3 +723,103 @@ def test_modo_direto_sem_janela_inicia_servidor_sem_browser(monkeypatch, missing
     monkeypatch.setattr(server, "serve", lambda **kwargs: calls.append(kwargs))
     server.run_direct()
     assert calls == [{"open_browser": False}]
+
+
+def test_journal_ilegivel_preserva_arte_e_nao_recomeca_rip(app, sample_png, tmp_path):
+    source = tmp_path / "origem-sem-reconciliacao.png"
+    source.write_bytes(sample_png.read_bytes())
+    marker = tmp_path / "origem-sem-reconciliacao.png.autorip.json"
+    marker.write_text('{"version":1,"phase":"success","output":"arquivo.PRT"',
+                      encoding="utf-8")
+    alerts_before = sum("journal invalido" in line.lower() and source.name in line
+                        for line in app.log_lines)
+
+    assert app._recover_marked_source(str(source), app.s) is True
+    assert app._recover_marked_source(str(source), app.s) is True
+    assert source.is_file() and marker.is_file()
+    alerts_after = sum("journal invalido" in line.lower() and source.name in line
+                       for line in app.log_lines)
+    assert alerts_after == alerts_before + 1
+
+    marker.unlink()
+    assert app._recover_marked_source(str(source), app.s) is False
+
+
+def test_journal_symlink_invalido_preserva_evidencia(app, sample_png, tmp_path):
+    source = tmp_path / "symlink-marker.png"
+    source.write_bytes(sample_png.read_bytes())
+    evidence = tmp_path / "outside.json"
+    evidence.write_text("evidencia externa", encoding="utf-8")
+    marker = tmp_path / "symlink-marker.png.autorip.json"
+    try:
+        os.symlink(evidence, marker)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink indisponivel")
+
+    assert app._recover_marked_source(str(source), app.s) is True
+    assert source.is_file() and marker.is_symlink()
+    assert evidence.read_text(encoding="utf-8") == "evidencia externa"
+
+
+def _idle_monitor_fake_app(tmp_path):
+    import queue
+    from types import SimpleNamespace
+    from autorip.config import Settings
+
+    hot = tmp_path / "idle-hot"
+    settings = Settings(hot_folder=str(hot))
+    settings.offline_mode = True
+    return SimpleNamespace(settings_lock=threading.RLock(), lock=threading.RLock(),
+                           auto=False, s=settings, queued_sources=set(),
+                           archive_pending={}, invalid_journal_alerts=set(),
+                           jobs=[], q=queue.Queue(),
+                           _known_hot_folders=[os.path.normcase(os.path.realpath(hot))])
+
+
+def test_browser_idle_so_fecha_sem_producao_ou_recovery(tmp_path):
+    app = _idle_monitor_fake_app(tmp_path)
+    assert server_module._can_close_idle_browser(app) is True
+
+    app.auto = True
+    assert server_module._can_close_idle_browser(app) is False
+    app.auto = False
+
+    app.s.offline_mode = False
+    app.s.trello_key, app.s.trello_token, app.s.trello_in_list = "KEY", "TOKEN", "LIST"
+    assert server_module._can_close_idle_browser(app) is False
+    app.s.offline_mode = True
+    app.s.trello_key = app.s.trello_token = app.s.trello_in_list = ""
+
+    app.queued_sources.add("active-source")
+    assert server_module._can_close_idle_browser(app) is False
+    app.queued_sources.clear()
+    app.q.put("pending job")
+    assert server_module._can_close_idle_browser(app) is False
+    app.q.get_nowait()
+    app.archive_pending["pending-source"] = (None, None, None)
+    assert server_module._can_close_idle_browser(app) is False
+    app.archive_pending.clear()
+    app.jobs.append({"archive_pending": True})
+    assert server_module._can_close_idle_browser(app) is False
+    app.jobs.clear()
+    app.invalid_journal_alerts.add("invalid-source")
+    assert server_module._can_close_idle_browser(app) is True
+    app.invalid_journal_alerts.clear()
+
+    processing = tmp_path / "idle-hot" / ".autorip_processing"
+    processing.mkdir(parents=True)
+    (processing / "needs-recovery.png").write_bytes(b"pending")
+    assert server_module._can_close_idle_browser(app) is False
+    (processing / "needs-recovery.png").unlink()
+    assert server_module._can_close_idle_browser(app) is True
+
+
+def test_poll_de_estado_restrito_atualiza_atividade_do_painel(panel):
+    previous = server_module.LAST_CLIENT_SEEN
+    try:
+        server_module.LAST_CLIENT_SEEN = 1.0
+        status, body, _ = request(panel, "/api/state")
+        assert status == 200 and json.loads(body)["locked"] is True
+        assert server_module.LAST_CLIENT_SEEN > 1.0
+    finally:
+        server_module.LAST_CLIENT_SEEN = previous

@@ -67,10 +67,26 @@ def _write_metadata(output, info):
     write_json_atomic(output + ".meta.json", {key: info[key] for key in fields if key in info}, prefix=".meta.")
 
 
-def _recover_marked(source, s, log, archive_pending, seen):
+def _recover_marked(source, s, log, archive_pending, seen, invalid_journal_alerts=None):
     marker = read_archive_marker(source)
     if marker is None:
+        if os.path.lexists(archive_marker_path(source)):
+            key = os.path.normcase(os.path.abspath(source))
+            first_warning = True
+            if invalid_journal_alerts is not None:
+                if len(invalid_journal_alerts) >= 256:
+                    invalid_journal_alerts.clear()
+                first_warning = key not in invalid_journal_alerts
+                invalid_journal_alerts.add(key)
+            if first_warning:
+                log("[AVISO] Journal invalido em " + os.path.basename(source)
+                    + "; arte preservada para revisao manual, sem repetir RIP.")
+            return True
+        if invalid_journal_alerts is not None:
+            invalid_journal_alerts.discard(os.path.normcase(os.path.abspath(source)))
         return False
+    if invalid_journal_alerts is not None:
+        invalid_journal_alerts.discard(os.path.normcase(os.path.abspath(source)))
     if not source_signature_matches(source, marker):
         log(f"[AVISO] Journal sem identidade correspondente; preservando {os.path.basename(source)} em erros.")
         recovery = os.path.join(s.hot_folder, ".autorip_archive_recovery")
@@ -130,7 +146,8 @@ def _recover_marked(source, s, log, archive_pending, seen):
     return True
 
 
-def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None):
+def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None,
+             invalid_journal_alerts=None):
     """Processa arquivos estaveis e retoma journals sem repetir um RIP ja publicado."""
     s.canonicalize_folders()
     s.validate()
@@ -141,6 +158,8 @@ def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None):
     os.makedirs(processing_folder, exist_ok=True)
     if archive_pending is None:
         archive_pending = {}
+    if invalid_journal_alerts is None:
+        invalid_journal_alerts = set()
 
     now = time.monotonic()
     for path, data in list(archive_pending.items()):
@@ -162,9 +181,16 @@ def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None):
     # Recupera trabalhos deixados na pasta de processamento por uma interrupcao.
     for name in sorted(os.listdir(processing_folder)):
         path = os.path.join(processing_folder, name)
-        if not name.lower().endswith(EXTS) or path in archive_pending or _signature(path) is None:
+        if not name.lower().endswith(EXTS) or path in archive_pending:
             continue
-        if _recover_marked(path, s, log, archive_pending, seen):
+        try:
+            signature = _signature(path)
+        except OSError:
+            # O arquivo pode ter sido movido/apagado apos os.listdir(); outros jobs continuam.
+            continue
+        if signature is None:
+            continue
+        if _recover_marked(path, s, log, archive_pending, seen, invalid_journal_alerts):
             continue
         if os.path.lexists(archive_marker_path(path)):
             remove_archive_marker(path)
@@ -274,10 +300,11 @@ def watch(s: Settings, log=print, stop=lambda: False):
         rip = Rip(s)
         seen = {}
         archive_pending = {}
+        invalid_journal_alerts = set()
         log(f"Observando: {s.hot_folder}")
         while not stop():
             try:
-                run_once(s, rip, log, seen, archive_pending)
+                run_once(s, rip, log, seen, archive_pending, invalid_journal_alerts)
             except Exception:
                 log(f"[ERRO] Falha ao varrer a hot-folder\n{traceback.format_exc()}")
             time.sleep(max(0.5, s.poll_seconds))
