@@ -1,3 +1,5 @@
+> Este checklist é orientativo: ele não bloqueia merges por si só. Configure rulesets/branch protection e required reviews no GitHub para aplicar enforcement; use “N/A” acompanhado de justificativa quando um item não se aplicar.
+
 ## Qual problema foi identificado?
 Descreva o defeito, a reprodução e a evidência. Evite declarar que algo foi testado se não foi.
 

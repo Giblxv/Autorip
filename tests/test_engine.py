@@ -98,6 +98,25 @@ def test_rip_preserva_128_mib_de_reserva_de_disco(monkeypatch, sample_png, tmp_p
     assert not list(tmp_path.glob("*.part"))
 
 
+@pytest.mark.parametrize("extra", [-1, 0])
+def test_rip_preflight_reserva_pico_de_duas_copias_e_limite_exato(monkeypatch, sample_png, tmp_path, extra):
+    # 300x200 pixels a 300 DPI, 2.54 cm, margens padrao de 0.5 in e 12 planos.
+    estimated = engine.HEADER_SIZE + 500 * 12 * engine.plane_bytes_for(300)
+    required = 2 * estimated + engine.MIN_FREE_DISK_BYTES
+    monkeypatch.setattr(engine.shutil, "disk_usage",
+                        lambda path: SimpleNamespace(free=required + extra))
+    destination = tmp_path / f"limite-{extra}.PRT"
+    rip = Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False))
+    if extra < 0:
+        with pytest.raises(ValueError, match="duas copias"):
+            rip.process(str(sample_png), str(destination), 2.54)
+        assert not destination.exists()
+        assert not list(tmp_path.glob("*.part"))
+    else:
+        result = rip.process(str(sample_png), str(destination), 2.54)
+        assert result["output_path"] == str(destination)
+
+
 def test_rejeita_tira_acima_do_orcamento_de_memoria(monkeypatch, sample_png, tmp_path):
     monkeypatch.setattr(engine, "MAX_STRIP_MEMORY_BYTES", 1)
     with pytest.raises(ValueError, match="memória"):
@@ -256,3 +275,84 @@ def test_etiqueta_nome_longo_nao_perde_final_com_dimensoes():
     for _, _, pixels in labels:
         assert np.any(pixels[:, int(pixels.shape[1] * 0.8):])
         assert pixels.shape[1] <= 2362
+
+
+def test_rip_preserva_final_da_etiqueta_longa_no_prt(tmp_path):
+    source = tmp_path / ("W" * 170 + ".png")
+    Image.new("RGB", (30, 20), "blue").save(source)
+    output = tmp_path / "etiqueta-longa.PRT"
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0.5,
+                        margin_bottom_in=0.5, mirror=False)
+    info = Rip(settings).process(str(source), str(output), width_cm=20)
+    header = read_header(output)
+    top = round(settings.margin_top_in * settings.dpi_y)
+    height = int(0.30 / 2.54 * settings.dpi_y)
+    y0 = (top - height) // 2
+    dots = read_rows(output, y0, y0 + height)[settings.channel_order.index("K")]
+    assert header["n_dots"] == info["n_dots"]
+    assert np.any(dots[:, int(header["n_dots"] * 0.8):])
+
+
+
+def test_rip_converte_tiff_lab_com_perfil_icc_embutido(tmp_path):
+    from PIL import ImageCms
+
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB", 6500))
+    lab = Image.new("LAB", (24, 24), (150, 180, 200))
+    source = tmp_path / "lab.tif"
+    lab.save(source, icc_profile=profile.tobytes())
+    rgb = ImageCms.profileToProfile(lab, profile, ImageCms.createProfile("sRGB"), outputMode="RGB")
+    reference = tmp_path / "srgb.png"
+    rgb.save(reference, icc_profile=b"")
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0, margin_bottom_in=0,
+                        label_enabled=False, white_choke_mm=0, white_fill_holes_mm=0)
+    rip = Rip(settings)
+    actual, expected = tmp_path / "lab.PRT", tmp_path / "srgb.PRT"
+    rip.process(str(source), str(actual), width_cm=1)
+    rip.process(str(reference), str(expected), width_cm=1)
+    assert actual.read_bytes() == expected.read_bytes()
+
+
+def test_rip_rejeita_perfil_icc_embutido_invalido(tmp_path):
+    source = tmp_path / "invalido.png"
+    Image.new("RGB", (20, 20), "blue").save(source, icc_profile=b"perfil invalido")
+    output = tmp_path / "invalido.PRT"
+    with pytest.raises(ValueError, match="ICC.*entrada"):
+        Rip(Settings(label_enabled=False)).process(str(source), str(output), width_cm=1)
+    assert not output.exists()
+    assert not list(tmp_path.glob("*.part"))
+
+
+def test_perfil_rgb_embutido_preserva_alpha(tmp_path):
+    from PIL import ImageCms
+
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    source = tmp_path / "alpha-icc.png"
+    image = Image.new("RGBA", (12, 12), (80, 140, 200, 128))
+    image.putpixel((0, 0), (200, 0, 0, 0))
+    image.save(source, icc_profile=profile)
+    with Image.open(source) as opened:
+        converted = Rip(Settings())._source_rgba(opened)
+    assert converted.mode == "RGBA"
+    assert converted.getchannel("A").tobytes() == image.getchannel("A").tobytes()
+    assert converted.getpixel((6, 6))[:3] == (80, 140, 200)
+
+
+def test_perfil_incompativel_com_modo_da_arte_falha(tmp_path):
+    from PIL import ImageCms
+
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB")).tobytes()
+    source = tmp_path / "perfil-incompativel.png"
+    Image.new("RGB", (20, 20), "blue").save(source, icc_profile=profile)
+    with pytest.raises(ValueError, match="ICC.*entrada"):
+        Rip(Settings()).process(str(source), str(tmp_path / "nao-criar.PRT"), width_cm=1)
+
+
+def test_perfil_icc_embutido_acima_do_limite_falha_antes_do_parser(monkeypatch):
+    image = Image.new("RGB", (2, 2), "blue")
+    image.info["icc_profile"] = b"x" * (engine.MAX_EMBEDDED_ICC_BYTES + 1)
+    rip = Rip(Settings())
+    monkeypatch.setattr(engine.ImageCms, "ImageCmsProfile",
+                        lambda *_args, **_kwargs: pytest.fail("perfil excessivo chegou ao parser ICC"))
+    with pytest.raises(ValueError, match="16 MiB"):
+        rip._source_rgba(image)

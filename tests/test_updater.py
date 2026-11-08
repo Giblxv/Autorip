@@ -110,3 +110,71 @@ def test_stage_nao_baixa_release_com_tag_insegura(tmp_path, monkeypatch):
     monkeypatch.setattr(updater, "_download", forbidden)
     assert updater.stage_latest(str(tmp_path), "0.8.7", force=True) is None
     assert not (tmp_path / "updates").exists()
+
+
+@pytest.mark.parametrize("failure", ["manifest", "installer"])
+def test_stage_remove_download_parcial_apos_falha(tmp_path, monkeypatch, failure):
+    from pathlib import Path
+    import urllib.error
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater, "_latest_release", lambda: {
+        "tag": "v1.0.0", "version": (1, 0, 0),
+        "manifest_url": "manifest", "installer_url": "installer"})
+
+    def download(url, path, limit):
+        if url == failure:
+            Path(path).write_bytes(b"download interrompido")
+            raise urllib.error.URLError("interrompido")
+        Path(path).write_bytes(b"a" * 64 + b"  AutoRIP_Setup.exe\n")
+
+    monkeypatch.setattr(updater, "_download", download)
+    assert updater.stage_latest(str(tmp_path), "0.8.4") is None
+    assert list((tmp_path / "updates").iterdir()) == []
+
+
+def test_atualizador_restringe_urls_canonicas_da_release_e_redirects():
+    tag = "v0.8.7"
+    installer = f"https://github.com/Giblxv/Autorip/releases/download/{tag}/AutoRIP_Setup.exe"
+    manifest = f"https://github.com/Giblxv/Autorip/releases/download/{tag}/SHA256SUMS.txt"
+    assert updater._release_asset_url(installer, tag, "AutoRIP_Setup.exe")
+    assert updater._release_asset_url(manifest, tag, "SHA256SUMS.txt")
+    for url in (
+        f"https://github.com/attacker/repo/releases/download/{tag}/AutoRIP_Setup.exe",
+        "https://github.com/Giblxv/Autorip/releases/download/v0.8.6/AutoRIP_Setup.exe",
+        installer + "?token=secret",
+        installer.replace("github.com/", "github.com:444/"),
+        "https://release-assets.githubusercontent.com/download/AutoRIP_Setup.exe",
+    ):
+        assert not updater._release_asset_url(url, tag, "AutoRIP_Setup.exe")
+    assert updater._allowed_download_redirect_url(
+        "https://release-assets.githubusercontent.com/file?signature=abc")
+    assert not updater._allowed_download_redirect_url(
+        "https://github.com/attacker/repo/releases/download/x/evil.exe")
+    assert not updater._allowed_download_redirect_url("https://release-assets.githubusercontent.com:444/file")
+    assert not updater._allowed_download_redirect_url("https://evil.example/file")
+
+
+def test_api_release_rejeita_asset_de_outro_repositorio(monkeypatch):
+    import io
+    import json
+
+    release = {
+        "tag_name": "v0.8.7", "draft": False, "prerelease": False,
+        "assets": [
+            {"name": "AutoRIP_Setup.exe", "browser_download_url":
+             "https://github.com/attacker/repo/releases/download/v0.8.7/AutoRIP_Setup.exe"},
+            {"name": "SHA256SUMS.txt", "browser_download_url":
+             "https://github.com/Giblxv/Autorip/releases/download/v0.8.7/SHA256SUMS.txt"},
+        ],
+    }
+
+    class FakeResponse(io.BytesIO):
+        headers = {}
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            return FakeResponse(json.dumps(release).encode())
+
+    monkeypatch.setattr(updater.urllib.request, "build_opener", lambda *_args: FakeOpener())
+    assert updater._latest_release() is None

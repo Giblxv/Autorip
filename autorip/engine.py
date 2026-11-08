@@ -1,4 +1,5 @@
 """Motor do RIP: PNG -> (ICC) CMYK -> meio-tom estocastico 2 bits + branco automatico -> .PRT"""
+import io
 import os
 import shutil
 import tempfile
@@ -10,6 +11,7 @@ from .prt import PrtWriter, plane_bytes_for, HEADER_SIZE
 from .paths import publish_unique_file
 
 MAX_INPUT_PIXELS = 80_000_000
+MAX_EMBEDDED_ICC_BYTES = 16 * 1024 * 1024
 MIN_FREE_DISK_BYTES = 128 * 1024 * 1024  # reserva para logs, journal e sistema
 STRIP = 512  # reduz o pico de memoria em folhas largas
 MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
@@ -46,6 +48,32 @@ class Rip:
                     srgb, prof, "RGB", "CMYK", renderingIntent=ImageCms.Intent(s.intent), flags=flags)
             except Exception as exc:
                 self.icc_error = f"Perfil ICC indisponivel ou invalido: {exc}"
+
+    def _source_rgba(self, source: Image.Image) -> Image.Image:
+        embedded = source.info.get("icc_profile")
+        if not embedded:
+            return source.convert("RGBA")
+        if not isinstance(embedded, (bytes, bytearray)):
+            raise ValueError("Perfil ICC de entrada inválido: formato binário esperado.")
+        if len(embedded) > MAX_EMBEDDED_ICC_BYTES:
+            raise ValueError("Perfil ICC de entrada excede o limite de 16 MiB.")
+        try:
+            profile = ImageCms.ImageCmsProfile(io.BytesIO(embedded))
+            if source.mode in ("RGBA", "P", "PA"):
+                color = source.convert("RGB")
+            elif source.mode == "LA":
+                color = source.getchannel("L")
+            else:
+                color = source
+            flags = ImageCms.Flags.BLACKPOINTCOMPENSATION if self.s.black_point_comp else 0
+            rgb = ImageCms.profileToProfile(color, profile, ImageCms.createProfile("sRGB"),
+                                            outputMode="RGB", renderingIntent=self.s.intent, flags=flags)
+            rgba = rgb.convert("RGBA")
+            if source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info:
+                rgba.putalpha(source.convert("RGBA").getchannel("A"))
+            return rgba
+        except Exception as exc:
+            raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc
 
     # ---------- cor ----------
     def _to_cmyk(self, rgb: Image.Image) -> np.ndarray:
@@ -139,7 +167,7 @@ class Rip:
             if orientation in (5, 6, 7, 8):
                 source_dpi_x, source_dpi_y = source_dpi_y, source_dpi_x
             source.load()
-            im = source.convert("RGBA")
+            im = self._source_rgba(source)
         w_cm = width_cm if width_cm is not None else (im.width / source_dpi_x * 2.54)
         if not np.isfinite(w_cm) or w_cm <= 0:
             raise ValueError("A largura de impressão precisa ser um número positivo.")
@@ -154,9 +182,10 @@ class Rip:
             raise ValueError("As dimensoes de saida excedem o limite representavel pelo formato PRT.")
         labels = self._make_labels(os.path.basename(png_path), w_cm, art_rows / s.dpi_y * 2.54, n_dots, top, art_rows, bot) if s.label_enabled else []
         estimated_bytes = HEADER_SIZE + n_rows * 12 * plane_bytes_for(n_dots)
+        required_free_bytes = 2 * estimated_bytes + MIN_FREE_DISK_BYTES
         free_bytes = shutil.disk_usage(out_dir).free
-        if estimated_bytes + MIN_FREE_DISK_BYTES > free_bytes:
-            raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB, alem de 128 MiB de reserva livre.")
+        if required_free_bytes > free_bytes:
+            raise ValueError(f"Espaco insuficiente: reserve ate duas copias do PRT (aproximadamente {2 * estimated_bytes / 1024**3:.2f} GiB) e 128 MiB de espaco livre.")
         fill_rows = int(round(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         choke_rows = int(round(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         halo = 2 * fill_rows + choke_rows + 2

@@ -79,7 +79,8 @@ def request(base, path, method="GET", data=None, headers=None):
 def test_painel_rejeita_host_remoto_e_porta_incorreta(panel):
     porta = int(panel.rsplit(":", 1)[1])
     for host in (f"evil.example:{porta}", f"127.0.0.1:{porta + 1}",
-                 f"127.0.0.1:{porta}@evil.example"):
+                 f"127.0.0.1:{porta}@evil.example", f"@localhost:{porta}",
+                 f":@localhost:{porta}", f"localhost:{porta}?", f"localhost:{porta}#"):
         status, body, _ = request(panel, "/api/state", headers={"Host": host})
         assert status == 403
         assert json.loads(body)["error"] == "host local nao autorizado"
@@ -91,6 +92,21 @@ def test_painel_rejeita_host_remoto_e_porta_incorreta(panel):
     status, _, _ = request(panel, "/api/state",
                            headers={"Host": f"localhost:{porta}"})
     assert status == 200
+
+
+def test_painel_rejeita_host_ausente_ou_duplicado(panel):
+    from email.message import Message
+    from types import SimpleNamespace
+
+    port = int(panel.rsplit(":", 1)[1])
+    handler = object.__new__(server_module.H)
+    handler.server = SimpleNamespace(server_address=("127.0.0.1", port))
+    handler.headers = Message()
+    assert handler._host_allowed() is False
+    handler.headers.add_header("Host", f"localhost:{port}")
+    assert handler._host_allowed() is True
+    handler.headers.add_header("Host", f"127.0.0.1:{port}")
+    assert handler._host_allowed() is False
 
 
 def test_configuracoes_nao_revelam_segredos_e_resposta_tem_headers(panel, app):
@@ -105,6 +121,7 @@ def test_configuracoes_nao_revelam_segredos_e_resposta_tem_headers(panel, app):
     assert headers["X-Content-Type-Options"] == "nosniff"
     assert headers["X-Frame-Options"] == "DENY"
     assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
+    assert "img-src 'self' data: blob:" in headers["Content-Security-Policy"]
 
 
 def test_endpoint_logo_nao_serve_caminho_arbitrario(panel, app, tmp_path):
@@ -125,8 +142,48 @@ def test_endpoint_thumb_nao_serve_symlink_externo(panel, app, tmp_path):
         os.symlink(outside, link)
     except (OSError, NotImplementedError):
         pytest.skip("symlink indisponível neste sistema")
-    status, body, _ = request(panel, "/api/thumb?name=falso")
+    app.tokens.add("token-thumb")
+    status, body, _ = request(panel, "/api/thumb?name=falso",
+                              headers={"X-Token": "token-thumb"})
     assert status == 404 and b"segredo" not in body
+
+
+def test_estado_e_fila_nao_divulgam_artes_sem_login(panel, app):
+    app.log("SEGREDO-DE-PEDIDO-PRIVADO")
+    app.jobs.append({"name": "CLIENTE-PRIVADO.png", "status": "fila"})
+    app.tokens.add("sessao-read")
+    status, body, _ = request(panel, "/api/state")
+    data = json.loads(body)
+    assert status == 200 and data["locked"] is True
+    assert data["has_pass"] is False
+    assert data["version"]
+    for key in ("jobs", "log", "hot_folder", "output_folder", "icc", "auto"):
+        assert key not in data
+    assert b"SEGREDO-DE-PEDIDO-PRIVADO" not in body
+    assert b"CLIENTE-PRIVADO" not in body
+
+    status, _, _ = request(panel, "/api/prints")
+    assert status == 401
+    status, authorized, _ = request(panel, "/api/state",
+                                    headers={"X-Token": "sessao-read"})
+    public = json.loads(authorized)
+    assert status == 200 and "jobs" in public and "log" in public
+    assert public["jobs"][-1]["name"] == "CLIENTE-PRIVADO.png"
+
+
+def test_previa_jpeg_requer_autenticacao(panel, app):
+    thumbs = os.path.join(app.home, "thumbs", "by_name")
+    os.makedirs(thumbs, exist_ok=True)
+    with open(os.path.join(thumbs, "pedido.jpg"), "wb") as target:
+        target.write(b"JPEG-PRIVADO")
+    status, body, _ = request(panel, "/api/thumb?name=pedido")
+    assert status == 401 and b"JPEG-PRIVADO" not in body
+
+    app.tokens.add("sessao-thumb")
+    status, body, headers = request(panel, "/api/thumb?name=pedido",
+                                    headers={"X-Token": "sessao-thumb"})
+    assert status == 200 and body == b"JPEG-PRIVADO"
+    assert headers["Content-Type"] == "image/jpeg"
 
 
 def test_journal_recupera_entrada_ripada_sem_duplicar(panel, app, sample_png):
@@ -459,6 +516,63 @@ def test_troca_de_senha_revoga_sessoes_anteriores(panel, app):
     assert status == 401
 
 
+def test_trocas_concorrentes_nao_revalidam_token_da_troca_anterior(panel, app, monkeypatch):
+    origin = {"Origin": panel, "Sec-Fetch-Site": "same-origin"}
+    status, body, _ = request(panel, "/api/setpass", "POST",
+                              json.dumps({"new": "senha-zero-123"}).encode(), origin)
+    assert status == 200
+    old_token = json.loads(body)["token"]
+
+    original_issue = server_module.H._issue_token
+    first_issue_entered = threading.Event()
+    release_first_issue = threading.Event()
+    counter_lock = threading.Lock()
+    calls = {"count": 0}
+
+    def paused_issue(handler):
+        with counter_lock:
+            calls["count"] += 1
+            call = calls["count"]
+        if call == 1:
+            first_issue_entered.set()
+            assert release_first_issue.wait(5)
+        return original_issue(handler)
+
+    monkeypatch.setattr(server_module.H, "_issue_token", paused_issue)
+    results = {}
+
+    def change_first():
+        results["first"] = request(
+            panel, "/api/setpass", "POST",
+            json.dumps({"password": "senha-zero-123", "new": "senha-um-123"}).encode(),
+            {**origin, "X-Token": old_token})
+
+    def change_second():
+        results["second"] = request(
+            panel, "/api/setpass", "POST",
+            json.dumps({"password": "senha-um-123", "new": "senha-dois-123"}).encode(), origin)
+
+    first = threading.Thread(target=change_first, daemon=True)
+    second = threading.Thread(target=change_second, daemon=True)
+    first.start()
+    assert first_issue_entered.wait(5)
+    second.start()
+    try:
+        time.sleep(0.15)
+        assert calls["count"] == 1
+    finally:
+        release_first_issue.set()
+    first.join(timeout=5)
+    second.join(timeout=5)
+    assert not first.is_alive() and not second.is_alive()
+    assert results["first"][0] == 200 and results["second"][0] == 200
+    first_token = json.loads(results["first"][1])["token"]
+    second_token = json.loads(results["second"][1])["token"]
+    assert first_token != second_token
+    assert first_token not in app.tokens
+    assert second_token in app.tokens
+
+
 def test_post_cross_site_e_operacoes_sem_sessao_sao_bloqueados(panel, app):
     body = json.dumps({"on": False}).encode()
     status, _, _ = request(panel, "/api/auto", "POST", body, {
@@ -536,6 +650,59 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     status, _, _ = request(panel, "/api/upload?name=evil.png", "POST", raw,
                            {"Origin": "http://evil.example", "Sec-Fetch-Site": "cross-site"})
     assert status == 403
+
+
+def test_modo_automatico_persiste_entre_reinicios(panel, app):
+    from autorip.config import Settings
+
+    app.tokens.add("sessao-auto")
+    headers = {"X-Token": "sessao-auto", "Origin": panel, "Sec-Fetch-Site": "same-origin"}
+    for enabled in (True, False):
+        status, body, _ = request(panel, "/api/auto", "POST",
+                                  json.dumps({"on": enabled}).encode(), headers)
+        assert status == 200
+        assert json.loads(body)["auto"] is enabled
+        assert app.auto is enabled
+        assert app.s.auto_mode is enabled
+        assert Settings.load(app.cfg_path, base=app.home).auto_mode is enabled
+
+
+def test_modo_automatico_nao_ativa_se_salvar_configuracao_falhar(
+        panel, app, monkeypatch):
+    from autorip.config import Settings
+
+    app.tokens.add("sessao-auto")
+    assert app.auto is False
+
+    def cannot_save(self, path):
+        raise OSError("disco indisponivel durante a persistencia")
+
+    monkeypatch.setattr(Settings, "save", cannot_save)
+    status, _, _ = request(panel, "/api/auto", "POST",
+                           json.dumps({"on": True}).encode(),
+                           {"X-Token": "sessao-auto", "Origin": panel})
+    assert status == 500
+    assert app.auto is False
+    assert app.s.auto_mode is False
+    with open(app.cfg_path, encoding="utf-8") as source:
+        assert json.load(source)["auto_mode"] is False
+
+
+def test_worker_sobrevive_a_arte_removida_antes_do_processamento(app, sample_png, tmp_path):
+    missing = tmp_path / "arte-removida.png"
+    missing.write_bytes(sample_png.read_bytes())
+    missing.unlink()
+
+    failed = app.enqueue(str(missing), width_cm=2.54, move_to_done=True)
+    valid = app.enqueue(str(sample_png), width_cm=2.54, move_to_done=False)
+    wait_for_job(failed, timeout=15)
+    wait_for_job(valid, timeout=30)
+
+    assert failed["status"] == "erro"
+    assert valid["status"] == "pronto"
+    assert valid["out"] and os.path.isfile(valid["out"])
+    assert not (tmp_path / "arte-removida.png.autorip.json").exists()
+    assert str(missing) not in app.archive_pending
 
 
 @pytest.mark.parametrize("missing_tk", [False, True])

@@ -397,12 +397,18 @@ class App:
             self.log(f"RIP: {job['name']}")
             out = None
             services = integrations.enabled_services(settings)
+            try:
+                source_signature = _signature(path)
+            except OSError:
+                source_signature = None
             marker = {"phase": "processing", "target": "done", "job_id": job["id"],
                       "name": job["name"], "output_dir": settings.output_folder,
                       "started_ns": time.time_ns(), "metadata_written": False,
                       "outbox_handled": False, "required_services": sorted(services),
-                      "source_signature": list(_signature(path) or ())}
+                      "source_signature": list(source_signature or ())}
             try:
+                if source_signature is None:
+                    raise FileNotFoundError("Arte da fila ausente ou insegura para processamento.")
                 out = next_available_path(settings.output_folder, os.path.splitext(job["name"])[0] + ".PRT")
                 marker["output"] = os.path.basename(out)
                 if move:
@@ -420,7 +426,8 @@ class App:
                 info = rip.process(path, out, width_cm, progress=prog, before_publish=before_publish)
                 out = info.pop("output_path")
             except Exception as e:
-                if move:
+                archive_source = move and os.path.isfile(path) and not os.path.islink(path)
+                if archive_source:
                     marker.update(phase="error", target="error", error=str(e)[:500])
                     try:
                         write_archive_marker(path, marker)
@@ -430,7 +437,7 @@ class App:
                     job.update(status="erro", error=str(e)[:500])
                 self.log(f"ERRO {job['name']}: {type(e).__name__}: {e}")
                 traceback.print_exc()
-                if move:
+                if archive_source:
                     self._archive_input(path, settings.error_folder, job, "pasta de erros")
                 self._release_source(path)
                 self._finish_output_use()
@@ -837,7 +844,7 @@ class H(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
         self.end_headers(); self.wfile.write(body)
 
     def _auth(self):
@@ -848,14 +855,12 @@ class H(BaseHTTPRequestHandler):
 
     def _host_allowed(self):
         """Aceita apenas o Host do painel local e a porta real do servidor."""
-        try:
-            parsed = urlparse("//" + self.headers.get("Host", ""))
-            return (parsed.hostname in ("127.0.0.1", "localhost")
-                    and parsed.port == self.server.server_address[1]
-                    and not parsed.username and not parsed.password
-                    and not parsed.path and not parsed.query and not parsed.fragment)
-        except ValueError:
+        hosts = self.headers.get_all("Host", [])
+        if len(hosts) != 1:
             return False
+        host = hosts[0].strip().lower()
+        port = self.server.server_address[1]
+        return host in (f"127.0.0.1:{port}", f"localhost:{port}")
 
     def _origin_allowed(self):
         origin = self.headers.get("Origin")
@@ -949,8 +954,13 @@ class H(BaseHTTPRequestHandler):
             return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
-            return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
+            with open(res_path("ui", "index.html"), "rb") as source:
+                body = source.read()
+            return self._send(200, body, "text/html; charset=utf-8")
         if u.path == "/api/state":
+            if not self._auth():
+                return self._send(200, dict(version=__version__, has_pass=APP.has_pass(),
+                                            brand="AutoRIP", has_logo=False, locked=True))
             global LAST_CLIENT_SEEN
             LAST_CLIENT_SEEN = time.monotonic()
             with APP.lock:
@@ -980,15 +990,20 @@ class H(BaseHTTPRequestHandler):
                                         jobs=jobs, log=logs, hot_folder=hot_folder, output_folder=output_folder,
                                         icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo))
         if u.path == "/api/prints":
-            return self._send(200, APP.list_prints())
+            return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/thumb":
+            if not self._auth(): return self._send(401, {"error": "login"})
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
             thumbs_root = os.path.realpath(os.path.join(APP.home, "thumbs"))
             f = os.path.join(thumbs_root, "by_name", nm + ".jpg") if nm else os.path.join(thumbs_root, jid + ".jpg")
             try:
                 inside = os.path.commonpath((thumbs_root, os.path.realpath(f))) == thumbs_root
                 valid = inside and not os.path.islink(f) and os.path.isfile(f) and os.path.getsize(f) <= 10 * 1024 * 1024
-                return self._send(200, open(f, "rb").read(), "image/jpeg") if valid else self._send(404, {})
+                if not valid:
+                    return self._send(404, {})
+                with open(f, "rb") as source:
+                    body = source.read()
+                return self._send(200, body, "image/jpeg")
             except (OSError, ValueError):
                 return self._send(404, {})
         if u.path == "/api/brand-logo":
@@ -999,7 +1014,9 @@ class H(BaseHTTPRequestHandler):
                 return self._send(404, {})
             f = os.path.join(brand_dir, "logo.png")
             if not os.path.islink(f) and os.path.isfile(f) and os.path.realpath(f) == os.path.join(brand_dir, "logo.png"):
-                return self._send(200, open(f, "rb").read(), "image/png")
+                with open(f, "rb") as source:
+                    body = source.read()
+                return self._send(200, body, "image/png")
             return self._send(404, {})
         if u.path == "/api/settings":
             return self._send(200, self._settings_public()) if self._auth() else self._send(401, {"error": "login"})
@@ -1016,7 +1033,7 @@ class H(BaseHTTPRequestHandler):
                 if not self._auth(): return self._send(401, {"error": "login"})
                 on = self._json().get("on")
                 if type(on) is not bool: raise ValueError("O estado automatico precisa ser booleano.")
-                with APP.settings_lock: APP.auto = on
+                APP.apply_settings({"auto_mode": on})
                 APP.log("Modo automatico " + ("LIGADO" if on else "desligado"))
                 return self._send(200, {"auto": on})
             if u.path == "/api/shutdown":
@@ -1054,7 +1071,8 @@ class H(BaseHTTPRequestHandler):
                         self._record_login(success)
                         if not success: return self._send(401, {"error": "senha atual incorreta"})
                     APP.set_pass(new)
-                return self._send(200, {"token": self._issue_token()})
+                    token = self._issue_token()
+                return self._send(200, {"token": token})
             if u.path == "/api/prints/printed":
                 if not self._auth(): return self._send(401, {"error": "login"})
                 APP.mark_printed(self._json().get("name", "")); return self._send(200, {"ok": True})

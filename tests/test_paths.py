@@ -96,7 +96,7 @@ def test_fallback_sem_hardlink_publica_somente_apos_copia_completa(tmp_path, mon
 
     def observed_rename(part, final):
         assert str(part).endswith(".part")
-        assert open(part, "rb").read() == data
+        assert Path(part).read_bytes() == data
         assert not destination.exists()  # nenhum arquivo final durante a copia
         seen.append((part, final))
         return original_rename(part, final)
@@ -129,3 +129,24 @@ def test_fallback_sem_rename_atomico_falha_sem_publicar(tmp_path, monkeypatch):
     assert source.read_bytes() == b"conteudo do prt"
     assert not destination.exists()
     assert not list(tmp_path.glob(".publish.*.part"))
+
+
+def test_move_unico_preserva_origem_se_filesystem_nao_tem_publicacao_atomica(tmp_path, monkeypatch):
+    source = tmp_path / "entrada.png"
+    source.write_bytes(b"arte original")
+    destination_folder = tmp_path / "destino"
+    destination_folder.mkdir()
+
+    def forbid_hardlink(*args):
+        raise OSError(errno.EPERM, "hardlink indisponivel")
+
+    def forbid_rename(*args):
+        raise NotImplementedError("rename sem sobrescrita nao disponivel")
+
+    monkeypatch.setattr(paths.os, "link", forbid_hardlink)
+    monkeypatch.setattr(paths, "_rename_noreplace", forbid_rename)
+    with pytest.raises(OSError, match="Publicacao atomica"):
+        move_unique(source, destination_folder)
+    assert source.read_bytes() == b"arte original"
+    assert not (destination_folder / "entrada.png").exists()
+    assert not list(destination_folder.glob(".publish.*.part"))

@@ -26,6 +26,7 @@ _ALLOWED_DOWNLOAD_HOSTS = {
     "github.com", "objects.githubusercontent.com", "github-releases.githubusercontent.com",
     "release-assets.githubusercontent.com",
 }
+_ALLOWED_REDIRECT_HOSTS = _ALLOWED_DOWNLOAD_HOSTS - {"github.com"}
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -35,7 +36,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 class _SafeReleaseRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, request, response, code, message, headers, newurl):
-        if not _allowed_download_url(newurl):
+        if not _allowed_download_redirect_url(newurl):
             return None
         return super().redirect_request(request, response, code, message, headers, newurl)
 
@@ -52,9 +53,38 @@ def _safe_release_tag(tag):
 
 
 def _allowed_download_url(url):
-    parsed = urllib.parse.urlsplit(url)
-    return (parsed.scheme == "https" and not parsed.username and not parsed.password
-            and (parsed.hostname or "").lower().rstrip(".") in _ALLOWED_DOWNLOAD_HOSTS)
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        return (parsed.scheme == "https" and not parsed.username and not parsed.password
+                and (parsed.hostname or "").lower().rstrip(".") in _ALLOWED_DOWNLOAD_HOSTS)
+    except (TypeError, ValueError):
+        return False
+
+
+def _allowed_download_redirect_url(url):
+    """Redirects só podem chegar às CDNs de assets; github.com não é destino de redirect."""
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        return (parsed.scheme == "https" and parsed.port is None
+                and not parsed.username and not parsed.password and not parsed.fragment
+                and (parsed.hostname or "").lower().rstrip(".") in _ALLOWED_REDIRECT_HOSTS)
+    except (TypeError, ValueError):
+        return False
+
+
+def _release_asset_url(url, tag, filename):
+    """Exige que a API aponte o arquivo canônico na release deste repositório."""
+    if (type(url) is not str or type(tag) is not str or not _safe_release_tag(tag)
+            or filename not in {"AutoRIP_Setup.exe", "SHA256SUMS.txt"}):
+        return False
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        return (parsed.scheme == "https" and parsed.hostname == "github.com"
+                and parsed.port is None and not parsed.username and not parsed.password
+                and not parsed.query and not parsed.fragment
+                and parsed.path == f"/{REPOSITORY}/releases/download/{tag}/{filename}")
+    except (TypeError, ValueError):
+        return False
 
 
 def _read_limited(response, limit):
@@ -93,7 +123,8 @@ def _latest_release(timeout=15):
         return None
     installer_url = installer.get("browser_download_url")
     manifest_url = manifest.get("browser_download_url")
-    if not (_allowed_download_url(installer_url) and _allowed_download_url(manifest_url)):
+    if (not _release_asset_url(installer_url, tag, "AutoRIP_Setup.exe")
+            or not _release_asset_url(manifest_url, tag, "SHA256SUMS.txt")):
         return None
     return {"tag": tag, "version": _version(tag), "installer_url": installer_url,
             "manifest_url": manifest_url, "published_at": data.get("published_at", "")}
@@ -185,7 +216,8 @@ def stage_latest(home, current_version, *, offline=False, force=False, log=lambd
         manifest_path = os.path.join(update_dir, ".SHA256SUMS.txt.part")
         installer_path = os.path.join(update_dir, ".AutoRIP_Setup.exe.part")
         _download(release["manifest_url"], manifest_path, MAX_JSON_BYTES)
-        expected = _manifest_hash(open(manifest_path, "rb").read(), "AutoRIP_Setup.exe")
+        with open(manifest_path, "rb") as manifest_file:
+            expected = _manifest_hash(manifest_file.read(), "AutoRIP_Setup.exe")
         if not expected:
             raise ValueError("Manifesto da release não contém hash do instalador.")
         _download(release["installer_url"], installer_path, MAX_INSTALLER_BYTES)

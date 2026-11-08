@@ -44,6 +44,8 @@ O comando posicional também mantém um journal por entrada em `.autorip_manual`
 
 Configure `hot_folder`, `output_folder`, `printed_folder`, `done_folder` e `error_folder` em caminhos distintos e não sobrepostos; aliases por symlink também são rejeitados para evitar ciclos de reprocessamento. Arquivos com o mesmo nome recebem sufixos. O motor e o painel nunca substituem arquivos concorrentes ao publicar `.PRT`. O painel mantém locks de instância, hot-folder e saída; `--watch` usa locks de hot-folder e saída; o CLI posicional mantém lock de saída. Ao alterar a pasta de saída no painel, o lock antigo continua retido enquanto um job ativo a utiliza e é liberado quando ele termina. O painel e os modos CLI gravam sidecar `.meta.json` com dimensões da fila; ele não é lido pelo PrintExp.
 
+A publicação exige hard-link ou rename atômico sem sobrescrita. Se o filesystem não oferecer nenhuma dessas operações, o AutoRIP falha de forma segura em vez de expor um `.PRT` parcial; movimentos e arquivamentos também podem ficar pendentes com a origem preservada. Use um volume local compatível e não desative essa proteção.
+
 ## ICC e dados locais
 
 Selecione o ICC da própria impressora em **Configurações** ou na página do instalador. O AutoRIP não inclui perfis proprietários no repositório/instalador. O perfil fornecido para avaliação foi validado localmente, mas não é redistribuído: configure no seu computador a cópia que você está autorizado a usar.

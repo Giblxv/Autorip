@@ -231,15 +231,19 @@ def pull_trello(s, seen: set, log=print, offline_check=None):
             fd, temporary = tempfile.mkstemp(prefix=".trello.", suffix=".part", dir=s.hot_folder)
             os.close(fd)
             try:
-                _download_attachment(url, temporary, headers, allow_loopback=allow_loopback)
+                try:
+                    _download_attachment(url, temporary, headers, allow_loopback=allow_loopback)
+                except (OSError, ValueError) as exc:
+                    # Uma falha esperada neste anexo nao deve bloquear o restante do lote.
+                    # Nao registre URL, query string, cabecalhos ou credenciais.
+                    log(f"Trello: anexo ignorado por falha no download ({type(exc).__name__}).")
+                    continue
                 if _is_offline(s, offline_check):
                     continue
                 destination = publish_unique_file(temporary, os.path.join(s.hot_folder, name))
                 seen.add(identifier)
                 count += 1
                 log(f"Trello: baixado {os.path.basename(destination)} (cartao {safe_filename(card.get('name', ''))})")
-            except Exception:
-                raise
             finally:
                 try: os.remove(temporary)
                 except OSError: pass
