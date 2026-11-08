@@ -76,7 +76,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}dialog[open]{animation:pop .45s}
 </style></head><body>
 <div id="intro"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="ring r4"></div><h1>AutoRIP!</h1></div>
 <div id="fim"><h1>É ISSO AÍ,<br>PESSOAL!</h1></div>
-<header><img id="blogo" alt="" style="height:52px;display:none"><div class="logo" id="logo"></div><div class="sp"></div><span id="off" style="display:none;background:var(--y);border:3px solid #fff;border-radius:14px;padding:4px 12px;margin-right:12px;font-size:18px"></span><small id="ver"></small><button class="m" onclick="openCfg()">⚙ Configurações</button></header>
+<header><img id="blogo" alt="" style="height:52px;display:none"><div class="logo" id="logo"></div><div class="sp"></div><span id="off" style="display:none;background:var(--y);border:3px solid #fff;border-radius:14px;padding:4px 12px;margin-right:12px;font-size:18px"></span><small id="ver"></small><button class="m" onclick="openCfg()">⚙ Configurações</button><button class="k" onclick="shutdownApp()" title="Encerra o servidor local do AutoRIP">⏻ Encerrar</button></header>
 <main>
  <section>
   <div class="card h-m"><h2><i>Automático</i></h2>
@@ -107,6 +107,7 @@ const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new 
 let brandShown="";function setBrand(n,has){if(n!==brandShown){brandShown=n;$("logo").innerHTML="";n.split("").forEach(ch=>{const s=document.createElement("span");s.textContent=ch===" "?"\u00a0":ch;$("logo").appendChild(s)});document.title=n}const b=$("blogo");if(has&&!b.src){b.src="/api/brand-logo?"+Date.now();b.style.display=""}if(!has){b.style.display="none";b.removeAttribute("src")}}
 setBrand("AutoRIP",false);
 async function api(path,opt={}){opt.headers=Object.assign({},opt.headers,token?{"X-Token":token}:{});const r=await fetch(path,opt);return{ok:r.ok,d:await r.json()}}
+async function shutdownApp(){if(!confirm("Encerrar o AutoRIP no computador? O processamento e o painel serão fechados."))return;const r=await api("/api/shutdown",{method:"POST",body:"{}"});if(r.ok){document.body.innerHTML="<main style='padding:40px'><h1>AutoRIP encerrado</h1><p>Você pode fechar esta aba.</p></main>"}else if(r.d&&r.d.error==="login"){openCfg()}}
 async function poll(){try{const {d}=await api("/api/state");hasPass=d.has_pass;setBrand(d.brand,d.has_logo);{const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending>0?" · "+d.pending+" aviso(s) na fila":d.pending<0?" · aviso local indisponível":"")}$("ver").textContent="v"+d.version;
  $("pin").textContent=d.hot_folder;$("pout").textContent=d.output_folder;$("picc").textContent=d.icc;
  $("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";

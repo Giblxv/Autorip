@@ -781,6 +781,7 @@ class App:
 
 
 APP = None
+HTTP_SERVER = None
 
 
 class H(BaseHTTPRequestHandler):
@@ -956,6 +957,11 @@ class H(BaseHTTPRequestHandler):
                 with APP.settings_lock: APP.auto = on
                 APP.log("Modo automatico " + ("LIGADO" if on else "desligado"))
                 return self._send(200, {"auto": on})
+            if u.path == "/api/shutdown":
+                if not self._auth(): return self._send(401, {"error": "login"})
+                self._send(202, {"ok": True, "message": "AutoRIP sera encerrado."})
+                threading.Thread(target=shutdown_server, daemon=True).start()
+                return
             if u.path == "/api/upload":
                 q = parse_qs(u.query)
                 name = safe_filename(q.get("name", ["arte.png"])[0])
@@ -1045,7 +1051,7 @@ class H(BaseHTTPRequestHandler):
 
 
 def serve(port=8765, open_browser=True):
-    global APP
+    global APP, HTTP_SERVER
     home_lock = ProcessLock(os.path.join(home_dir(), ".autorip.instance.lock"))
     watch_locks = []
     output_locks = []
@@ -1093,10 +1099,25 @@ def serve(port=8765, open_browser=True):
         for lock in APP._output_locks: lock.release()
         APP._instance_lock.release()
         raise OSError("nenhuma porta local disponivel para o painel AutoRIP")
+    HTTP_SERVER = srv
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     print("AutoRIP em", url, flush=True)
     if open_browser: threading.Timer(0.8, lambda: webbrowser.open(url)).start()
-    srv.serve_forever()
+    try:
+        srv.serve_forever()
+    finally:
+        HTTP_SERVER = None
+        srv.server_close()
+        for lock in APP._watch_locks: lock.release()
+        for lock in APP._output_locks: lock.release()
+        APP._instance_lock.release()
+
+
+def shutdown_server():
+    """Solicita o encerramento fora da thread HTTP, como exige BaseServer.shutdown."""
+    srv = HTTP_SERVER
+    if srv is not None:
+        srv.shutdown()
 
 
 def main():
