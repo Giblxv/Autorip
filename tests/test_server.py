@@ -40,6 +40,15 @@ def test_main_direct_inicia_worker_nativo(monkeypatch):
     assert called == [True]
 
 
+def test_main_exe_por_padrao_e_nativo(monkeypatch):
+    called = []
+    monkeypatch.setattr(server_module, "run_direct", lambda: called.append(True))
+    monkeypatch.setattr(sys, "argv", ["AutoRIP.exe"])
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    server_module.main()
+    assert called == [True]
+
+
 @pytest.fixture
 def panel(app, monkeypatch):
     monkeypatch.setattr(server_module, "APP", app)

@@ -783,6 +783,7 @@ class App:
 APP = None
 HTTP_SERVER = None
 LAST_CLIENT_SEEN = 0.0
+DIRECT_CLOSING = False
 
 
 class H(BaseHTTPRequestHandler):
@@ -1104,6 +1105,8 @@ def serve(port=8765, open_browser=True):
         raise OSError("nenhuma porta local disponivel para o painel AutoRIP")
     HTTP_SERVER = srv
     LAST_CLIENT_SEEN = time.monotonic()
+    if DIRECT_CLOSING:
+        srv.shutdown()
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     print("AutoRIP em", url, flush=True)
     if open_browser: threading.Timer(0.8, lambda: webbrowser.open(url)).start()
@@ -1133,16 +1136,18 @@ def shutdown_server():
 
 
 def run_direct():
-    """Executa a hot-folder em janela nativa, sem servidor HTTP nem navegador."""
-    from .config import Settings
-    from .watcher import watch
-    stop_event = threading.Event()
-    home = home_dir()
-    settings = Settings.load(os.path.join(home, "autorip.json"), base=home)
+    """Executa o AutoRIP em janela nativa, sem abrir navegador.
+
+    O servidor HTTP continua sendo apenas um componente local interno para
+    reaproveitar worker, integrações e recuperação; ele escuta exclusivamente
+    em 127.0.0.1 e não é aberto ao usuário.
+    """
+    global DIRECT_CLOSING
+    DIRECT_CLOSING = False
     try:
         import tkinter as tk
     except Exception:
-        watch(settings, stop=stop_event.is_set)
+        serve(open_browser=False)
         return
 
     root = tk.Tk()
@@ -1150,7 +1155,7 @@ def run_direct():
     root.geometry("560x190")
     root.minsize(460, 150)
     root.configure(bg="#1a1a1a")
-    status = tk.StringVar(value="Iniciando hot-folder local…")
+    status = tk.StringVar(value="Iniciando AutoRIP local…")
     tk.Label(root, text="AutoRIP", fg="#00aeef", bg="#1a1a1a",
              font=("Segoe UI", 24, "bold")).pack(pady=(18, 4))
     tk.Label(root, textvariable=status, fg="white", bg="#1a1a1a",
@@ -1158,15 +1163,20 @@ def run_direct():
     tk.Button(root, text="Encerrar", command=lambda: (stop_event.set(), root.destroy()),
               bg="#ec008c", fg="white", relief="flat", padx=18, pady=7).pack(pady=12)
 
-    def log(message):
-        text = str(message).replace("\n", " ")[-180:]
+    def start_local():
         try:
-            root.after(0, status.set, text)
-        except tk.TclError:
-            pass
+            serve(open_browser=False)
+        except Exception as exc:
+            try: root.after(0, status.set, f"Falha ao iniciar: {exc}")
+            except tk.TclError: pass
 
-    threading.Thread(target=watch, args=(settings, log, stop_event.is_set), daemon=True).start()
-    root.protocol("WM_DELETE_WINDOW", lambda: (stop_event.set(), root.destroy()))
+    threading.Thread(target=start_local, daemon=True).start()
+    def close_direct():
+        global DIRECT_CLOSING
+        DIRECT_CLOSING = True
+        shutdown_server()
+        root.destroy()
+    root.protocol("WM_DELETE_WINDOW", close_direct)
     root.mainloop()
 
 
@@ -1175,7 +1185,7 @@ def main():
         lf = open(os.path.join(home_dir(), "autorip.log"), "a", buffering=1)
         sys.stdout = sys.stderr = lf
     headless = "--headless" in sys.argv or "--no-browser" in sys.argv
-    if headless or "--direct" in sys.argv:
+    if headless or "--direct" in sys.argv or (getattr(sys, "frozen", False) and "--web" not in sys.argv):
         run_direct()
     else:
         serve(open_browser=os.environ.get("AUTORIP_NOBROWSER") != "1")

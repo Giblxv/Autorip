@@ -20,7 +20,7 @@ A base branca respeita o alfa/transparência e oferece controles de densidade, r
 
 Também existe o workflow manual **Build Windows** no GitHub Actions. Ele compila em Windows, gera os dois arquivos e publica ambos como artefato baixável por 14 dias. O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
 
-O navegador é somente a interface opcional do painel; o RIP, a conversão ICC, o meio-tom e a geração do `.PRT` rodam localmente no computador. Para trabalhar sem navegador, use o atalho **AutoRIP (modo direto)** ou execute `AutoRIP.exe --direct`. Ele abre uma pequena janela nativa de status e processa a hot-folder localmente. `--headless` continua aceito como alias. Isso reduz a dependência da interface, mas não altera a matemática do RIP: a velocidade depende principalmente de CPU, memória, resolução, tamanho da arte e perfil ICC.
+O RIP, a conversão ICC, o meio-tom, as integrações e a geração do `.PRT` rodam localmente no computador usando a conexão de internet do próprio Windows quando necessário. O executável Windows inicia por padrão em uma pequena janela nativa de status, sem abrir navegador. Para isso, use o atalho **AutoRIP (modo direto)** ou execute `AutoRIP.exe --direct`; `--headless` continua aceito como alias. O painel web é apenas opcional para diagnóstico e só abre com `AutoRIP.exe --web`. A velocidade depende principalmente de CPU, memória, resolução, tamanho da arte e perfil ICC.
 
 O botão **⏻ Encerrar** do painel encerra o servidor local de forma segura. O painel também encerra automaticamente o servidor depois de aproximadamente 15 segundos sem receber o navegador; isso evita que fechar a aba deixe o processo permanente em segundo plano.
 
