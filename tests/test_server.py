@@ -445,3 +445,41 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     status, _, _ = request(panel, "/api/upload?name=evil.png", "POST", raw,
                            {"Origin": "http://evil.example", "Sec-Fetch-Site": "cross-site"})
     assert status == 403
+
+
+def test_navegador_ocioso_nao_encerra_producao_ativa(app):
+    assert server_module._can_close_idle_browser(app) is True
+
+    app.auto = True
+    assert server_module._can_close_idle_browser(app) is False
+    app.auto = False
+
+    with app.lock:
+        app.queued_sources.add("trabalho-em-rip")
+    assert server_module._can_close_idle_browser(app) is False
+    with app.lock:
+        app.queued_sources.clear()
+
+    app.q.put(("pendente", "arte.png", None, True))
+    assert server_module._can_close_idle_browser(app) is False
+    app.q.get_nowait()
+
+    with app.lock:
+        app.archive_pending["arquivo-pendente"] = (None,)
+    assert server_module._can_close_idle_browser(app) is False
+    with app.lock:
+        app.archive_pending.clear()
+
+    assert server_module._can_close_idle_browser(app) is True
+
+
+def test_navegador_ocioso_nao_encerra_monitoramento_trello_ativo(app):
+    app.auto = False
+    app.s.offline_mode = False
+    app.s.trello_key = "KEY"
+    app.s.trello_token = "TOKEN"
+    app.s.trello_in_list = "LIST"
+    assert server_module._can_close_idle_browser(app) is False
+
+    app.s.offline_mode = True
+    assert server_module._can_close_idle_browser(app) is True
