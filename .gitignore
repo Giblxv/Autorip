@@ -6,6 +6,7 @@ venv/
 Output/
 build/
 dist/
+artifacts/
 *.spec.bak
 .DS_Store
 Thumbs.db
