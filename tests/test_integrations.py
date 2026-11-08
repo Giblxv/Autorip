@@ -317,3 +317,39 @@ def test_trello_integrado_recupera_falha_e_nao_redispara_anexo_valido(
     assert calls == ["https://trello.com/1/falha.png", "https://trello.com/1/ok.png",
                      "https://trello.com/1/falha.png"]
     assert not (hot / "ok.png").exists()
+
+def test_outbox_preserva_canal_pendente_apos_desativacao_parcial(tmp_path, monkeypatch):
+    settings = Settings(offline_mode=False, webhook_url="https://example.invalid/hook",
+                        trello_key="K", trello_token="T", trello_out_list="OUT")
+    integrations.outbox_add(str(tmp_path), {"id": "pending", "name": "arte.png"}, {})
+    calls = []
+
+    def notify(s, job, info, log, offline_check=None, already_sent=()):
+        missing = set(integrations.enabled_services(s)) - set(already_sent)
+        calls.append(missing)
+        return {name: name == "webhook" for name in missing}
+
+    monkeypatch.setattr(integrations, "notify_done", notify)
+    assert integrations.outbox_flush(settings, str(tmp_path)) == 0
+    settings.trello_token = ""
+    assert integrations.outbox_flush(settings, str(tmp_path)) == 0
+    pending = integrations.outbox_load(str(tmp_path))
+    assert len(pending) == 1 and pending[0]["sent"] == ["webhook"]
+    settings.trello_token = "T"
+    monkeypatch.setattr(integrations, "notify_done",
+                        lambda s, job, info, log, **kwargs: {"Trello": True})
+    assert integrations.outbox_flush(settings, str(tmp_path)) == 1
+    assert integrations.outbox_load(str(tmp_path)) == []
+    assert calls[0] == {"webhook", "Trello"}
+
+
+
+def test_outbox_registra_destinos_ainda_em_modo_offline(tmp_path, monkeypatch):
+    integrations.outbox_add(str(tmp_path), {"id": "offline"}, {},
+                            services={"webhook", "Trello"})
+    settings = Settings(offline_mode=False, webhook_url="https://example.invalid/hook")
+    monkeypatch.setattr(integrations, "notify_done", lambda *args, **kwargs: {"webhook": True})
+    assert integrations.outbox_flush(settings, str(tmp_path)) == 0
+    item = integrations.outbox_load(str(tmp_path))[0]
+    assert item["required"] == ["Trello", "webhook"]
+    assert item["sent"] == ["webhook"]

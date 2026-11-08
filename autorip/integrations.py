@@ -331,18 +331,24 @@ def outbox_load(home):
         sent = item.get("sent", [])
         if not isinstance(sent, list) or any(not isinstance(name, str) for name in sent):
             raise ValueError("Campo de status invalido na outbox; os avisos locais foram preservados.")
+        required = item.get("required", [])
+        if not isinstance(required, list) or any(not isinstance(name, str) for name in required):
+            raise ValueError("Destinos invalidos na outbox; os avisos locais foram preservados.")
     return items
 
 
-def outbox_add(home, job, info):
+def outbox_add(home, job, info, *, services=None):
     with _OUTBOX_LOCK:
         items = outbox_load(home)
         job_id = job.get("id")
         if job_id and any(item.get("job_id") == job_id for item in items):
             return False
-        items.append({"id": secrets.token_hex(12), "job_id": job_id,
-                      "job": {k: job.get(k) for k in ("name", "out")},
-                      "info": info, "sent": []})
+        item = {"id": secrets.token_hex(12), "job_id": job_id,
+                "job": {k: job.get(k) for k in ("name", "out")},
+                "info": info, "sent": []}
+        if services is not None:
+            item["required"] = sorted(set(services))
+        items.append(item)
         _atomic_json(_outbox_path(home), items)
         return True
 
@@ -351,11 +357,18 @@ def outbox_flush(s, home, log=print, offline_check=None):
     """Retenta cada servico pendente e remove somente notificacoes confirmadas."""
     if _is_offline(s, offline_check):
         return 0
+    active = _enabled(s)
+    if not active:
+        return 0
     with _OUTBOX_FLUSH_LOCK:
         with _OUTBOX_LOCK:
             items = outbox_load(home)
             changed = False
             for item in items:
+                targets = sorted(set(item.get("required", [])) | active)
+                if item.get("required") != targets:
+                    item["required"] = targets
+                    changed = True
                 if not item.get("id"):
                     item["id"] = secrets.token_hex(12)
                     changed = True
@@ -363,14 +376,12 @@ def outbox_flush(s, home, log=print, offline_check=None):
                 _atomic_json(_outbox_path(home), items)
         if not items:
             return 0
-        required = _enabled(s)
-        if not required:
-            return 0
         updates = {}
         completed_ids = set()
         for item in items:
             if _is_offline(s, offline_check):
                 break
+            required = set(item["required"])
             job, info = item.get("job", {}), item.get("info", {})
             sent = set(item.get("sent", []))
             if not isinstance(job, dict) or not isinstance(info, dict):
