@@ -105,3 +105,25 @@ def test_publicacao_no_clobber_preserva_arquivo_criado_durante_rip(monkeypatch, 
     assert open(output, "rb").read() == b"arquivo de outro processo"
     assert info["output_path"] == str(tmp_path / "corrida_001.PRT")
     assert read_header(info["output_path"])["n_channels"] == 12
+
+
+@pytest.mark.parametrize("dpi_x,dpi_y", [(300, 300), (720, 1440), (1440, 720)])
+def test_reticula_muda_com_grade_de_impressao_sem_alterar_cobertura(dpi_x, dpi_y):
+    settings = Settings(dpi_x=dpi_x, dpi_y=dpi_y, label_enabled=False)
+    rip = Rip(settings)
+    reference = Rip(Settings(label_enabled=False))
+    values = np.full((256, 256), 0.65, dtype=np.float32)
+    levels = rip._halftone(values, 0)
+    original = reference._halftone(values, 0)
+    # A disposicao muda, mas o volume e as contagens de gotas sao preservados.
+    assert not np.array_equal(levels, original)
+    assert np.array_equal(np.bincount(levels.ravel(), minlength=4),
+                          np.bincount(original.ravel(), minlength=4))
+    # Dobrar os dois DPIs preserva a proporcao fisica e a mesma reticula.
+    doubled = Rip(Settings(dpi_x=2 * dpi_x, dpi_y=2 * dpi_y, label_enabled=False))
+    assert np.array_equal(levels, doubled._halftone(values, 0))
+
+
+def test_resolucao_padrao_preserva_reticula_existente():
+    rip = Rip(Settings(label_enabled=False))
+    assert np.array_equal(rip.noise, engine._blue_noise())
