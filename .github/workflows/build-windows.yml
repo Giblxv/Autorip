@@ -2,9 +2,30 @@ name: Build Windows
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/build-windows.yml'
+      - 'tools/smoke_windows_installer.ps1'
+      - 'build_windows.bat'
+      - 'installer.iss'
+      - 'installer_assets/**'
+      - 'autorip/**'
+      - 'autorip_gui.py'
+      - 'requirements*.txt'
   push:
+    branches: [main]
     tags:
       - 'v*'
+    paths:
+      - '.github/workflows/build-windows.yml'
+      - 'tools/smoke_windows_installer.ps1'
+      - 'build_windows.bat'
+      - 'installer.iss'
+      - 'installer_assets/**'
+      - 'autorip/**'
+      - 'autorip_gui.py'
+      - 'requirements*.txt'
 
 permissions:
   contents: write
@@ -57,6 +78,10 @@ jobs:
           if (-not (Test-Path 'dist\AutoRIP\AutoRIP.exe')) { throw 'AutoRIP.exe não foi gerado' }
           if (-not (Test-Path 'Output\AutoRIP_Setup.exe')) { throw 'AutoRIP_Setup.exe não foi gerado' }
           Get-Item 'dist\AutoRIP\AutoRIP.exe', 'Output\AutoRIP_Setup.exe' | Select-Object FullName, Length
+
+      - name: Smoke test silent installer and local panel
+        shell: powershell
+        run: .\\tools\\smoke_windows_installer.ps1 -SetupPath Output\\AutoRIP_Setup.exe
 
       - name: Create release checksums
         shell: powershell
