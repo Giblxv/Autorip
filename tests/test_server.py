@@ -659,3 +659,38 @@ def test_excluir_prt_nao_segue_symlink_de_thumbnail(app, tmp_path):
     assert outside.read_bytes() == b"nao remover"
 
 
+
+def test_thumbnail_so_substitui_jpeg_apos_gravacao_completa(tmp_path, monkeypatch):
+    from PIL import Image
+
+    destination = tmp_path / "preview.jpg"
+    picture = Image.new("RGB", (12, 12), (10, 20, 30))
+    server_module._save_thumbnail_atomic(picture, str(destination))
+    with Image.open(destination) as stored:
+        stored.verify()
+    original = destination.read_bytes()
+
+    def broken_save(self, target, *args, **kwargs):
+        target.write(b"imagem-incompleta")
+        raise OSError("falha simulada ao salvar preview")
+
+    monkeypatch.setattr(Image.Image, "save", broken_save)
+    with pytest.raises(OSError, match="falha simulada"):
+        server_module._save_thumbnail_atomic(picture, str(destination))
+
+    assert destination.read_bytes() == original
+    assert not list(tmp_path.glob(".thumb.*.part"))
+
+
+def test_geracao_de_preview_recusa_diretorio_symlink(app, sample_png, tmp_path):
+    outside = tmp_path / "imagens-externas"
+    outside.mkdir()
+    link = os.path.join(app.home, "thumbs")
+    try:
+        os.symlink(outside, link, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink de diretorio indisponivel")
+    assert app._thumb("job-symlink", str(sample_png)) == ""
+    assert not list(outside.iterdir())
+
+
