@@ -445,3 +445,23 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     status, _, _ = request(panel, "/api/upload?name=evil.png", "POST", raw,
                            {"Origin": "http://evil.example", "Sec-Fetch-Site": "cross-site"})
     assert status == 403
+
+
+@pytest.mark.parametrize("missing_tk", [False, True])
+def test_modo_direto_sem_janela_inicia_servidor_sem_browser(monkeypatch, missing_tk):
+    import sys
+    from types import SimpleNamespace
+    from autorip import server
+
+    class DisplayUnavailable(Exception):
+        pass
+
+    def unavailable():
+        raise DisplayUnavailable("no display")
+
+    fake = None if missing_tk else SimpleNamespace(Tk=unavailable, TclError=DisplayUnavailable)
+    monkeypatch.setitem(sys.modules, "tkinter", fake)
+    calls = []
+    monkeypatch.setattr(server, "serve", lambda **kwargs: calls.append(kwargs))
+    server.run_direct()
+    assert calls == [{"open_browser": False}]

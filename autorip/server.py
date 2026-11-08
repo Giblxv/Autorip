@@ -1190,7 +1190,11 @@ def run_direct():
         serve(open_browser=False)
         return
 
-    root = tk.Tk()
+    try:
+        root = tk.Tk()
+    except tk.TclError:
+        serve(open_browser=False)
+        return
     root.title("AutoRIP — modo direto")
     root.geometry("560x190")
     root.minsize(460, 150)
