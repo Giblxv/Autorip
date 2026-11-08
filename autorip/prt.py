@@ -122,10 +122,14 @@ class PrtWriter:
             return
         expected_size = HEADER_SIZE + self.n_rows * self.n_channels * self.pb
         actual_size = self.f.tell()
-        self.f.flush()
-        self.f.close()
-        if self.written != self.n_rows or actual_size != expected_size:
-            raise RuntimeError(f"arquivo PRT incompleto: {self.written}/{self.n_rows} linhas, {actual_size}/{expected_size} bytes.")
+        try:
+            self.f.flush()
+            if self.written != self.n_rows or actual_size != expected_size:
+                raise RuntimeError(f"arquivo PRT incompleto: {self.written}/{self.n_rows} linhas, {actual_size}/{expected_size} bytes.")
+            # Publicar o arquivo somente apos sincronizar seus bytes com o disco.
+            os.fsync(self.f.fileno())
+        finally:
+            self.f.close()
 
 
 def read_rows(path, y0, y1):
