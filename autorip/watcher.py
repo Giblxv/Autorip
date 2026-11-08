@@ -162,7 +162,15 @@ def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None):
     # Recupera trabalhos deixados na pasta de processamento por uma interrupcao.
     for name in sorted(os.listdir(processing_folder)):
         path = os.path.join(processing_folder, name)
-        if not name.lower().endswith(EXTS) or path in archive_pending or _signature(path) is None:
+        if not name.lower().endswith(EXTS) or path in archive_pending:
+            continue
+        try:
+            signature = _signature(path)
+        except OSError:
+            # O arquivo pode ter sido movido/apagado apos os.listdir().
+            # Nao interromper a recuperacao dos outros trabalhos.
+            continue
+        if signature is None:
             continue
         if _recover_marked(path, s, log, archive_pending, seen):
             continue

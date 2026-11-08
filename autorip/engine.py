@@ -10,6 +10,7 @@ from .prt import PrtWriter, plane_bytes_for, HEADER_SIZE
 from .paths import publish_unique_file
 
 MAX_INPUT_PIXELS = 80_000_000
+MIN_FREE_DISK_BYTES = 128 * 1024 * 1024  # reserva para logs, journal e sistema
 STRIP = 512  # reduz o pico de memoria em folhas largas
 MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
 _BYTES_PER_RENDER_PIXEL = 48  # planos, alpha, CMYK float e buffers temporários
@@ -150,11 +151,11 @@ class Rip:
         n_rows = top + art_rows + bot
         if n_rows <= 0 or n_rows >= 2**32 or n_dots >= 2**32:
             raise ValueError("As dimensoes de saida excedem o limite representavel pelo formato PRT.")
-        self._labels = self._make_labels(os.path.basename(png_path), w_cm, art_rows / s.dpi_y * 2.54, n_dots, top, art_rows, bot) if s.label_enabled else []
+        labels = self._make_labels(os.path.basename(png_path), w_cm, art_rows / s.dpi_y * 2.54, n_dots, top, art_rows, bot) if s.label_enabled else []
         estimated_bytes = HEADER_SIZE + n_rows * 12 * plane_bytes_for(n_dots)
         free_bytes = shutil.disk_usage(out_dir).free
-        if estimated_bytes > free_bytes:
-            raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB.")
+        if estimated_bytes + MIN_FREE_DISK_BYTES > free_bytes:
+            raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB, alem de 128 MiB de reserva livre.")
         fill_rows = int(round(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         choke_rows = int(round(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         halo = 2 * fill_rows + choke_rows + 2
@@ -171,7 +172,7 @@ class Rip:
             while y < n_rows:
                 y1 = min(n_rows, y + strip_rows)
                 a0, a1 = max(0, y - halo), min(n_rows, y1 + halo)       # com halo para morfologia
-                planes_full = self._render(im, a0, a1, top, art_rows, n_dots)
+                planes_full = self._render(im, a0, a1, top, art_rows, n_dots, labels)
                 o = y - a0
                 blk = [p[o:o + (y1 - y)] for p in planes_full]
                 wr.write_block(blk)
@@ -200,7 +201,7 @@ class Rip:
         result["output_path"] = out_path
         return result
 
-    def _render(self, im, a0, a1, top, art_rows, n_dots):
+    def _render(self, im, a0, a1, top, art_rows, n_dots, labels):
         s = self.s
         h = a1 - a0
         planes = [np.zeros((h, n_dots), np.uint8) for _ in range(12)]
@@ -225,7 +226,7 @@ class Rip:
                 lvl = self._white_levels(full_alpha, a0)
                 for pidx in s.white_planes:
                     planes[pidx] = lvl
-        for (ly, lx, lab) in getattr(self, "_labels", []):                 # etiqueta em K (plano 0)
+        for (ly, lx, lab) in labels:                 # etiqueta em K (plano 0)
             ys, ye = max(ly, a0), min(ly + lab.shape[0], a1)
             if ye > ys:
                 seg = lab[ys - ly:ye - ly]
