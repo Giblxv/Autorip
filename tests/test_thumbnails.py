@@ -20,7 +20,6 @@ def test_thumb_grava_jpeg_integro_em_ambas_as_pastas(app, sample_png):
         with Image.open(path) as preview:
             assert preview.format == "JPEG"
             preview.verify()
-    assert not list(os.scandir(root))[0].name.startswith(".thumb.")
     assert not any(name.startswith(".thumb.") for name in os.listdir(root))
     assert not any(name.startswith(".thumb.") for name in os.listdir(os.path.join(root, "by_name")))
 
