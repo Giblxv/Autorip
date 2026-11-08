@@ -799,3 +799,19 @@ def test_modo_direto_sem_janela_inicia_servidor_sem_browser(monkeypatch, missing
     monkeypatch.setattr(server, "serve", lambda **kwargs: calls.append(kwargs))
     server.run_direct()
     assert calls == [{"open_browser": False}]
+
+
+def test_csp_permite_preview_blob_autenticada_sem_liberar_scripts_externos(panel):
+    status, html, headers = request(panel, "/")
+    assert status == 200
+    assert b"URL.createObjectURL(blob)" in html
+    csp = headers["Content-Security-Policy"]
+    assert "img-src 'self' data: blob:" in csp
+    assert "default-src 'self'" in csp
+    assert "object-src 'none'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert "script-src 'self' 'unsafe-inline'" in csp
+    # A autorizacao de blob vale apenas para imagens; ela nao pode ser aplicada
+    # a scripts, frames nem a politica padrao do documento.
+    assert "script-src 'self' 'unsafe-inline' blob:" not in csp
+    assert "default-src 'self' blob:" not in csp
