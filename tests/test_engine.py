@@ -164,3 +164,46 @@ def test_rip_preserva_proporcao_fisica_de_dpi_anisotropico(tmp_path, orientation
     assert info["height_cm"] == pytest.approx(expected_height, abs=0.01)
     assert header["n_dots"] == round(expected_width / 2.54 * 300)
     assert header["n_rows"] == round(expected_height / 2.54 * 300)
+
+
+def test_etiquetas_nao_se_misturam_em_rips_simultaneos(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier, local
+
+    entradas = []
+    for nome in ("ALFA-TESTE.png", "BETA-TESTE.png"):
+        path = tmp_path / nome
+        Image.new("RGBA", (64, 64), (255, 255, 255, 255)).save(path)
+        entradas.append(path)
+
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0.3,
+                        margin_bottom_in=0.3, label_enabled=True,
+                        white_enabled=False)
+    referencias = []
+    for index, path in enumerate(entradas):
+        destino = tmp_path / f"referencia-{index}.PRT"
+        Rip(settings).process(str(path), str(destino), width_cm=2.54)
+        referencias.append(destino.read_bytes())
+    assert referencias[0] != referencias[1]  # a etiqueta distingue as artes
+
+    rip = Rip(settings)
+    original = rip._render
+    barrier = Barrier(2)
+    thread_state = local()
+
+    def render_simultaneo(*args, **kwargs):
+        if not getattr(thread_state, "entered", False):
+            thread_state.entered = True
+            barrier.wait(timeout=10)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(rip, "_render", render_simultaneo)
+    saidas = [tmp_path / "paralelo-alfa.PRT", tmp_path / "paralelo-beta.PRT"]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(rip.process, str(src), str(dest), 2.54)
+                   for src, dest in zip(entradas, saidas)]
+        for future in futures:
+            future.result(timeout=30)
+
+    for resultado, esperado in zip(saidas, referencias):
+        assert resultado.read_bytes() == esperado
