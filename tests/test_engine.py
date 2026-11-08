@@ -142,3 +142,25 @@ def test_reticula_muda_com_grade_de_impressao_sem_alterar_cobertura(dpi_x, dpi_y
 def test_resolucao_padrao_preserva_reticula_existente():
     rip = Rip(Settings(label_enabled=False))
     assert np.array_equal(rip.noise, engine._blue_noise())
+
+
+@pytest.mark.parametrize("fmt", ["JPEG", "TIFF"])
+@pytest.mark.parametrize("orientation", [1, 6])
+@pytest.mark.parametrize("width_cm", [None, 2.54])
+def test_rip_preserva_proporcao_fisica_de_dpi_anisotropico(tmp_path, orientation, width_cm, fmt):
+    path = tmp_path / "anisotropica.jpg"
+    exif = Image.Exif()
+    exif[274] = orientation
+    Image.new("RGB", (200, 100), "blue").save(path, format=fmt, dpi=(100, 200), exif=exif)
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0,
+                        margin_bottom_in=0, label_enabled=False)
+    output = tmp_path / "anisotropica.PRT"
+    info = Rip(settings).process(str(path), str(output), width_cm=width_cm)
+    natural_width, natural_height = (5.08, 1.27) if orientation == 1 else (1.27, 5.08)
+    expected_width = natural_width if width_cm is None else width_cm
+    expected_height = natural_height * expected_width / natural_width
+    header = read_header(output)
+    assert info["width_cm"] == pytest.approx(expected_width)
+    assert info["height_cm"] == pytest.approx(expected_height, abs=0.01)
+    assert header["n_dots"] == round(expected_width / 2.54 * 300)
+    assert header["n_rows"] == round(expected_height / 2.54 * 300)
