@@ -105,3 +105,16 @@ def test_publicacao_no_clobber_preserva_arquivo_criado_durante_rip(monkeypatch, 
     assert open(output, "rb").read() == b"arquivo de outro processo"
     assert info["output_path"] == str(tmp_path / "corrida_001.PRT")
     assert read_header(info["output_path"])["n_channels"] == 12
+
+
+@pytest.mark.parametrize("dpi_x,dpi_y", [(720, 72), (72, 720)])
+def test_fechamento_branco_funciona_com_raio_zero_em_um_eixo(dpi_x, dpi_y):
+    alpha = np.ones((64, 64), dtype=np.float32)
+    alpha[31:34, 31:34] = 0
+    settings = Settings(dpi_x=dpi_x, dpi_y=dpi_y, white_fill_holes_mm=0.1,
+                        white_choke_mm=0, label_enabled=False)
+    levels = Rip(settings)._white_levels(alpha)
+    assert np.all(levels[31:34, 31:34] == 3)
+    # A operacao nao deve recortar o bloco nem apagar bordas opacas.
+    assert levels.shape == alpha.shape
+    assert np.all(levels == 3)
