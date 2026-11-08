@@ -1082,6 +1082,22 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {"error": "nao encontrado"})
 
 
+def _can_close_idle_browser(app):
+    """Autoriza desligamento por inatividade apenas quando nao ha producao.
+
+    A queda de polling do navegador nao significa fim de um RIP ou das
+    integracoes em execucao. O comando explicito /api/shutdown permanece.
+    """
+    with app.settings_lock:
+        automatic = app.auto
+        settings = app.s
+        trello_active = (not settings.offline_mode and bool(settings.trello_key)
+                         and bool(settings.trello_token) and bool(settings.trello_in_list))
+    with app.lock:
+        pending = bool(app.queued_sources or app.archive_pending) or not app.q.empty()
+    return not (automatic or trello_active or pending)
+
+
 def serve(port=8765, open_browser=True, status_callback=None):
     global APP, HTTP_SERVER, LAST_CLIENT_SEEN
     def report(message):
@@ -1150,7 +1166,8 @@ def serve(port=8765, open_browser=True, status_callback=None):
     if open_browser:
         def browser_monitor():
             while HTTP_SERVER is srv:
-                if time.monotonic() - LAST_CLIENT_SEEN > 15:
+                if (time.monotonic() - LAST_CLIENT_SEEN > 15
+                        and _can_close_idle_browser(APP)):
                     srv.shutdown()
                     return
                 time.sleep(2)
