@@ -677,6 +677,25 @@ class App:
             metadata = f + ".meta.json"
             try: os.remove(metadata)
             except OSError: pass
+
+            # Apaga tambem os previews do PRT excluido, sem seguir symlinks.
+            thumbs_root = os.path.join(self.home, "thumbs")
+            preview_names = [("by_name", os.path.splitext(os.path.basename(f))[0] + ".jpg")]
+            with self.lock:
+                for job in self.jobs:
+                    if job.get("out") == f:
+                        preview_names.append(("", job["id"] + ".jpg"))
+                        job["thumb"] = ""
+            if not os.path.islink(thumbs_root):
+                for subdir, filename in preview_names:
+                    folder = os.path.join(thumbs_root, subdir)
+                    thumb = os.path.join(folder, filename)
+                    if (not os.path.islink(folder) and not os.path.islink(thumb)
+                            and os.path.isfile(thumb)):
+                        try:
+                            os.remove(thumb)
+                        except OSError:
+                            self.log("Aviso: miniatura antiga nao pode ser removida.")
         self.log(f"Removido da fila: {os.path.basename(f)}")
 
     # ---- senha ----
