@@ -12,7 +12,7 @@ from .paths import (ProcessLock, safe_filename, move_unique, next_available_path
                     read_archive_marker, remove_archive_marker, write_archive_marker,
                     file_sha256, find_marked_output, source_signature_matches)
 from . import integrations, agent
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 MAX_UPLOAD_BYTES = 200 * 1024 * 1024
 MAX_MANUAL_PENDING_BYTES = 1024 * 1024 * 1024
@@ -538,7 +538,7 @@ class App:
             with Image.open(path) as source:
                 if source.width * source.height > 80_000_000:
                     return ""
-                im = source.convert("RGBA")
+                im = ImageOps.exif_transpose(source).convert("RGBA")
             im.thumbnail((size, size))
             bg = Image.new("RGBA", im.size, (255, 255, 255, 255)); d = ImageDraw.Draw(bg)
             for y in range(0, im.height, 10):                       # xadrez: mostra a transparencia (= area do branco)
