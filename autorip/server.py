@@ -262,7 +262,7 @@ class App:
                     try:
                         job = {"id": marker["job_id"], "name": marker.get("name", os.path.basename(source)),
                                "out": output or os.path.join(marker.get("output_dir", ""), marker.get("output", ""))}
-                        integrations.outbox_add(self.home, job, info)
+                        integrations.outbox_add(self.home, job, info, services=services)
                     except Exception as outbox_error:
                         self.log(f"Recuperacao aguardando registro na outbox ({type(outbox_error).__name__}).")
                         return True
@@ -438,7 +438,7 @@ class App:
             outbox_handled = not services
             try:
                 if services:
-                    integrations.outbox_add(self.home, job, info)
+                    integrations.outbox_add(self.home, job, info, services=services)
                 outbox_handled = True
             except Exception as integration_error:
                 self.log(f"Aviso: RIP pronto, mas nao foi possivel enfileirar notificacao: {integration_error}")
