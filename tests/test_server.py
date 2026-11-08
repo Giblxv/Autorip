@@ -98,6 +98,20 @@ def test_endpoint_logo_nao_serve_caminho_arbitrario(panel, app, tmp_path):
     assert status == 404 and b"conteudo local" not in body
 
 
+def test_endpoint_thumb_nao_serve_symlink_externo(panel, app, tmp_path):
+    outside = tmp_path / "segredo.jpg"
+    outside.write_bytes(b"segredo")
+    thumbs = os.path.join(app.home, "thumbs", "by_name")
+    os.makedirs(thumbs, exist_ok=True)
+    link = os.path.join(thumbs, "falso.jpg")
+    try:
+        os.symlink(outside, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink indisponível neste sistema")
+    status, body, _ = request(panel, "/api/thumb?name=falso")
+    assert status == 404 and b"segredo" not in body
+
+
 def test_journal_recupera_entrada_ripada_sem_duplicar(panel, app, sample_png):
     source = os.path.join(app.processing_folder, "recuperar.png")
     os.makedirs(app.processing_folder, exist_ok=True)

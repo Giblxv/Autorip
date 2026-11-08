@@ -933,8 +933,14 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, APP.list_prints())
         if u.path == "/api/thumb":
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
-            f = os.path.join(APP.home, "thumbs", "by_name", nm + ".jpg") if nm else os.path.join(APP.home, "thumbs", jid + ".jpg")
-            return self._send(200, open(f, "rb").read(), "image/jpeg") if os.path.exists(f) else self._send(404, {})
+            thumbs_root = os.path.realpath(os.path.join(APP.home, "thumbs"))
+            f = os.path.join(thumbs_root, "by_name", nm + ".jpg") if nm else os.path.join(thumbs_root, jid + ".jpg")
+            try:
+                inside = os.path.commonpath((thumbs_root, os.path.realpath(f))) == thumbs_root
+                valid = inside and not os.path.islink(f) and os.path.isfile(f) and os.path.getsize(f) <= 10 * 1024 * 1024
+                return self._send(200, open(f, "rb").read(), "image/jpeg") if valid else self._send(404, {})
+            except (OSError, ValueError):
+                return self._send(404, {})
         if u.path == "/api/brand-logo":
             brand_path = os.path.join(APP.home, "brand")
             brand_dir = os.path.realpath(brand_path)
