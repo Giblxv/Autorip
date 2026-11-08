@@ -13,7 +13,6 @@ import re
 import subprocess
 import tempfile
 import time
-import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -46,10 +45,34 @@ def _version(value):
     return tuple(int(part) for part in match.groups()) if match else (0, 0, 0)
 
 
+def _safe_release_tag(tag):
+    """Release tag SemVer curta; nunca permite separadores de caminho."""
+    return (type(tag) is str and len(tag) <= 80
+            and re.fullmatch(r"v?\d{1,6}\.\d{1,6}\.\d{1,6}(?:[-+][A-Za-z0-9][A-Za-z0-9.+-]*)?", tag) is not None)
+
+
 def _allowed_download_url(url):
     parsed = urllib.parse.urlsplit(url)
     return (parsed.scheme == "https" and not parsed.username and not parsed.password
             and (parsed.hostname or "").lower().rstrip(".") in _ALLOWED_DOWNLOAD_HOSTS)
+
+
+def _release_asset_url(url, tag, filename):
+    """A API deve apontar para artefatos publicados no proprio repositorio.
+
+    CDNs autorizados continuam validos apenas como redirects de _download().
+    """
+    if (type(url) is not str or type(tag) is not str
+            or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+-]{0,79}", tag)):
+        return False
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        return (parsed.scheme == "https" and parsed.hostname == "github.com"
+                and parsed.port is None and not parsed.username and not parsed.password
+                and not parsed.query and not parsed.fragment
+                and parsed.path == f"/{REPOSITORY}/releases/download/{tag}/{filename}")
+    except ValueError:
+        return False
 
 
 def _read_limited(response, limit):
@@ -79,7 +102,7 @@ def _latest_release(timeout=15):
         return None
     tag = data.get("tag_name")
     assets = data.get("assets")
-    if not isinstance(tag, str) or not isinstance(assets, list):
+    if not _safe_release_tag(tag) or not isinstance(assets, list):
         return None
     by_name = {asset.get("name"): asset for asset in assets if isinstance(asset, dict)}
     installer = by_name.get("AutoRIP_Setup.exe")
@@ -88,7 +111,8 @@ def _latest_release(timeout=15):
         return None
     installer_url = installer.get("browser_download_url")
     manifest_url = manifest.get("browser_download_url")
-    if not (_allowed_download_url(installer_url) and _allowed_download_url(manifest_url)):
+    if not (_release_asset_url(installer_url, tag, "AutoRIP_Setup.exe")
+            and _release_asset_url(manifest_url, tag, "SHA256SUMS.txt")):
         return None
     return {"tag": tag, "version": _version(tag), "installer_url": installer_url,
             "manifest_url": manifest_url, "published_at": data.get("published_at", "")}
@@ -157,15 +181,22 @@ def stage_latest(home, current_version, *, offline=False, force=False, log=lambd
         try:
             with open(state_file, encoding="utf-8") as source:
                 previous = json.load(source)
-            if time.time() - float(previous.get("checked_at", 0)) < CHECK_INTERVAL_SECONDS:
-                return None
-        except (OSError, ValueError, TypeError):
+            if isinstance(previous, dict) and "checked_at" in previous:
+                age = time.time() - float(previous["checked_at"])
+                if 0 <= age < CHECK_INTERVAL_SECONDS:
+                    return None
+        except (OSError, ValueError, TypeError, OverflowError):
             pass
     checked = {"checked_at": time.time(), "current": str(current_version)}
     manifest_path = installer_path = None
     try:
         release = _latest_release()
-        if not release or release["version"] <= _version(current_version):
+        if not release:
+            _write_state(home, checked)
+            return None
+        if not _safe_release_tag(release.get("tag")):
+            raise ValueError("Tag de atualização inválida ou insegura.")
+        if release["version"] <= _version(current_version):
             _write_state(home, checked)
             return None
         update_dir = os.path.join(home, "updates")
@@ -193,9 +224,9 @@ def stage_latest(home, current_version, *, offline=False, force=False, log=lambd
         return checked
     except Exception as exc:
         for path in (manifest_path, installer_path):
-            if path is None:
-                continue
-            try: os.remove(path)
+            try:
+                if path:
+                    os.remove(path)
             except OSError: pass
         checked["error"] = type(exc).__name__
         try: _write_state(home, checked)

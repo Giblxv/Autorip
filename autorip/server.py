@@ -282,13 +282,26 @@ class App:
         return True
 
     def _cleanup_manual_folder(self, source):
+        inbox = os.path.realpath(self.inbox)
+        parent = os.path.realpath(os.path.dirname(source))
         try:
-            inbox = os.path.realpath(self.inbox)
-            parent = os.path.realpath(os.path.dirname(source))
-            if parent != inbox and os.path.commonpath((inbox, parent)) == inbox:
+            inside = parent != inbox and os.path.commonpath((inbox, parent)) == inbox
+        except ValueError:
+            return
+        if not inside:
+            return
+        # Windows pode manter o arquivo recém-movido aberto por alguns milissegundos
+        # devido ao antivírus/indexador. Nunca removemos conteúdo: somente tentamos
+        # rmdir em uma pasta que precisa estar vazia, com retry idempotente.
+        for attempt in range(10):
+            try:
                 os.rmdir(parent)
-        except (OSError, ValueError):
-            pass
+                return
+            except FileNotFoundError:
+                return
+            except OSError:
+                if attempt < 9:
+                    time.sleep(0.05)
 
     def _manual_pending_bytes(self):
         total = 0
@@ -372,11 +385,19 @@ class App:
                 job["status"] = "processando"
             self.log(f"RIP: {job['name']}")
             out = None
+            # A entrada pode desaparecer depois de entrar na fila; essa falha nao
+            # pode encerrar o unico worker e bloquear os pedidos seguintes.
+            try:
+                source_signature = _signature(path)
+            except OSError:
+                source_signature = None
             marker = {"phase": "processing", "target": "done", "job_id": job["id"],
                       "name": job["name"], "output_dir": settings.output_folder,
                       "started_ns": time.time_ns(), "metadata_written": False,
-                      "outbox_handled": False, "source_signature": list(_signature(path) or ())}
+                      "outbox_handled": False, "source_signature": list(source_signature or ())}
             try:
+                if source_signature is None:
+                    raise FileNotFoundError("Arte da fila ausente ou insegura para processamento.")
                 out = next_available_path(settings.output_folder, os.path.splitext(job["name"])[0] + ".PRT")
                 marker["output"] = os.path.basename(out)
                 if move:
@@ -394,7 +415,10 @@ class App:
                 info = rip.process(path, out, width_cm, progress=prog, before_publish=before_publish)
                 out = info.pop("output_path")
             except Exception as e:
-                if move:
+                # Nao cria journal fantasma nem arquivamento pendente para uma
+                # entrada removida enquanto aguardava o worker.
+                archive_source = move and os.path.isfile(path) and not os.path.islink(path)
+                if archive_source:
                     marker.update(phase="error", target="error", error=str(e)[:500])
                     try:
                         write_archive_marker(path, marker)
@@ -404,7 +428,7 @@ class App:
                     job.update(status="erro", error=str(e)[:500])
                 self.log(f"ERRO {job['name']}: {type(e).__name__}: {e}")
                 traceback.print_exc()
-                if move:
+                if archive_source:
                     self._archive_input(path, settings.error_folder, job, "pasta de erros")
                 self._release_source(path)
                 self._finish_output_use()
@@ -463,7 +487,8 @@ class App:
                 if not settings.offline_mode:
                     offline_check = lambda: self.s.offline_mode
                     integrations.outbox_flush(settings, self.home, self.log, offline_check=offline_check)
-                    integrations.pull_trello(settings, seen, self.log, offline_check=offline_check)
+                    integrations.pull_trello(settings, seen, self.log,
+                                            offline_check=offline_check, seen_home=self.home)
             except Exception as e: self.log(f"Integracao/entrada: falhou ({type(e).__name__})")
             with self.settings_lock:
                 poll_seconds = self.s.poll_seconds
@@ -682,6 +707,9 @@ class App:
                 json.dump(dict(salt=salt, hash=self._hash(pw, salt)), target)
                 target.flush(); os.fsync(target.fileno())
             os.replace(temporary, self.auth_path)
+            # Uma troca de senha invalida tokens antigos (incluindo de outras abas).
+            with self.lock:
+                self.tokens.clear()
         except BaseException:
             try: os.close(fd)
             except OSError: pass
@@ -818,6 +846,17 @@ class H(BaseHTTPRequestHandler):
             tokens = tuple(APP.tokens)
         return bool(incoming) and any(secrets.compare_digest(incoming, token) for token in tokens)
 
+    def _host_allowed(self):
+        """Aceita apenas o Host do painel local e a porta real do servidor."""
+        try:
+            parsed = urlparse("//" + self.headers.get("Host", ""))
+            return (parsed.hostname in ("127.0.0.1", "localhost")
+                    and parsed.port == self.server.server_address[1]
+                    and not parsed.username and not parsed.password
+                    and not parsed.path and not parsed.query and not parsed.fragment)
+        except ValueError:
+            return False
+
     def _origin_allowed(self):
         origin = self.headers.get("Origin")
         fetch_site = self.headers.get("Sec-Fetch-Site")
@@ -906,12 +945,19 @@ class H(BaseHTTPRequestHandler):
         return length
 
     def do_GET(self):
+        if not self._host_allowed():
+            return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
         if u.path == "/api/state":
             global LAST_CLIENT_SEEN
             LAST_CLIENT_SEEN = time.monotonic()
+            if not self._auth():
+                # Mantem o monitor do browser vivo na tela de login, sem expor
+                # filas, nomes de artes, logs ou caminhos de producao.
+                return self._send(200, dict(version=__version__, has_pass=APP.has_pass(),
+                                            brand="AutoRIP", has_logo=False, locked=True))
             with APP.lock:
                 jobs = [dict(job) for job in APP.jobs[-12:]]
                 logs = list(APP.log_lines[-60:])
@@ -939,8 +985,9 @@ class H(BaseHTTPRequestHandler):
                                         jobs=jobs, log=logs, hot_folder=hot_folder, output_folder=output_folder,
                                         icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo))
         if u.path == "/api/prints":
-            return self._send(200, APP.list_prints())
+            return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/thumb":
+            if not self._auth(): return self._send(401, {"error": "login"})
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
             thumbs_root = os.path.realpath(os.path.join(APP.home, "thumbs"))
             f = os.path.join(thumbs_root, "by_name", nm + ".jpg") if nm else os.path.join(thumbs_root, jid + ".jpg")
@@ -965,6 +1012,8 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {"error": "nao encontrado"})
 
     def do_POST(self):
+        if not self._host_allowed():
+            return self._send(403, {"error": "host local nao autorizado"})
         u = urlparse(self.path)
         if not self._origin_allowed():
             return self._send(403, {"error": "origem da requisicao nao autorizada"})
@@ -973,7 +1022,8 @@ class H(BaseHTTPRequestHandler):
                 if not self._auth(): return self._send(401, {"error": "login"})
                 on = self._json().get("on")
                 if type(on) is not bool: raise ValueError("O estado automatico precisa ser booleano.")
-                with APP.settings_lock: APP.auto = on
+                # Persistir a escolha antes de alterar o estado em memoria.
+                APP.apply_settings({"auto_mode": on})
                 APP.log("Modo automatico " + ("LIGADO" if on else "desligado"))
                 return self._send(200, {"auto": on})
             if u.path == "/api/shutdown":
@@ -982,6 +1032,7 @@ class H(BaseHTTPRequestHandler):
                 threading.Thread(target=shutdown_server, daemon=True).start()
                 return
             if u.path == "/api/upload":
+                if not self._auth(): return self._send(401, {"error": "login"})
                 q = parse_qs(u.query)
                 name = safe_filename(q.get("name", ["arte.png"])[0])
                 if not name.lower().endswith(EXTS):
@@ -1069,12 +1120,20 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {"error": "nao encontrado"})
 
 
-def serve(port=8765, open_browser=True):
+def serve(port=8765, open_browser=True, status_callback=None):
     global APP, HTTP_SERVER, LAST_CLIENT_SEEN
+    def report(message):
+        if status_callback:
+            try:
+                status_callback(message)
+            except Exception:
+                pass
+
     home_lock = ProcessLock(os.path.join(home_dir(), ".autorip.instance.lock"))
     watch_locks = []
     output_locks = []
     try:
+        report("Carregando configuração local…")
         home_lock.acquire()
         home = home_dir()
         initial = Settings.load(os.path.join(home, "autorip.json"), base=home)
@@ -1094,6 +1153,7 @@ def serve(port=8765, open_browser=True):
         APP._instance_lock = home_lock
         APP._watch_locks.extend(watch_locks)
         APP._output_locks.extend(output_locks)
+        report("Worker local iniciado; preparando monitoramento…")
     except RuntimeError as exc:
         for lock in watch_locks:
             lock.release()
@@ -1101,7 +1161,8 @@ def serve(port=8765, open_browser=True):
             lock.release()
         home_lock.release()
         print(f"AutoRIP nao iniciado: {exc}", flush=True)
-        return
+        report(f"Não foi possível iniciar: {exc}")
+        return False
     except BaseException:
         for lock in watch_locks:
             lock.release()
@@ -1122,6 +1183,7 @@ def serve(port=8765, open_browser=True):
     LAST_CLIENT_SEEN = time.monotonic()
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     print("AutoRIP em", url, flush=True)
+    report("AutoRIP ativo — monitorando a pasta de entrada")
     if open_browser: threading.Timer(0.8, lambda: webbrowser.open(url)).start()
     if open_browser:
         def browser_monitor():
@@ -1140,6 +1202,7 @@ def serve(port=8765, open_browser=True):
         for lock in APP._watch_locks: lock.release()
         for lock in APP._output_locks: lock.release()
         APP._instance_lock.release()
+        report("AutoRIP encerrado")
 
 
 def shutdown_server():
@@ -1186,7 +1249,9 @@ def run_direct():
 
     def start_local():
         try:
-            serve(open_browser=False)
+            started = serve(open_browser=False, status_callback=lambda message: root.after(0, status.set, message))
+            if started is False and not DIRECT_CLOSING:
+                root.after(0, status.set, "Não iniciado. Verifique se já existe outra instância aberta.")
         except Exception as exc:
             try: root.after(0, status.set, f"Falha ao iniciar: {exc}")
             except tk.TclError: pass

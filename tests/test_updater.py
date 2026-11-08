@@ -36,6 +36,13 @@ def test_install_staged_rejeita_hash_incorreto(tmp_path, monkeypatch):
     assert calls == []
 
 
+def test_stage_registra_falha_de_rede_sem_lancar_erro_secundario(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater, "_latest_release", lambda: (_ for _ in ()).throw(OSError("sem rede")))
+    assert updater.stage_latest(str(tmp_path), "0.8.5", force=True) is None
+    assert (tmp_path / "update_state.json").is_file()
+
+
 def test_install_staged_executa_somente_hash_conferente(tmp_path, monkeypatch):
     path = tmp_path / "AutoRIP_Setup.exe"
     path.write_bytes(b"installer")
@@ -45,6 +52,112 @@ def test_install_staged_executa_somente_hash_conferente(tmp_path, monkeypatch):
     assert updater.install_staged(state) is True
     assert calls and calls[0][0][0] == [str(path), "/VERYSILENT", "/NORESTART"]
 
+
+@pytest.mark.parametrize("previous", [[], None, "invalido", 42,
+    {"checked_at": 10**400}, {"checked_at": 2000}])
+def test_cache_invalido_ou_futuro_nao_bloqueia_consulta(tmp_path, monkeypatch, previous):
+    import json
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater.time, "time", lambda: 1000)
+    (tmp_path / "update_state.json").write_text(json.dumps(previous))
+    calls = []
+
+    def latest():
+        calls.append(True)
+        return None
+
+    monkeypatch.setattr(updater, "_latest_release", latest)
+    assert updater.stage_latest(str(tmp_path), "0.8.4") is None
+    assert calls == [True]
+    assert json.loads((tmp_path / "update_state.json").read_text())["checked_at"] == 1000
+
+
+def test_cache_recente_valido_mantem_intervalo_de_consultas(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater.time, "time", lambda: 1000)
+    (tmp_path / "update_state.json").write_text(json.dumps({"checked_at": 990}))
+
+    def forbidden():
+        pytest.fail("Cache recente nao deve disparar consulta de rede")
+
+    monkeypatch.setattr(updater, "_latest_release", forbidden)
+    assert updater.stage_latest(str(tmp_path), "0.8.4") is None
+
+
+@pytest.mark.parametrize("tag", ["0.8.7", "v1.2.3", "v1.2.3-rc.1", "1.2.3+build.4"])
+def test_tag_semver_segura_e_aceita(tag):
+    assert updater._safe_release_tag(tag)
+
+
+@pytest.mark.parametrize("tag", [
+    "../v1.2.3", "v1.2.3/path", r"v1.2.3\\..\\evil", "v1.2.3\x00",
+    "v1.2.3/../../install", "v1.2.3" + "a" * 100, "v1.2.3 ext", "",
+])
+def test_tag_de_release_insegura_e_rejeitada(tag):
+    assert not updater._safe_release_tag(tag)
+
+
+def test_stage_nao_baixa_release_com_tag_insegura(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater, "_latest_release", lambda: {
+        "tag": "v999.0.0/caminho", "version": (999, 0, 0),
+        "installer_url": "https://github.com/file", "manifest_url": "https://github.com/manifest",
+    })
+    def forbidden(*args, **kwargs):
+        pytest.fail("Release com tag insegura nao pode baixar arquivos")
+    monkeypatch.setattr(updater, "_download", forbidden)
+    assert updater.stage_latest(str(tmp_path), "0.8.7", force=True) is None
+    assert not (tmp_path / "updates").exists()
+
+@pytest.mark.parametrize("url", [
+    "https://github.com/Giblxv/Outro/releases/download/v0.8.7/AutoRIP_Setup.exe",
+    "https://github.com/atacante/repo/releases/download/v0.8.7/AutoRIP_Setup.exe",
+    "https://github.com/Giblxv/Autorip/releases/download/v0.8.6/AutoRIP_Setup.exe",
+    "https://github.com/Giblxv/Autorip/releases/download/v0.8.7/SHA256SUMS.txt",
+    "https://release-assets.githubusercontent.com/download/AutoRIP_Setup.exe",
+    "https://github.com/Giblxv/Autorip/releases/download/v0.8.7/AutoRIP_Setup.exe?token=1",
+    "https://github.com:444/Giblxv/Autorip/releases/download/v0.8.7/AutoRIP_Setup.exe",
+])
+def test_release_nao_aceita_assets_de_outro_repositorio(url):
+    assert not updater._release_asset_url(url, "v0.8.7", "AutoRIP_Setup.exe")
+
+
+def test_release_aceita_asset_do_proprio_repositorio():
+    tag = "v0.8.7"
+    assert updater._release_asset_url(
+        f"https://github.com/Giblxv/Autorip/releases/download/{tag}/AutoRIP_Setup.exe",
+        tag, "AutoRIP_Setup.exe")
+    assert updater._release_asset_url(
+        f"https://github.com/Giblxv/Autorip/releases/download/{tag}/SHA256SUMS.txt",
+        tag, "SHA256SUMS.txt")
+
+
+def test_api_de_release_nao_aceita_instalador_de_outro_repositorio(monkeypatch):
+    import io
+    import json
+
+    release = {
+        "tag_name": "v0.8.7",
+        "draft": False,
+        "prerelease": False,
+        "assets": [
+            {"name": "AutoRIP_Setup.exe", "browser_download_url":
+             "https://github.com/atacante/repo/releases/download/v0.8.7/AutoRIP_Setup.exe"},
+            {"name": "SHA256SUMS.txt", "browser_download_url":
+             "https://github.com/Giblxv/Autorip/releases/download/v0.8.7/SHA256SUMS.txt"},
+        ],
+    }
+
+    class FakeResponse(io.BytesIO):
+        headers = {}
+
+    class FakeOpener:
+        def open(self, request, timeout):
+            return FakeResponse(json.dumps(release).encode())
+
+    monkeypatch.setattr(updater.urllib.request, "build_opener", lambda *_args: FakeOpener())
+    assert updater._latest_release() is None
 
 def test_stage_falha_de_rede_preserva_aplicacao_e_registra_erro(tmp_path, monkeypatch):
     import json
