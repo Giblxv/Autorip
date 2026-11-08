@@ -707,6 +707,9 @@ class App:
                 json.dump(dict(salt=salt, hash=self._hash(pw, salt)), target)
                 target.flush(); os.fsync(target.fileno())
             os.replace(temporary, self.auth_path)
+            # Uma troca de senha invalida tokens antigos (incluindo de outras abas).
+            with self.lock:
+                self.tokens.clear()
         except BaseException:
             try: os.close(fd)
             except OSError: pass
