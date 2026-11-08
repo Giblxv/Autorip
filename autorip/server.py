@@ -1111,8 +1111,6 @@ def serve(port=8765, open_browser=True):
         raise OSError("nenhuma porta local disponivel para o painel AutoRIP")
     HTTP_SERVER = srv
     LAST_CLIENT_SEEN = time.monotonic()
-    if DIRECT_CLOSING:
-        srv.shutdown()
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     print("AutoRIP em", url, flush=True)
     if open_browser: threading.Timer(0.8, lambda: webbrowser.open(url)).start()
@@ -1125,7 +1123,8 @@ def serve(port=8765, open_browser=True):
                 time.sleep(2)
         threading.Thread(target=browser_monitor, daemon=True).start()
     try:
-        srv.serve_forever()
+        if not DIRECT_CLOSING:
+            srv.serve_forever()
     finally:
         HTTP_SERVER = None
         srv.server_close()
@@ -1150,6 +1149,7 @@ def run_direct():
     """
     global DIRECT_CLOSING
     DIRECT_CLOSING = False
+    stop_event = threading.Event()
     try:
         import tkinter as tk
     except Exception:
@@ -1166,7 +1166,13 @@ def run_direct():
              font=("Segoe UI", 24, "bold")).pack(pady=(18, 4))
     tk.Label(root, textvariable=status, fg="white", bg="#1a1a1a",
              font=("Segoe UI", 10), wraplength=520).pack(pady=4)
-    tk.Button(root, text="Encerrar", command=lambda: (stop_event.set(), root.destroy()),
+    def close_direct():
+        global DIRECT_CLOSING
+        DIRECT_CLOSING = True
+        stop_event.set()
+        shutdown_server()
+        root.destroy()
+    tk.Button(root, text="Encerrar", command=close_direct,
               bg="#ec008c", fg="white", relief="flat", padx=18, pady=7).pack(pady=12)
 
     def start_local():
@@ -1177,11 +1183,6 @@ def run_direct():
             except tk.TclError: pass
 
     threading.Thread(target=start_local, daemon=True).start()
-    def close_direct():
-        global DIRECT_CLOSING
-        DIRECT_CLOSING = True
-        shutdown_server()
-        root.destroy()
     root.protocol("WM_DELETE_WINDOW", close_direct)
     root.mainloop()
 
