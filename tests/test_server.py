@@ -108,7 +108,9 @@ def test_endpoint_thumb_nao_serve_symlink_externo(panel, app, tmp_path):
         os.symlink(outside, link)
     except (OSError, NotImplementedError):
         pytest.skip("symlink indisponível neste sistema")
-    status, body, _ = request(panel, "/api/thumb?name=falso")
+    app.tokens.add("token-thumb")
+    status, body, _ = request(panel, "/api/thumb?name=falso",
+                              headers={"X-Token": "token-thumb"})
     assert status == 404 and b"segredo" not in body
 
 
@@ -445,3 +447,43 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     status, _, _ = request(panel, "/api/upload?name=evil.png", "POST", raw,
                            {"Origin": "http://evil.example", "Sec-Fetch-Site": "cross-site"})
     assert status == 403
+
+
+def test_estado_e_fila_nao_divulgam_artes_sem_login(panel, app):
+    app.log("SEGREDO-DE-PEDIDO-PRIVADO")
+    app.jobs.append({"name": "CLIENTE-PRIVADO.png", "status": "fila"})
+    app.tokens.add("sessao-read")
+    status, body, _ = request(panel, "/api/state")
+    data = json.loads(body)
+    assert status == 200 and data["locked"] is True
+    assert data["has_pass"] is False
+    assert data["version"]
+    for key in ("jobs", "log", "hot_folder", "output_folder", "icc", "auto"):
+        assert key not in data
+    assert b"SEGREDO-DE-PEDIDO-PRIVADO" not in body
+    assert b"CLIENTE-PRIVADO" not in body
+
+    status, _, _ = request(panel, "/api/prints")
+    assert status == 401
+    status, authorized, _ = request(panel, "/api/state",
+                                    headers={"X-Token": "sessao-read"})
+    assert status == 200
+    public = json.loads(authorized)
+    assert "jobs" in public and "log" in public
+    assert public["jobs"][-1]["name"] == "CLIENTE-PRIVADO.png"
+
+
+def test_previa_jpeg_requer_autenticacao(panel, app):
+    import pathlib
+
+    root = pathlib.Path(app.home) / "thumbs"
+    root.mkdir(exist_ok=True)
+    (root / "pedido.jpg").write_bytes(b"JPEG-PRIVADO")
+    status, body, _ = request(panel, "/api/thumb?id=pedido")
+    assert status == 401 and b"JPEG-PRIVADO" not in body
+
+    app.tokens.add("sessao-thumb")
+    status, body, headers = request(panel, "/api/thumb?id=pedido",
+                                    headers={"X-Token": "sessao-thumb"})
+    assert status == 200 and body == b"JPEG-PRIVADO"
+    assert headers["Content-Type"] == "image/jpeg"
