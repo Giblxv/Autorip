@@ -923,6 +923,11 @@ class H(BaseHTTPRequestHandler):
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
         if u.path == "/api/state":
+            if not self._auth():
+                # Primeiro acesso precisa saber apenas se existe senha; nunca
+                # expor fila, logs, nomes de artes ou pastas sem uma sessao.
+                return self._send(200, dict(version=__version__, has_pass=APP.has_pass(),
+                                            brand="AutoRIP", has_logo=False, locked=True))
             global LAST_CLIENT_SEEN
             LAST_CLIENT_SEEN = time.monotonic()
             with APP.lock:
@@ -952,8 +957,9 @@ class H(BaseHTTPRequestHandler):
                                         jobs=jobs, log=logs, hot_folder=hot_folder, output_folder=output_folder,
                                         icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo))
         if u.path == "/api/prints":
-            return self._send(200, APP.list_prints())
+            return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/thumb":
+            if not self._auth(): return self._send(401, {"error": "login"})
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
             thumbs_root = os.path.realpath(os.path.join(APP.home, "thumbs"))
             f = os.path.join(thumbs_root, "by_name", nm + ".jpg") if nm else os.path.join(thumbs_root, jid + ".jpg")
