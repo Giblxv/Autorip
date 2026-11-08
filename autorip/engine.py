@@ -122,11 +122,12 @@ class Rip:
         out_dir = os.path.dirname(out_path)
         os.makedirs(out_dir, exist_ok=True)
         with Image.open(png_path) as opened:
-            source = ImageOps.exif_transpose(opened)
-            if source.width * source.height > MAX_INPUT_PIXELS:
+            # EXIF transpose decodifica os pixels; valide o cabecalho antes disso.
+            if opened.width * opened.height > MAX_INPUT_PIXELS:
                 raise ValueError(f"Imagem excede o limite de {MAX_INPUT_PIXELS:,} pixels; reduza a arte antes do RIP.")
-            if source.width <= 0 or source.height <= 0:
+            if opened.width <= 0 or opened.height <= 0:
                 raise ValueError("A imagem precisa ter largura e altura maiores que zero.")
+            source = ImageOps.exif_transpose(opened)
             has_alpha = source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info
             dpi = source.info.get("dpi", (300, 300))[0] or 300
             source.load()
