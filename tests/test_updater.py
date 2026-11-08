@@ -1,6 +1,8 @@
 import hashlib
 import sys
 
+import pytest
+
 from autorip import updater
 
 
@@ -49,3 +51,35 @@ def test_install_staged_executa_somente_hash_conferente(tmp_path, monkeypatch):
     state = {"pending": str(path), "sha256": hashlib.sha256(b"installer").hexdigest()}
     assert updater.install_staged(state) is True
     assert calls and calls[0][0][0] == [str(path), "/VERYSILENT", "/NORESTART"]
+
+
+@pytest.mark.parametrize("previous", [[], None, "invalido", 42,
+    {"checked_at": 10**400}, {"checked_at": 2000}])
+def test_cache_invalido_ou_futuro_nao_bloqueia_consulta(tmp_path, monkeypatch, previous):
+    import json
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater.time, "time", lambda: 1000)
+    (tmp_path / "update_state.json").write_text(json.dumps(previous))
+    calls = []
+
+    def latest():
+        calls.append(True)
+        return None
+
+    monkeypatch.setattr(updater, "_latest_release", latest)
+    assert updater.stage_latest(str(tmp_path), "0.8.4") is None
+    assert calls == [True]
+    assert json.loads((tmp_path / "update_state.json").read_text())["checked_at"] == 1000
+
+
+def test_cache_recente_valido_mantem_intervalo_de_consultas(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(updater.time, "time", lambda: 1000)
+    (tmp_path / "update_state.json").write_text(json.dumps({"checked_at": 990}))
+
+    def forbidden():
+        pytest.fail("Cache recente nao deve disparar consulta de rede")
+
+    monkeypatch.setattr(updater, "_latest_release", forbidden)
+    assert updater.stage_latest(str(tmp_path), "0.8.4") is None

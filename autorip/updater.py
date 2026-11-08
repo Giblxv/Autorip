@@ -157,9 +157,11 @@ def stage_latest(home, current_version, *, offline=False, force=False, log=lambd
         try:
             with open(state_file, encoding="utf-8") as source:
                 previous = json.load(source)
-            if time.time() - float(previous.get("checked_at", 0)) < CHECK_INTERVAL_SECONDS:
-                return None
-        except (OSError, ValueError, TypeError):
+            if isinstance(previous, dict) and "checked_at" in previous:
+                age = time.time() - float(previous["checked_at"])
+                if 0 <= age < CHECK_INTERVAL_SECONDS:
+                    return None
+        except (OSError, ValueError, TypeError, OverflowError):
             pass
     checked = {"checked_at": time.time(), "current": str(current_version)}
     manifest_path = installer_path = None
