@@ -1069,12 +1069,20 @@ class H(BaseHTTPRequestHandler):
         self._send(404, {"error": "nao encontrado"})
 
 
-def serve(port=8765, open_browser=True):
+def serve(port=8765, open_browser=True, status_callback=None):
     global APP, HTTP_SERVER, LAST_CLIENT_SEEN
+    def report(message):
+        if status_callback:
+            try:
+                status_callback(message)
+            except Exception:
+                pass
+
     home_lock = ProcessLock(os.path.join(home_dir(), ".autorip.instance.lock"))
     watch_locks = []
     output_locks = []
     try:
+        report("Carregando configuração local…")
         home_lock.acquire()
         home = home_dir()
         initial = Settings.load(os.path.join(home, "autorip.json"), base=home)
@@ -1094,6 +1102,7 @@ def serve(port=8765, open_browser=True):
         APP._instance_lock = home_lock
         APP._watch_locks.extend(watch_locks)
         APP._output_locks.extend(output_locks)
+        report("Worker local iniciado; preparando monitoramento…")
     except RuntimeError as exc:
         for lock in watch_locks:
             lock.release()
@@ -1101,7 +1110,8 @@ def serve(port=8765, open_browser=True):
             lock.release()
         home_lock.release()
         print(f"AutoRIP nao iniciado: {exc}", flush=True)
-        return
+        report(f"Não foi possível iniciar: {exc}")
+        return False
     except BaseException:
         for lock in watch_locks:
             lock.release()
@@ -1122,6 +1132,7 @@ def serve(port=8765, open_browser=True):
     LAST_CLIENT_SEEN = time.monotonic()
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     print("AutoRIP em", url, flush=True)
+    report("AutoRIP ativo — monitorando a pasta de entrada")
     if open_browser: threading.Timer(0.8, lambda: webbrowser.open(url)).start()
     if open_browser:
         def browser_monitor():
@@ -1140,6 +1151,7 @@ def serve(port=8765, open_browser=True):
         for lock in APP._watch_locks: lock.release()
         for lock in APP._output_locks: lock.release()
         APP._instance_lock.release()
+        report("AutoRIP encerrado")
 
 
 def shutdown_server():
@@ -1186,7 +1198,9 @@ def run_direct():
 
     def start_local():
         try:
-            serve(open_browser=False)
+            started = serve(open_browser=False, status_callback=lambda message: root.after(0, status.set, message))
+            if started is False and not DIRECT_CLOSING:
+                root.after(0, status.set, "Não iniciado. Verifique se já existe outra instância aberta.")
         except Exception as exc:
             try: root.after(0, status.set, f"Falha ao iniciar: {exc}")
             except tk.TclError: pass
