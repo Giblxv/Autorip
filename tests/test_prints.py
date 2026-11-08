@@ -1,22 +1,69 @@
-import os, sys, time, tempfile
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ["AUTORIP_HOME"] = tempfile.mkdtemp()
-from autorip.server import App
-app = App(); s = app.s; s.auto_mode = False; app.auto = False
-s.icc_path = "/mnt/user-data/uploads/Sublinks_DTF_E602_LM720x2400_8Pass_.icc"; app.rip = type(app.rip)(s)
-png = os.environ.get("TEST_PNG", "/tmp/teste.png")
-for n in ("a.png", "b.png"):
-    import shutil; shutil.copy(png, os.path.join(app.inbox, n))
-    j = app.enqueue(os.path.join(app.inbox, n), 3, move_to_done=False)
-    for _ in range(60):
-        if j["status"] in ("pronto", "erro"): break
-        time.sleep(0.4)
-    assert j["status"] == "pronto"; time.sleep(1.1)
-L = app.list_prints(); print([(x["name"], x["width_cm"], x["height_cm"]) for x in L])
-assert [x["name"] for x in L] == ["a.PRT", "b.PRT"] and abs(L[0]["width_cm"] - 3.0) < 0.05 and abs(L[0]["height_cm"] - 2.0) < 0.05
-assert os.path.exists(os.path.join(app.home, "thumbs", "by_name", "a.jpg"))
-app.mark_printed("a.PRT"); assert [x["name"] for x in app.list_prints()] == ["b.PRT"] and os.path.exists(os.path.join(s.printed_folder, "a.PRT"))
-app.delete_print("b.PRT"); assert app.list_prints() == []
-try: app.mark_printed("../../etc/passwd"); raise SystemExit("traversal!")
-except FileNotFoundError: pass
-print("fila de impressao OK")
+import os
+import shutil
+
+import pytest
+
+from autorip.prt import PrtWriter
+from conftest import wait_for_job
+
+
+def test_fila_preserva_colisoes_e_move_prt_com_seguranca(app, sample_png, tmp_path):
+    first_source = tmp_path / "one" / "mesma.png"
+    second_source = tmp_path / "two" / "mesma.png"
+    first_source.parent.mkdir()
+    second_source.parent.mkdir()
+    shutil.copyfile(sample_png, first_source)
+    shutil.copyfile(sample_png, second_source)
+
+    first = app.enqueue(str(first_source), 3, move_to_done=False)
+    second = app.enqueue(str(second_source), 3, move_to_done=False)
+    wait_for_job(first)
+    wait_for_job(second)
+
+    assert first["status"] == second["status"] == "pronto"
+    prints = app.list_prints()
+    assert {item["name"] for item in prints} == {"mesma.PRT", "mesma_001.PRT"}
+    assert all(abs(item["width_cm"] - 3.0) < 0.05 for item in prints)
+    assert abs(prints[0]["height_cm"] - 2.0) < 0.05
+    assert os.path.exists(os.path.join(app.home, "thumbs", first["id"] + ".jpg"))
+    assert os.path.exists(os.path.join(app.home, "thumbs", "by_name", "mesma.jpg"))
+    assert os.path.exists(os.path.join(app.home, "thumbs", "by_name", "mesma_001.jpg"))
+    app.s.margin_top_in = app.s.margin_bottom_in = 1.0
+    assert app.list_prints()[0]["height_cm"] == 2.0  # usa sidecar do RIP, não margens atuais
+
+    app.mark_printed("mesma.PRT")
+    assert os.path.exists(os.path.join(app.s.printed_folder, "mesma.PRT"))
+    app.delete_print("mesma_001.PRT")
+    assert app.list_prints() == []
+
+    with pytest.raises(FileNotFoundError):
+        app.mark_printed("../../etc/passwd")
+
+
+def test_fila_ignora_symlink_para_fora_da_pasta(app, tmp_path):
+    outside = tmp_path / "outside.PRT"
+    writer = PrtWriter(outside, 300, 300, 1, 8)
+    import numpy as np
+    writer.write_block([np.zeros((1, 8), dtype=np.uint8)] * 12)
+    writer.close()
+    link = os.path.join(app.s.output_folder, "externo.PRT")
+    try:
+        os.symlink(outside, link)
+    except (OSError, NotImplementedError):
+        pytest.skip("symlink indisponivel neste sistema")
+    assert all(item["name"] != "externo.PRT" for item in app.list_prints())
+    with pytest.raises(FileNotFoundError):
+        app.mark_printed("externo.PRT")
+
+
+def test_miniatura_url_encodeia_caracteres_especiais_do_nome(app):
+    import numpy as np
+    name = "arte#%&=.PRT"
+    path = os.path.join(app.s.output_folder, name)
+    writer = PrtWriter(path, 300, 300, 1, 8)
+    writer.write_block([np.zeros((1, 8), dtype=np.uint8)] * 12)
+    writer.close()
+    with open(path + ".meta.json", "w", encoding="utf-8") as target:
+        target.write('{"width_cm":' + "9" * 1000 + ',"height_cm":2}')
+    item = next(entry for entry in app.list_prints() if entry["name"] == name)
+    assert item["thumb"] == "/api/thumb?name=arte%23%25%26%3D"

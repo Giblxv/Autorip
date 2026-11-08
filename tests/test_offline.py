@@ -1,29 +1,54 @@
-import os, sys, json, threading, time, tempfile
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-HITS = []
-class F(BaseHTTPRequestHandler):
-    def log_message(self, *a): pass
-    def do_POST(self):
-        self.rfile.read(int(self.headers.get("Content-Length", 0))); HITS.append(self.path)
-        b = b"{}"; self.send_response(200); self.send_header("Content-Length", "2"); self.end_headers(); self.wfile.write(b)
-srv = ThreadingHTTPServer(("127.0.0.1", 0), F); threading.Thread(target=srv.serve_forever, daemon=True).start()
-base = f"http://127.0.0.1:{srv.server_address[1]}"
-os.environ["AUTORIP_HOME"] = tempfile.mkdtemp()
-from autorip.server import App
+import json
+import os
+import shutil
+import stat
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
 from autorip import integrations
-app = App(); s = app.s; s.auto_mode = False; app.auto = False
-s.icc_path = "/mnt/user-data/uploads/Sublinks_DTF_E602_LM720x2400_8Pass_.icc"; app.rip = type(app.rip)(s)
-s.webhook_url = base + "/hook"; assert s.offline_mode is True           # offline por padrao
-png = os.environ.get("TEST_PNG", "/tmp/teste.png")
-job = app.enqueue(png, 3, move_to_done=False)
-for _ in range(60):
-    if job["status"] in ("pronto", "erro"): break
-    time.sleep(0.5)
-assert job["status"] == "pronto" and os.path.exists(job["out"]), "o RIP precisa funcionar offline"
-time.sleep(1); assert HITS == [], "offline nao pode chamar a rede"
-assert len(integrations.outbox_load(app.home)) == 1, "aviso deve ficar na fila"
-s.offline_mode = False
-assert integrations.outbox_flush(s, app.home, app.log) == 1; time.sleep(0.5)
-assert HITS == ["/hook"] and integrations.outbox_load(app.home) == []
-print("offline OK")
+from conftest import wait_for_job
+
+
+def test_modo_offline_nao_chama_rede_e_preserva_outbox(app, sample_png, tmp_path):
+    hits = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            hits.append(self.path)
+            body = b"{}"
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    http = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=http.serve_forever, daemon=True)
+    thread.start()
+    try:
+        app.s.webhook_url = f"http://127.0.0.1:{http.server_address[1]}/hook"
+        source = tmp_path / "offline.png"
+        shutil.copyfile(sample_png, source)
+        job = app.enqueue(str(source), 3, move_to_done=False)
+        wait_for_job(job)
+
+        assert job["status"] == "pronto" and os.path.exists(job["out"])
+        assert hits == []
+        items = integrations.outbox_load(app.home)
+        assert len(items) == 1 and items[0]["sent"] == []
+        outbox_path = os.path.join(app.home, "outbox.json")
+        if os.name != "nt":
+            assert stat.S_IMODE(os.stat(outbox_path).st_mode) == 0o600
+
+        assert integrations.outbox_flush(app.s, app.home, app.log) == 0
+        assert hits == []
+        app.s.offline_mode = False
+        assert integrations.outbox_flush(app.s, app.home, app.log) == 1
+        assert hits == ["/hook"]
+        assert integrations.outbox_load(app.home) == []
+    finally:
+        http.shutdown()
+        http.server_close()

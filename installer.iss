@@ -1,6 +1,6 @@
 ; AutoRIP - instalador (Inno Setup 6). Compile com: ISCC installer.iss  (build_windows.bat ja faz isso)
 #define AppName "AutoRIP"
-#define AppVersion "0.6.0"
+#define AppVersion "0.8.1"
 #define AppExe "AutoRIP.exe"
 
 [Setup]
@@ -8,7 +8,7 @@ AppId={{6B1F2D7C-4A0E-4C57-9E53-A07A4B1D0C11}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=AutoRIP
-DefaultDirName={autopf}\{#AppName}
+DefaultDirName={localappdata}\Programs\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 DisableWelcomePage=no
@@ -24,7 +24,7 @@ Compression=lzma2/max
 SolidCompression=yes
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
-PrivilegesRequired=admin
+PrivilegesRequired=lowest
 CloseApplications=yes
 
 [Languages]
@@ -32,7 +32,7 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 
 [Messages]
 brazilianportuguese.WelcomeLabel1=Bem-vindo ao [name]!
-brazilianportuguese.WelcomeLabel2=O [name] é o seu RIP para DTF e DTF UV: converte a arte com o perfil ICC, gera o branco automaticamente e entrega o arquivo .PRT pronto.%n%nFunciona 100%% offline.%n%nClique em Avançar para começar.
+brazilianportuguese.WelcomeLabel2=O [name] automatiza etapas de pré-impressão para DTF e DTF UV: converte a arte com ICC (se configurado), prepara o branco e gera um arquivo .PRT.%n%nO PRT deve ser validado no PrintExp e na sua impressora antes de produção. O processamento local funciona offline.%n%nClique em Avançar para começar.
 brazilianportuguese.FinishedHeadingLabel=É isso aí, pessoal!
 brazilianportuguese.FinishedLabel=O [name] foi instalado. Jogue uma arte na pasta de entrada e deixe o resto com ele.
 
@@ -42,11 +42,11 @@ brazilianportuguese.TaskAutoStart=Iniciar o AutoRIP junto com o Windows (modo au
 brazilianportuguese.PgFoldersTitle=Pastas de trabalho
 brazilianportuguese.PgFoldersDesc=Onde o AutoRIP vai buscar as artes e guardar os arquivos .PRT?
 brazilianportuguese.PgFoldersSub=Você pode mudar isso depois, em Configurações dentro do programa.
-brazilianportuguese.PgIn=Pasta de ENTRADA (hot folder com as artes PNG):
+brazilianportuguese.PgIn=Pasta de ENTRADA (hot folder com artes PNG, TIFF ou JPEG):
 brazilianportuguese.PgOut=Pasta de SAÍDA (arquivos .PRT para o PrintExp):
 brazilianportuguese.PgIccTitle=Perfil de cor (ICC)
 brazilianportuguese.PgIccDesc=Escolha o perfil ICC CMYK da sua impressora (opcional).
-brazilianportuguese.PgIccSub=Exemplo: Sublinks_DTF_E602 LM720x2400 8Pass.icc. Se pular, o programa usa a conversão padrão e você pode escolher depois.
+brazilianportuguese.PgIccSub=Selecione o perfil da sua impressora. Se pular, a conversão de cor será genérica; configure o ICC correto antes de produção.
 brazilianportuguese.PgIcc=Arquivo .icc:
 brazilianportuguese.RunApp=Abrir o AutoRIP agora
 

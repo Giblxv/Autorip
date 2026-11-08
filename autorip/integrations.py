@@ -1,101 +1,354 @@
-"""Integracoes de pedidos: Trello (entrada e saida), Notion, Jira e webhook generico. So biblioteca padrao."""
-import os, json, base64, urllib.request, urllib.parse, urllib.error
+"""Integracoes opcionais, downloads limitados e outbox duravel para operacao DTF."""
+import base64
+import ipaddress
+import json
+import os
+import secrets
+import tempfile
+import threading
+import urllib.error
+import urllib.parse
+import urllib.request
+from PIL import Image
+from .engine import MAX_INPUT_PIXELS
+from .paths import publish_unique_file, safe_filename
 
 IMG = (".png", ".tif", ".tiff", ".jpg", ".jpeg")
+MAX_API_RESPONSE_BYTES = 16 * 1024 * 1024
+MAX_ATTACHMENT_BYTES = 200 * 1024 * 1024
+_OUTBOX_LOCK = threading.RLock()
+_OUTBOX_FLUSH_LOCK = threading.Lock()
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, request, response, code, message, headers, newurl):
+        return None
 
 
 def _req(url, data=None, headers=None, method=None, timeout=20):
-    h = {"User-Agent": "AutoRIP/0.3"}; h.update(headers or {})
+    h = {"User-Agent": "AutoRIP/0.6"}
+    h.update(headers or {})
     body = None
     if data is not None:
-        body = json.dumps(data).encode(); h.setdefault("Content-Type", "application/json")
-    r = urllib.request.Request(url, data=body, headers=h, method=method or ("POST" if body is not None else "GET"))
-    with urllib.request.urlopen(r, timeout=timeout) as resp:
-        raw = resp.read()
-        return json.loads(raw) if raw[:1] in (b"{", b"[") else raw
+        body = json.dumps(data).encode()
+        h.setdefault("Content-Type", "application/json")
+    request = urllib.request.Request(url, data=body, headers=h,
+                                     method=method or ("POST" if body is not None else "GET"))
+    opener = urllib.request.build_opener(_NoRedirect())
+    with opener.open(request, timeout=timeout) as response:
+        length = response.headers.get("Content-Length")
+        if length and length.isdigit() and int(length) > MAX_API_RESPONSE_BYTES:
+            raise ValueError("Resposta da integracao excede o limite de 16 MiB.")
+        raw = response.read(MAX_API_RESPONSE_BYTES + 1)
+    if len(raw) > MAX_API_RESPONSE_BYTES:
+        raise ValueError("Resposta da integracao excede o limite de 16 MiB.")
+    return json.loads(raw) if raw[:1] in (b"{", b"[") else raw
 
 
-def _trello(s, path, **q):
-    q.update(key=s.trello_key, token=s.trello_token)
-    return f"{s.trello_base}{path}?{urllib.parse.urlencode(q)}"
+def _trello(s, path, **query):
+    parsed = urllib.parse.urlsplit(s.trello_base)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if not ((parsed.scheme == "https" and (host == "trello.com" or host.endswith(".trello.com")))
+            or (parsed.scheme == "http" and _loopback_host(host))):
+        raise ValueError("Base Trello precisa ser HTTPS em trello.com (ou loopback para testes locais).")
+    return f"{s.trello_base.rstrip('/')}{path}?{urllib.parse.urlencode(query)}"
 
 
-def notify_done(s, job, info, log=print):
-    """Chamado quando um .PRT fica pronto. Cada servico configurado e tentado de forma independente."""
-    title = f"RIP pronto: {job['name']}"
-    desc = f"{info.get('width_cm', 0):.2f} x {info.get('height_cm', 0):.2f} cm\nSaida: {job.get('out', '')}"
+def _loopback_host(host):
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _trello_headers(s):
+    return {"Authorization": f'OAuth oauth_consumer_key="{s.trello_key}", oauth_token="{s.trello_token}"'}
+
+
+def _enabled(s):
+    names = set()
     if s.webhook_url:
-        _try(log, "webhook", lambda: _req(s.webhook_url, dict(event="rip_done", name=job["name"], out=job.get("out"), **info)))
+        names.add("webhook")
     if s.trello_key and s.trello_token and s.trello_out_list:
-        _try(log, "Trello", lambda: _req(_trello(s, "/cards", idList=s.trello_out_list, name=title, desc=desc), method="POST"))
+        names.add("Trello")
     if s.notion_token and s.notion_db:
+        names.add("Notion")
+    if s.jira_url and s.jira_email and s.jira_token and s.jira_project:
+        names.add("Jira")
+    return names
+
+
+def enabled_services(s):
+    return frozenset(_enabled(s))
+
+
+def _is_offline(s, offline_check=None):
+    try:
+        return bool(s.offline_mode or (offline_check and offline_check()))
+    except Exception:
+        return True
+
+
+def notify_done(s, job, info, log=print, offline_check=None, already_sent=()):
+    """Tenta cada canal configurado de forma independente e informa o que foi confirmado."""
+    required = _enabled(s)
+    results = {name: False for name in required}
+    already = set(already_sent or ())
+    if _is_offline(s, offline_check):
+        return results
+
+    filename = safe_filename(job.get("name", "arte"))
+    out_name = os.path.basename(job.get("out", ""))
+    title = f"RIP pronto: {filename}"
+    desc = f"{info.get('width_cm', 0):.2f} x {info.get('height_cm', 0):.2f} cm\nArquivo: {out_name}"
+
+    def send(name, fn):
+        if name in already or name not in required or _is_offline(s, offline_check):
+            return
+        try:
+            fn()
+            results[name] = True
+            log(f"Integracao {name}: enviado")
+        except Exception as exc:
+            # Nao imprimir URLs, cabecalhos ou query strings que podem conter credenciais.
+            log(f"Integracao {name}: falhou ({type(exc).__name__})")
+
+    if "webhook" in required:
+        payload = dict(event="rip_done", name=filename, out=out_name,
+                       width_cm=info.get("width_cm"), height_cm=info.get("height_cm"),
+                       n_dots=info.get("n_dots"), n_rows=info.get("n_rows"))
+        send("webhook", lambda: _req(s.webhook_url, payload))
+
+    if "Trello" in required:
+        send("Trello", lambda: _req(_trello(s, "/cards", idList=s.trello_out_list,
+                                            name=title, desc=desc), headers=_trello_headers(s), method="POST"))
+
+    if "Notion" in required:
         body = {"parent": {"database_id": s.notion_db},
                 "properties": {"Name": {"title": [{"text": {"content": title}}]}},
                 "children": [{"object": "block", "type": "paragraph",
                               "paragraph": {"rich_text": [{"type": "text", "text": {"content": desc}}]}}]}
-        _try(log, "Notion", lambda: _req(f"{s.notion_base}/pages", body, {
+        send("Notion", lambda: _req(f"{s.notion_base.rstrip('/')}/pages", body, {
             "Authorization": f"Bearer {s.notion_token}", "Notion-Version": "2022-06-28"}))
-    if s.jira_url and s.jira_email and s.jira_token and s.jira_project:
+
+    if "Jira" in required:
         auth = base64.b64encode(f"{s.jira_email}:{s.jira_token}".encode()).decode()
-        body = {"fields": {"project": {"key": s.jira_project}, "summary": title, "issuetype": {"name": "Task"},
-                           "description": {"type": "doc", "version": 1, "content": [
-                               {"type": "paragraph", "content": [{"type": "text", "text": desc}]}]}}}
-        _try(log, "Jira", lambda: _req(f"{s.jira_url.rstrip('/')}/rest/api/3/issue", body, {"Authorization": f"Basic {auth}"}))
+        body = {"fields": {"project": {"key": s.jira_project}, "summary": title,
+                           "issuetype": {"name": "Task"},
+                           "description": {"type": "doc", "version": 1,
+                               "content": [{"type": "paragraph", "content":[{"type":"text","text":desc}]}]}}}
+        send("Jira", lambda: _req(f"{s.jira_url.rstrip('/')}/rest/api/3/issue", body,
+                                   {"Authorization": f"Basic {auth}"}))
+    return results
 
 
-def _try(log, name, fn):
-    try:
-        fn(); log(f"Integracao {name}: enviado")
-    except Exception as e:
-        log(f"Integracao {name}: falhou ({e})")
+def _allowed_attachment_url(url, allow_loopback=False):
+    parsed = urllib.parse.urlsplit(url)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if parsed.username or parsed.password or not host:
+        return False
+    if parsed.scheme == "http":
+        return allow_loopback and _loopback_host(host)
+    if parsed.scheme != "https":
+        return False
+    return (host == "trello.com" or host.endswith(".trello.com")
+            or host.endswith(".s3.amazonaws.com")
+            or (host.startswith("s3.") and host.endswith(".amazonaws.com")))
 
 
-def pull_trello(s, seen: set, log=print):
-    """Baixa para a hot folder os anexos de imagem dos cartoes da lista de entrada (uma vez por anexo)."""
-    if not (s.trello_key and s.trello_token and s.trello_in_list):
+def _download_attachment(url, path, headers, timeout=120, allow_loopback=False):
+    if not _allowed_attachment_url(url, allow_loopback=allow_loopback):
+        raise ValueError("URL do anexo Trello fora da allowlist HTTPS/loopback.")
+    request = urllib.request.Request(url, headers={"User-Agent": "AutoRIP/0.6", **headers})
+
+    class SafeRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, response_headers, newurl):
+            if not _allowed_attachment_url(newurl, allow_loopback=allow_loopback):
+                return None
+            redirected = super().redirect_request(req, fp, code, msg, response_headers, newurl)
+            if redirected and urllib.parse.urlsplit(req.full_url).hostname != urllib.parse.urlsplit(newurl).hostname:
+                redirected.remove_header("Authorization")
+            return redirected
+
+    opener = urllib.request.build_opener(SafeRedirect())
+    with opener.open(request, timeout=timeout) as response:
+        if not _allowed_attachment_url(response.geturl(), allow_loopback=allow_loopback):
+            raise ValueError("Redirecionamento do anexo para host nao permitido.")
+        content_length = response.headers.get("Content-Length")
+        if content_length and content_length.isdigit() and int(content_length) > MAX_ATTACHMENT_BYTES:
+            raise ValueError("Anexo Trello excede 200 MiB.")
+        total = 0
+        with open(path, "wb") as target:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_ATTACHMENT_BYTES:
+                    raise ValueError("Anexo Trello excede 200 MiB.")
+                target.write(chunk)
+            target.flush()
+            os.fsync(target.fileno())
+    if total == 0:
+        raise ValueError("Anexo Trello vazio.")
+    with Image.open(path) as image:
+        if image.width * image.height > MAX_INPUT_PIXELS:
+            raise ValueError("Imagem Trello acima do limite de pixels.")
+        image.verify()
+    return total
+
+
+def pull_trello(s, seen: set, log=print, offline_check=None):
+    """Baixa anexos permitidos sem alocar o arquivo inteiro na memoria."""
+    if not (s.trello_key and s.trello_token and s.trello_in_list) or _is_offline(s, offline_check):
         return 0
-    n = 0
-    cards = _req(_trello(s, f"/lists/{s.trello_in_list}/cards", attachments="true", attachment_fields="name,url,id"))
+    os.makedirs(s.hot_folder, exist_ok=True)
+    if _is_offline(s, offline_check):
+        return 0
+    cards = _req(_trello(s, f"/lists/{s.trello_in_list}/cards", attachments="true",
+                         attachment_fields="name,url,id"), headers=_trello_headers(s))
+    trello_base = urllib.parse.urlsplit(s.trello_base)
+    allow_loopback = trello_base.scheme == "http" and _loopback_host(trello_base.hostname or "")
+    count = 0
     for card in cards:
-        for att in card.get("attachments", []):
-            name = att.get("name", "")
-            if not name.lower().endswith(IMG) or att["id"] in seen:
+        for attachment in card.get("attachments", []):
+            if _is_offline(s, offline_check):
+                return count
+            name = safe_filename(attachment.get("name", ""))
+            identifier = attachment.get("id")
+            url = attachment.get("url", "")
+            if not identifier or identifier in seen or not name.lower().endswith(IMG) or not url:
                 continue
-            seen.add(att["id"])
-            dst = os.path.join(s.hot_folder, os.path.basename(name))
-            url = att["url"]
-            hdr = {"Authorization": f'OAuth oauth_consumer_key="{s.trello_key}", oauth_token="{s.trello_token}"'} \
-                if "trello.com" in url else {}
-            data = _req(urllib.request.Request(url, headers=hdr).full_url, headers=hdr, timeout=120)
-            if isinstance(data, (bytes, bytearray)):
-                with open(dst + ".part", "wb") as f: f.write(data)
-                os.replace(dst + ".part", dst); n += 1
-                log(f"Trello: baixado {name} (cartao {card.get('name', '')})")
-    return n
+            if not _allowed_attachment_url(url, allow_loopback=allow_loopback):
+                log("Trello: anexo ignorado (URL nao permitida)")
+                continue
+            host = (urllib.parse.urlsplit(url).hostname or "").lower().rstrip(".")
+            headers = {}
+            if host == "trello.com" or host.endswith(".trello.com"):
+                headers = _trello_headers(s)
+            fd, temporary = tempfile.mkstemp(prefix=".trello.", suffix=".part", dir=s.hot_folder)
+            os.close(fd)
+            try:
+                _download_attachment(url, temporary, headers, allow_loopback=allow_loopback)
+                if _is_offline(s, offline_check):
+                    continue
+                destination = publish_unique_file(temporary, os.path.join(s.hot_folder, name))
+                seen.add(identifier)
+                count += 1
+                log(f"Trello: baixado {os.path.basename(destination)} (cartao {safe_filename(card.get('name', ''))})")
+            except Exception:
+                raise
+            finally:
+                try: os.remove(temporary)
+                except OSError: pass
+    return count
 
 
-# ---------------- modo offline: fila de avisos (outbox) ----------------
-def _outbox_path(home): return os.path.join(home, "outbox.json")
+# ---------------- modo offline: fila de avisos ----------------
+def _outbox_path(home):
+    return os.path.join(home, "outbox.json")
+
+
+def _atomic_json(path, value):
+    directory = os.path.dirname(os.path.abspath(path))
+    os.makedirs(directory, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".outbox.", suffix=".tmp", dir=directory)
+    try:
+        if hasattr(os, "fchmod"):
+            os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as target:
+            json.dump(value, target, ensure_ascii=False)
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temporary, path)
+    except BaseException:
+        try: os.close(fd)
+        except OSError: pass
+        try: os.remove(temporary)
+        except OSError: pass
+        raise
 
 
 def outbox_load(home):
+    path = _outbox_path(home)
     try:
-        with open(_outbox_path(home), encoding="utf-8") as f: return json.load(f)
-    except Exception:
+        with open(path, encoding="utf-8") as source:
+            items = json.load(source)
+    except FileNotFoundError:
         return []
+    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+        raise ValueError("Arquivo de outbox invalido; os avisos locais foram preservados.")
+    for item in items:
+        sent = item.get("sent", [])
+        if not isinstance(sent, list) or any(not isinstance(name, str) for name in sent):
+            raise ValueError("Campo de status invalido na outbox; os avisos locais foram preservados.")
+    return items
 
 
 def outbox_add(home, job, info):
-    items = outbox_load(home)
-    items.append(dict(job={k: job.get(k) for k in ("name", "out")}, info=info))
-    with open(_outbox_path(home), "w", encoding="utf-8") as f: json.dump(items, f, ensure_ascii=False)
+    with _OUTBOX_LOCK:
+        items = outbox_load(home)
+        job_id = job.get("id")
+        if job_id and any(item.get("job_id") == job_id for item in items):
+            return False
+        items.append({"id": secrets.token_hex(12), "job_id": job_id,
+                      "job": {k: job.get(k) for k in ("name", "out")},
+                      "info": info, "sent": []})
+        _atomic_json(_outbox_path(home), items)
+        return True
 
 
-def outbox_flush(s, home, log=print):
-    """Envia os avisos guardados enquanto estava offline (chame apenas quando offline_mode estiver desligado)."""
-    items = outbox_load(home)
-    if not items: return 0
-    for it in items: notify_done(s, it["job"], it["info"], log)
-    with open(_outbox_path(home), "w", encoding="utf-8") as f: json.dump([], f)
-    log(f"Fila offline: {len(items)} aviso(s) enviado(s)")
-    return len(items)
+def outbox_flush(s, home, log=print, offline_check=None):
+    """Retenta cada servico pendente e remove somente notificacoes confirmadas."""
+    if _is_offline(s, offline_check):
+        return 0
+    with _OUTBOX_FLUSH_LOCK:
+        with _OUTBOX_LOCK:
+            items = outbox_load(home)
+            changed = False
+            for item in items:
+                if not item.get("id"):
+                    item["id"] = secrets.token_hex(12)
+                    changed = True
+            if changed:
+                _atomic_json(_outbox_path(home), items)
+        if not items:
+            return 0
+        required = _enabled(s)
+        if not required:
+            return 0
+        updates = {}
+        completed_ids = set()
+        for item in items:
+            if _is_offline(s, offline_check):
+                break
+            job, info = item.get("job", {}), item.get("info", {})
+            sent = set(item.get("sent", []))
+            if not isinstance(job, dict) or not isinstance(info, dict):
+                continue
+            if required.issubset(sent):
+                completed_ids.add(item["id"])
+                continue
+            results = notify_done(s, job, info, log, offline_check=offline_check, already_sent=sent)
+            sent.update(name for name, ok in results.items() if ok)
+            if required.issubset(sent):
+                completed_ids.add(item["id"])
+            else:
+                updates[item["id"]] = sorted(sent)
+        with _OUTBOX_LOCK:
+            current = outbox_load(home)
+            remaining = []
+            for item in current:
+                identifier = item.get("id")
+                if identifier in completed_ids:
+                    continue
+                if identifier in updates:
+                    item["sent"] = updates[identifier]
+                remaining.append(item)
+            _atomic_json(_outbox_path(home), remaining)
+        completed = len(completed_ids)
+        if completed:
+            log(f"Fila offline: {completed} aviso(s) confirmado(s)")
+        return completed

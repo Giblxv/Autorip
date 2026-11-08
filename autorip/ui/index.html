@@ -29,6 +29,7 @@ button.c{background:var(--c)}button.m{background:var(--m);color:#fff}button.k{ba
 @keyframes boing{0%{transform:scale(1)}30%{transform:scale(1.2,.8)}55%{transform:scale(.88,1.15)}75%{transform:scale(1.07,.95)}100%{transform:scale(1)}}
 main{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;padding:24px 28px;max-width:1300px;margin:auto}
 @media(max-width:900px){main{grid-template-columns:1fr}}
+@media(max-width:560px){header{flex-wrap:wrap;gap:8px;padding:8px 12px;border-bottom-width:5px}header .sp{display:none}.logo{font-size:28px}header small{font-size:9px;margin-left:auto}header button{font-size:12px;padding:4px 7px;border-width:2px;border-radius:9px;box-shadow:2px 2px 0 var(--k)}#off{font-size:12px!important;padding:2px 7px!important;margin-right:0!important;border-width:2px!important}main{padding:14px;gap:16px}.card{padding:14px;box-shadow:5px 5px 0 var(--k);border-width:4px}.card h2{font-size:24px}#drop{padding:20px 12px;font-size:19px}.row{flex-wrap:wrap}.pq{align-items:flex-start;flex-wrap:wrap}.pq .bt{width:100%;justify-content:flex-end}}
 .card{background:#fff;border:5px solid var(--k);border-radius:22px;padding:18px 22px;box-shadow:8px 8px 0 var(--k)}
 .card h2{margin:0 0 12px;font-size:30px}.card h2 i{font-style:normal;padding:0 8px;border-radius:8px;color:#fff}
 .h-c i{background:var(--c)}.h-m i{background:var(--m)}.h-y i{background:var(--y);color:var(--k)}.h-k i{background:var(--k)}
@@ -83,7 +84,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}dialog[open]{animation:pop .45s}
    <div class="paths"><b>Pasta de entrada:</b> <span id="pin"></span><br><b>Saída (.PRT):</b> <span id="pout"></span><br><b>Perfil ICC:</b> <span id="picc"></span></div>
   </div>
   <div class="card h-c" style="margin-top:24px"><h2><i>Manual</i></h2>
-   <div id="drop">🖨️ Arraste a arte aqui (PNG com fundo transparente)<br><small style="font-size:15px">ou</small><br><br><button class="c" onclick="document.getElementById('file').click()">Escolher arquivo</button><input id="file" type="file" multiple accept=".png,.tif,.tiff,.jpg,.jpeg">
+   <div id="drop">🖨️ Arraste a arte aqui (PNG, TIFF ou JPEG)<br><small style="font-size:15px">Prefira PNG com transparência real para o branco automático.</small><br><br><button class="c" onclick="document.getElementById('file').click()">Escolher arquivo</button><input id="file" type="file" multiple accept=".png,.tif,.tiff,.jpg,.jpeg">
     <div class="row">Largura (cm): <input id="wcm" type="number" step="0.1" placeholder="auto" style="width:130px"></div></div>
   </div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Fila de impressão</i></h2><span class="cnt" id="pqn">0</span></div>
@@ -97,7 +98,7 @@ dialog::backdrop{background:rgba(0,0,0,.55)}dialog[open]{animation:pop .45s}
  </section>
 </main>
 <dialog id="dlg"><h2 style="margin-top:0">⚙ Configurações</h2><div id="loginBox"><p id="loginTxt"></p>
- <input type="password" id="pw" placeholder="senha"><div id="pw2box" style="margin-top:8px;display:none"><input type="password" id="pw2" placeholder="repita a senha"></div>
+ <input type="password" id="pw" placeholder="senha" maxlength="128"><div id="pw2box" style="margin-top:8px;display:none"><input type="password" id="pw2" placeholder="repita a senha" maxlength="128"></div>
  <p class="msg" id="lmsg"></p><button class="k" onclick="doLogin()">Entrar</button> <button onclick="dlg.close()">Fechar</button></div>
  <div id="cfgBox" style="display:none"><div class="grid" id="grid"></div><p class="msg" id="cmsg"></p>
  <button class="c" onclick="saveCfg()">Salvar</button> <button onclick="dlg.close()">Fechar</button></div></dialog>
@@ -106,13 +107,19 @@ const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new 
 let brandShown="";function setBrand(n,has){if(n!==brandShown){brandShown=n;$("logo").innerHTML="";n.split("").forEach(ch=>{const s=document.createElement("span");s.textContent=ch===" "?"\u00a0":ch;$("logo").appendChild(s)});document.title=n}const b=$("blogo");if(has&&!b.src){b.src="/api/brand-logo?"+Date.now();b.style.display=""}if(!has){b.style.display="none";b.removeAttribute("src")}}
 setBrand("AutoRIP",false);
 async function api(path,opt={}){opt.headers=Object.assign({},opt.headers,token?{"X-Token":token}:{});const r=await fetch(path,opt);return{ok:r.ok,d:await r.json()}}
-async function poll(){try{const {d}=await api("/api/state");hasPass=d.has_pass;setBrand(d.brand,d.has_logo);{const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending?" · "+d.pending+" aviso(s) na fila":"")}$("ver").textContent="v"+d.version;
+async function poll(){try{const {d}=await api("/api/state");hasPass=d.has_pass;setBrand(d.brand,d.has_logo);{const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending>0?" · "+d.pending+" aviso(s) na fila":d.pending<0?" · aviso local indisponível":"")}$("ver").textContent="v"+d.version;
  $("pin").textContent=d.hot_folder;$("pout").textContent=d.output_folder;$("picc").textContent=d.icc;
  $("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";
- $("jobs").innerHTML=d.jobs.length?"":"<em>Nenhum trabalho ainda…</em>";
- d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";const p=Math.round(j.progress*100);
-  e.innerHTML=(j.thumb?`<img src="${j.thumb}" style="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff">`:"")+`${j.name}<span class="st ${j.status}">${j.status}</span><div class="bar"><div class="fill" style="width:${p}%"></div><div class="drop" style="left:calc(${p}% - 14px)">${["💧","🎨","💧","🖨️"][p%4]}</div></div>`+(j.error?`<small style="color:var(--m)">${j.error}</small>`:"");$("jobs").appendChild(e);
-  if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
+ const jobs=$("jobs");jobs.replaceChildren();
+ if(!d.jobs.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";jobs.appendChild(empty)}
+ d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";const p=Math.max(0,Math.min(100,Math.round(Number(j.progress)||0)));
+  if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.src=j.thumb;im.alt="Miniatura da arte";im.style.cssText="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
+  const name=document.createElement("span");name.textContent=String(j.name||"");e.appendChild(name);
+  const status=document.createElement("span");status.className="st "+(["fila","processando","pronto","erro"].includes(j.status)?j.status:"");status.textContent=String(j.status||"");e.appendChild(status);
+  const bar=document.createElement("div");bar.className="bar";const fill=document.createElement("div");fill.className="fill";fill.style.width=p+"%";bar.appendChild(fill);
+  const drop=document.createElement("div");drop.className="drop";drop.style.left=`calc(${p}% - 14px)`;drop.textContent=["💧","🎨","💧","🖨️"][p%4];bar.appendChild(drop);e.appendChild(bar);
+  if(j.error){const error=document.createElement("small");error.style.color="var(--m)";error.textContent=String(j.error);e.appendChild(error)}
+  jobs.appendChild(e);if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
  first=false;renderLog(d.log);}catch(e){}}
 let lastLog="";
 function tagOf(m){const r=[[/^OK/,"ok","PRONTO"],[/^ERRO|falhou/i,"erro","ERRO"],[/^RIP/,"rip","RIP"],[/^Impresso/,"","IMPRESSO"],[/^Integra|^Trello|^Fila offline|^Agente/,"rede","REDE"],[/^Modo auto/,"rip","AUTO"],[/^Configura/,"","CONFIG"],[/^Removido/,"erro","FILA"]];
@@ -131,12 +138,12 @@ async function pollPrints(){try{const {d}=await api("/api/prints");$("pqn").text
   const sm=document.createElement("small");sm.textContent=`${p.width_cm.toFixed(1)} × ${p.height_cm.toFixed(1)} cm · ${p.mb} MB · há ${ago(p.mtime)}`;g.append(n,sm);
   const bt=document.createElement("div");bt.className="bt";const ok=document.createElement("button");ok.className="sm c";ok.textContent="✔ Impresso";ok.onclick=()=>markPrinted(p.name);
   const del=document.createElement("button");del.className="sm m";del.textContent="🗑";del.title="Remover da fila (pede senha)";del.onclick=()=>delPrint(p.name);bt.append(ok,del);r.append(im,g,bt);box.appendChild(r)})}catch(e){}}
-async function markPrinted(n){await api("/api/prints/printed",{method:"POST",body:JSON.stringify({name:n})});pollPrints();poll()}
+async function markPrinted(n){if(!token){openCfg();return}const r=await api("/api/prints/printed",{method:"POST",body:JSON.stringify({name:n})});if(!r.ok){token="";openCfg();return}pollPrints();poll()}
 async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+" da fila? O arquivo será apagado."))return;const r=await api("/api/prints/delete",{method:"POST",body:JSON.stringify({name:n})});if(!r.ok)token="";pollPrints();poll()}
 function celebrate(){const f=$("fim");f.classList.remove("go");void f.offsetWidth;f.classList.add("go")}
 async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
-async function toggleAuto(){await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});poll()}
-async function upload(files){for(const f of files){const w=$("wcm").value;await fetch(`/api/upload?name=${encodeURIComponent(f.name)}&width=${w}`,{method:"POST",body:f})}poll()}
+async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});if(!r.ok){token="";openCfg();return}poll()}
+async function upload(files){for(const f of files){const w=$("wcm").value;const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(w)}`,{method:"POST",body:f});if(!r.ok){alert(`${f.name}: ${r.d.error||"falha no upload"}`);break}}poll();$("file").value=""}
 $("file").onchange=e=>upload(e.target.files);
 const dz=$("drop");["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over")}));
 ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over")}));dz.addEventListener("drop",e=>upload(e.dataTransfer.files));
@@ -145,21 +152,27 @@ const SCHEMA=[["h","Pastas e perfil"],["icc_path","Perfil ICC (caminho completo)
 ["h","Branco automático"],["white_enabled","Gerar branco","b"],["white_density","Densidade do branco (0 a 1)","n"],["white_choke_mm","Recuo do branco (mm)","n"],["white_fill_holes_mm","Fechar furos (mm)","n"],["white_alpha_threshold","Alpha mínimo (0 a 1)","n"],
 ["h","Rede"],["offline_mode","Modo offline (sem internet: desliga integrações e agente)","b"],
 ["h","Marca do cliente"],["brand_name","Nome do programa","t"],["label_enabled","Etiqueta (arquivo e medidas) nas margens","b"],["watermark_opacity","Opacidade da marca d'água (0 a 1)","n"],["@logo"],["@wm"],
-["h","Integrações de pedidos"],["webhook_url","Webhook (URL, recebe JSON ao concluir)","t",1],["trello_key","Trello — API key","t"],["trello_token","Trello — token","t"],["trello_in_list","Trello — ID da lista de ENTRADA (anexos viram arte)","t"],["trello_out_list","Trello — ID da lista de PRONTOS","t"],["notion_token","Notion — token","t"],["notion_db","Notion — ID do banco (título: Name)","t"],["jira_url","Jira — URL (https://empresa.atlassian.net)","t"],["jira_email","Jira — e-mail","t"],["jira_token","Jira — API token","t"],["jira_project","Jira — chave do projeto","t"],
-["h","Agente de IA"],["anthropic_key","Chave da API Anthropic","t",1],["anthropic_model","Modelo","t"],
+["h","Integrações de pedidos"],["webhook_url","Webhook (URL, recebe JSON ao concluir)","t",1],["trello_key","Trello — API key","p"],["trello_token","Trello — token","p"],["trello_in_list","Trello — ID da lista de ENTRADA (anexos viram arte)","t"],["trello_out_list","Trello — ID da lista de PRONTOS","t"],["notion_token","Notion — token","p"],["notion_db","Notion — ID do banco (título: Name)","t"],["jira_url","Jira — URL (https://empresa.atlassian.net)","t"],["jira_email","Jira — e-mail","t"],["jira_token","Jira — API token","p"],["jira_project","Jira — chave do projeto","t"],
+["h","Agente de IA"],["anthropic_key","Chave da API Anthropic","p",1],["anthropic_model","Modelo","t"],
 ["h","Modo automático"],["auto_mode","Ligar automático ao abrir","b"],["poll_seconds","Intervalo de vigia (s)","n"]];
 function openCfg(){$("dlg").showModal();$("lmsg").textContent="";if(token){showCfg()}else{$("loginBox").style.display="";$("cfgBox").style.display="none";
- $("loginTxt").textContent=hasPass?"Digite a senha para abrir as configurações.":"Primeiro acesso: crie uma senha (mínimo 4 caracteres).";$("pw2box").style.display=hasPass?"none":""}}
+ $("loginTxt").textContent=hasPass?"Digite a senha para abrir as configurações.":"Primeiro acesso: crie uma senha (mínimo 8 caracteres).";$("pw2box").style.display=hasPass?"none":""}}
 async function doLogin(){let r;if(hasPass)r=await api("/api/login",{method:"POST",body:JSON.stringify({password:$("pw").value})});
- else{if($("pw").value!==$("pw2").value){$("lmsg").textContent="As senhas não conferem";return}r=await api("/api/setpass",{method:"POST",body:JSON.stringify({new:$("pw").value})})}
+ else{if($("pw").value.length<8){$("lmsg").textContent="Use pelo menos 8 caracteres";return}if($("pw").value!==$("pw2").value){$("lmsg").textContent="As senhas não conferem";return}r=await api("/api/setpass",{method:"POST",body:JSON.stringify({new:$("pw").value})})}
  if(r.ok){token=r.d.token;showCfg()}else $("lmsg").textContent=r.d.error}
 async function showCfg(){const {ok,d}=await api("/api/settings");if(!ok){token="";return openCfg()}$("loginBox").style.display="none";$("cfgBox").style.display="";
- const g=$("grid");g.innerHTML="";window._cfg=d;SCHEMA.forEach(f=>{if(f[0]==="h"){g.innerHTML+=`<h3>${f[1]}</h3>`;return}if(f[0]==="@logo"){g.innerHTML+=`<label>Logo da marca (PNG)<input type="file" accept="image/*" onchange="upImg('logo',this)"></label>`;return}if(f[0]==="@wm"){g.innerHTML+=`<label>Marca d'água (PNG)<input type="file" accept="image/*" onchange="upImg('watermark',this)"></label>`;return}const [k,lab,t,full]=f;
-  g.innerHTML+=t==="b"?`<label><input type="checkbox" id="f_${k}" ${d[k]?"checked":""}> ${lab}</label>`:`<label class="${full?"full":""}">${lab}<input id="f_${k}" type="${t==="n"?"number":"text"}" step="any" value="${d[k]}"></label>`});
- g.innerHTML+=`<h3>Limite de tinta (%)</h3>`+["K","C","M","Y"].map(c=>`<label>${c}<input type="number" id="ink_${c}" value="${d.ink_limit[c]}"></label>`).join("")}
+ const g=$("grid");g.replaceChildren();window._cfg=d;SCHEMA.forEach(f=>{if(f[0]==="h"){const h=document.createElement("h3");h.textContent=f[1];g.appendChild(h);return}
+  if(f[0]==="@logo"||f[0]==="@wm"){const label=document.createElement("label");label.appendChild(document.createTextNode(f[0]==="@logo"?"Logo da marca (PNG)":"Marca d'água (PNG)"));const file=document.createElement("input");file.type="file";file.accept="image/*";file.addEventListener("change",()=>upImg(f[0]==="@logo"?"logo":"watermark",file));label.appendChild(file);g.appendChild(label);return}
+  const [k,lab,t,full]=f,label=document.createElement("label"),input=document.createElement("input");if(full)label.classList.add("full");input.id="f_"+k;
+  if(t==="b"){input.type="checkbox";input.checked=Boolean(d[k]);label.append(input,document.createTextNode(" "+lab))}
+  else{input.type=t==="n"?"number":t==="p"?"password":"text";if(t==="n")input.step="any";input.value=String(d[k]??"");label.append(document.createTextNode(lab),input);if(t==="p")input.placeholder=d._secret_configured?.[k]?"Configurada; deixe vazio para manter":"Ainda não configurada"}
+  g.appendChild(label)});
+ const heading=document.createElement("h3");heading.textContent="Limite de tinta (%)";g.appendChild(heading);["K","C","M","Y"].forEach(c=>{const label=document.createElement("label"),input=document.createElement("input");label.appendChild(document.createTextNode(c));input.type="number";input.id="ink_"+c;input.value=String(d.ink_limit[c]);label.appendChild(input);g.appendChild(label)})}
 async function upImg(kind,el){const f=el.files[0];if(!f)return;const r=await api("/api/"+kind,{method:"POST",body:f});$("cmsg").textContent=r.ok?"Imagem enviada! 🎉":(r.d.error||"erro");poll()}
-async function saveCfg(){const o={};SCHEMA.forEach(f=>{if(f[0]==="h"||f[0][0]==="@")return;const [k,,t]=f,e=$("f_"+k);o[k]=t==="b"?e.checked:t==="n"?(Number.isInteger(window._cfg[k])?parseInt(e.value):parseFloat(e.value)):e.value});
+async function saveCfg(){if(!token){openCfg();return}const o={};for(const f of SCHEMA){if(f[0]==="h"||f[0][0]==="@")continue;const [k,,t]=f,e=$("f_"+k);
+  if(t==="b")o[k]=e.checked;else if(t==="n"){const v=Number.isInteger(window._cfg[k])?parseInt(e.value):parseFloat(e.value);if(!Number.isFinite(v)){$("cmsg").textContent=`Valor inválido: ${k}`;return}o[k]=v}
+  else if(t==="p"){if(e.value)o[k]=e.value}else o[k]=e.value}
  o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=parseInt($("ink_"+c).value));
- const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok)poll()}
+ const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok){await showCfg();poll()}}
 poll();pollPrints();setInterval(poll,1000);setInterval(pollPrints,3000);
 </script></body></html>
