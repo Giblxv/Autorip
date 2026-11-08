@@ -10,6 +10,7 @@ from .prt import PrtWriter, plane_bytes_for, HEADER_SIZE
 from .paths import publish_unique_file
 
 MAX_INPUT_PIXELS = 80_000_000
+MIN_FREE_DISK_BYTES = 128 * 1024 * 1024  # reserva para logs, journal e sistema
 STRIP = 512  # reduz o pico de memoria em folhas largas
 MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
 _BYTES_PER_RENDER_PIXEL = 48  # planos, alpha, CMYK float e buffers temporários
@@ -153,8 +154,8 @@ class Rip:
         self._labels = self._make_labels(os.path.basename(png_path), w_cm, art_rows / s.dpi_y * 2.54, n_dots, top, art_rows, bot) if s.label_enabled else []
         estimated_bytes = HEADER_SIZE + n_rows * 12 * plane_bytes_for(n_dots)
         free_bytes = shutil.disk_usage(out_dir).free
-        if estimated_bytes > free_bytes:
-            raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB.")
+        if estimated_bytes + MIN_FREE_DISK_BYTES > free_bytes:
+            raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB, alem de 128 MiB de reserva livre.")
         fill_rows = int(round(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         choke_rows = int(round(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         halo = 2 * fill_rows + choke_rows + 2
