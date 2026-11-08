@@ -953,6 +953,11 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/state":
             global LAST_CLIENT_SEEN
             LAST_CLIENT_SEEN = time.monotonic()
+            if not self._auth():
+                # Mantem o monitor do browser vivo na tela de login, sem expor
+                # filas, nomes de artes, logs ou caminhos de producao.
+                return self._send(200, dict(version=__version__, has_pass=APP.has_pass(),
+                                            brand="AutoRIP", has_logo=False, locked=True))
             with APP.lock:
                 jobs = [dict(job) for job in APP.jobs[-12:]]
                 logs = list(APP.log_lines[-60:])
@@ -980,8 +985,9 @@ class H(BaseHTTPRequestHandler):
                                         jobs=jobs, log=logs, hot_folder=hot_folder, output_folder=output_folder,
                                         icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo))
         if u.path == "/api/prints":
-            return self._send(200, APP.list_prints())
+            return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/thumb":
+            if not self._auth(): return self._send(401, {"error": "login"})
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
             thumbs_root = os.path.realpath(os.path.join(APP.home, "thumbs"))
             f = os.path.join(thumbs_root, "by_name", nm + ".jpg") if nm else os.path.join(thumbs_root, jid + ".jpg")
