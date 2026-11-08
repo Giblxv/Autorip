@@ -9,8 +9,17 @@ from autorip import integrations
 from conftest import wait_for_job
 
 
-def test_modo_offline_nao_chama_rede_e_preserva_outbox(app, sample_png, tmp_path):
+def test_modo_offline_nao_chama_rede_e_preserva_outbox(app, sample_png, tmp_path, monkeypatch):
     hits = []
+    outbox_saved = threading.Event()
+    original_add = integrations.outbox_add
+
+    def record_saved_outbox(*args, **kwargs):
+        result = original_add(*args, **kwargs)
+        outbox_saved.set()
+        return result
+
+    monkeypatch.setattr(integrations, "outbox_add", record_saved_outbox)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -34,6 +43,8 @@ def test_modo_offline_nao_chama_rede_e_preserva_outbox(app, sample_png, tmp_path
         shutil.copyfile(sample_png, source)
         job = app.enqueue(str(source), 3, move_to_done=False)
         wait_for_job(job)
+        # "pronto" indica o PRT pronto; a persistencia da notificacao vem depois.
+        assert outbox_saved.wait(timeout=10), "A notificacao offline nao foi persistida"
 
         assert job["status"] == "pronto" and os.path.exists(job["out"])
         assert hits == []
