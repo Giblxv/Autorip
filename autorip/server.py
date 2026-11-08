@@ -476,7 +476,8 @@ class App:
                 if not settings.offline_mode:
                     offline_check = lambda: self.s.offline_mode
                     integrations.outbox_flush(settings, self.home, self.log, offline_check=offline_check)
-                    integrations.pull_trello(settings, seen, self.log, offline_check=offline_check)
+                    integrations.pull_trello(settings, seen, self.log,
+                                            offline_check=offline_check, seen_home=self.home)
             except Exception as e: self.log(f"Integracao/entrada: falhou ({type(e).__name__})")
             with self.settings_lock:
                 poll_seconds = self.s.poll_seconds
