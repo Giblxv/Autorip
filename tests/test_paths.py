@@ -80,3 +80,52 @@ def test_move_nao_substitui_arquivo_criado_durante_publicacao(monkeypatch, tmp_p
     assert moved == str(folder / "origem_001.png")
     assert Path(moved).read_bytes() == b"minha arte"
     assert not source.exists()
+
+
+
+def test_fallback_sem_hardlink_publica_somente_apos_copia_completa(tmp_path, monkeypatch):
+    source = tmp_path / "origem.PRT"
+    data = b"PRT-TESTE" * 100_000
+    source.write_bytes(data)
+    destination = tmp_path / "destino.PRT"
+    original_rename = paths._rename_noreplace
+    seen = []
+
+    def forbid_hardlink(*args):
+        raise OSError(errno.EPERM, "hardlink indisponivel")
+
+    def observed_rename(part, final):
+        assert str(part).endswith(".part")
+        assert open(part, "rb").read() == data
+        assert not destination.exists()  # nenhum arquivo final durante a copia
+        seen.append((part, final))
+        return original_rename(part, final)
+
+    monkeypatch.setattr(paths.os, "link", forbid_hardlink)
+    monkeypatch.setattr(paths, "_rename_noreplace", observed_rename)
+    moved = paths.publish_unique_file(source, destination)
+    assert moved == str(destination)
+    assert destination.read_bytes() == data
+    assert source.read_bytes() == data
+    assert len(seen) == 1
+    assert not list(tmp_path.glob(".publish.*.part"))
+
+
+def test_fallback_sem_rename_atomico_falha_sem_publicar(tmp_path, monkeypatch):
+    source = tmp_path / "origem.PRT"
+    source.write_bytes(b"conteudo do prt")
+    destination = tmp_path / "destino.PRT"
+
+    def forbid_hardlink(*args):
+        raise OSError(errno.EPERM, "hardlink indisponivel")
+
+    def forbid_rename(*args):
+        raise NotImplementedError("rename sem sobrescrita nao disponivel")
+
+    monkeypatch.setattr(paths.os, "link", forbid_hardlink)
+    monkeypatch.setattr(paths, "_rename_noreplace", forbid_rename)
+    with pytest.raises(OSError, match="Publicacao atomica"):
+        paths.publish_unique_file(source, destination)
+    assert source.read_bytes() == b"conteudo do prt"
+    assert not destination.exists()
+    assert not list(tmp_path.glob(".publish.*.part"))
