@@ -780,3 +780,22 @@ def test_navegador_ocioso_nao_encerra_monitoramento_trello_ativo():
 
     state.s.offline_mode = True
     assert server_module._can_close_idle_browser(state) is True
+
+@pytest.mark.parametrize("missing_tk", [False, True])
+def test_modo_direto_sem_janela_inicia_servidor_sem_browser(monkeypatch, missing_tk):
+    import sys
+    from types import SimpleNamespace
+    from autorip import server
+
+    class DisplayUnavailable(Exception):
+        pass
+
+    def unavailable():
+        raise DisplayUnavailable("no display")
+
+    fake = None if missing_tk else SimpleNamespace(Tk=unavailable, TclError=DisplayUnavailable)
+    monkeypatch.setitem(sys.modules, "tkinter", fake)
+    calls = []
+    monkeypatch.setattr(server, "serve", lambda **kwargs: calls.append(kwargs))
+    server.run_direct()
+    assert calls == [{"open_browser": False}]
