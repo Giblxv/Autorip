@@ -56,7 +56,7 @@ O instalador solicita uma senha para o login compartilhado `autorip`. Essa é a 
 
 O worker começa automaticamente no boot. O Ubuntu Desktop fornece a interface para manutenção, terminal, navegador e diagnóstico; não execute uma segunda cópia de `python -m autorip --gui` enquanto o serviço estiver ativo, pois ela iniciaria outro worker. O estado operacional deve ser acompanhado por `systemctl` e `journalctl`.
 
-O instalador também instala **XRDP** e **Cockpit**. No Windows, abra `mstsc.exe` e conecte-se ao IP do servidor para acessar a área de trabalho. Para administração rápida, use `https://IP-DO-SERVIDOR:9090` no navegador. As regras do firewall são criadas para `AUTORIP_LAN_CIDR` (padrão `192.168.0.0/16`); para outra rede, instale com:
+O instalador também instala **Firefox**, **XRDP** e **Cockpit**. O Firefox fica disponível na área de trabalho do Ubuntu para login no Trello e demais aplicativos. No Windows, abra `mstsc.exe` e conecte-se ao IP do servidor para acessar a área de trabalho. Para administração rápida, use `https://IP-DO-SERVIDOR:9090` no navegador. As regras do firewall são criadas para `AUTORIP_LAN_CIDR` (padrão `192.168.0.0/16`); para outra rede, instale com:
 
 ```bash
 sudo AUTORIP_LAN_CIDR=192.168.1.0/24 \

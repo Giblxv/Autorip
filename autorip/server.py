@@ -10,7 +10,8 @@ from .prt import read_header
 from .watcher import EXTS, _signature, _stable
 from .paths import (ProcessLock, safe_filename, move_unique, next_available_path,
                     read_archive_marker, remove_archive_marker, write_archive_marker,
-                    file_sha256, find_marked_output, source_signature_matches)
+                    file_sha256, find_marked_output, source_signature_matches,
+                    write_json_atomic)
 from . import integrations, agent, updater
 from PIL import Image, ImageDraw, ImageOps
 
@@ -505,7 +506,13 @@ class App:
             self._finish_output_use()
 
     def _trello_loop(self):
-        seen = set()
+        seen_path = os.path.join(self.home, "trello_seen.json")
+        try:
+            with open(seen_path, encoding="utf-8") as source:
+                stored_seen = json.load(source)
+            seen = {item for item in stored_seen if isinstance(item, str)} if isinstance(stored_seen, list) else set()
+        except (OSError, ValueError, TypeError):
+            seen = set()
         while True:
             try:
                 with self.settings_lock:
@@ -514,10 +521,13 @@ class App:
                     offline_check = lambda: self.s.offline_mode
                     integrations.outbox_flush(settings, self.home, self.log, offline_check=offline_check)
                     integrations.pull_trello(settings, seen, self.log, offline_check=offline_check)
+                    if len(seen) > 10000:
+                        seen = set(sorted(seen)[-10000:])
+                    write_json_atomic(seen_path, sorted(seen), prefix=".trello-seen.")
             except Exception as e: self.log(f"Integracao/entrada: falhou ({type(e).__name__})")
             with self.settings_lock:
-                poll_seconds = self.s.poll_seconds
-            time.sleep(max(10, poll_seconds * 5))
+                scan_seconds = self.s.trello_scan_seconds
+            time.sleep(max(10, scan_seconds))
 
     def _watch(self):
         threading.Thread(target=self._trello_loop, daemon=True).start()
@@ -1157,7 +1167,8 @@ def _can_close_idle_browser(app):
         automatic = app.auto
         settings = app.s
         trello_active = (not settings.offline_mode and bool(settings.trello_key)
-                         and bool(settings.trello_token) and bool(settings.trello_in_list))
+                         and bool(settings.trello_token)
+                         and bool(settings.trello_in_list or settings.trello_in_lists))
         hot_folders = list(getattr(app, "_known_hot_folders", ()))
         current_hot = os.path.normcase(os.path.realpath(settings.hot_folder))
         if current_hot not in hot_folders:

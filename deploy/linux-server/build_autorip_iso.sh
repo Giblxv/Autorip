@@ -76,6 +76,7 @@ autoinstall:
     allow-pw: false
   packages:
     - ubuntu-desktop
+    - firefox
     - git
   late-commands:
     - mkdir -p /target/opt/autorip-server

@@ -45,7 +45,11 @@ class Settings:
     trello_token: str = ""
     trello_base: str = "https://api.trello.com/1"
     trello_in_list: str = ""
+    trello_in_lists: list = field(default_factory=list)
     trello_out_list: str = ""
+    trello_attachment_extensions: str = "png,tif,tiff,jpg,jpeg"
+    trello_attachment_patterns: str = ""
+    trello_scan_seconds: float = 30.0
     notion_token: str = ""
     notion_db: str = ""
     notion_base: str = "https://api.notion.com/v1"
@@ -105,6 +109,7 @@ class Settings:
         number("white_fill_holes_mm", 0, 2)
         number("watermark_opacity", 0, 1)
         number("poll_seconds", 0.25, 120)
+        number("trello_scan_seconds", 10, 3600)
 
         if (not isinstance(self.channel_order, list) or len(self.channel_order) != 4
                 or any(type(channel) is not str for channel in self.channel_order)
@@ -123,6 +128,7 @@ class Settings:
         string_fields = (
             "icc_path", "brand_name", "brand_logo", "watermark_path", "webhook_url",
             "trello_key", "trello_token", "trello_base", "trello_in_list", "trello_out_list",
+            "trello_attachment_extensions", "trello_attachment_patterns",
             "notion_token", "notion_db", "notion_base", "jira_url", "jira_email", "jira_token",
             "jira_project", "anthropic_key", "anthropic_model", "anthropic_base", "hot_folder",
             "output_folder", "printed_folder", "done_folder", "error_folder"
@@ -131,6 +137,15 @@ class Settings:
             value = getattr(self, name)
             if not isinstance(value, str) or "\x00" in value:
                 raise ValueError(f"Configuracao invalida: {name} precisa ser texto valido.")
+        if (not isinstance(self.trello_in_lists, list) or len(self.trello_in_lists) > 32
+                or any(not isinstance(item, str) or not item.strip() or "\x00" in item
+                       for item in self.trello_in_lists)):
+            raise ValueError("Configuracao invalida: trello_in_lists precisa ser uma lista de IDs de listas.")
+        extensions = [item.strip().lower().lstrip(".")
+                      for item in self.trello_attachment_extensions.replace(";", ",").split(",")
+                      if item.strip()]
+        if not extensions or any(not item.isalnum() or len(item) > 10 for item in extensions):
+            raise ValueError("Configuracao invalida: extensoes de anexos Trello invalidas.")
 
         folders = ("hot_folder", "output_folder", "printed_folder", "done_folder", "error_folder")
         canonical = {}

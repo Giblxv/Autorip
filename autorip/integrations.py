@@ -1,5 +1,6 @@
 """Integracoes opcionais, downloads limitados e outbox duravel para operacao DTF."""
 import base64
+import fnmatch
 import ipaddress
 import json
 import os
@@ -200,18 +201,42 @@ def _download_attachment(url, path, headers, timeout=120, allow_loopback=False):
     return total
 
 
+def _trello_input_lists(s):
+    values = [item.strip() for item in s.trello_in_lists if isinstance(item, str) and item.strip()]
+    if values:
+        return list(dict.fromkeys(values))
+    return [s.trello_in_list.strip()] if s.trello_in_list.strip() else []
+
+
+def _trello_attachment_allowed(s, name):
+    lower = name.lower()
+    extensions = {item.strip().lower().lstrip(".") for item in
+                  s.trello_attachment_extensions.replace(";", ",").split(",") if item.strip()}
+    if not any(lower.endswith("." + extension) for extension in extensions):
+        return False
+    patterns = [item.strip() for item in s.trello_attachment_patterns.replace(";", "\n").splitlines()
+                if item.strip()]
+    return not patterns or any(fnmatch.fnmatchcase(name, pattern) or
+                               fnmatch.fnmatchcase(lower, pattern.lower()) for pattern in patterns)
+
+
 def pull_trello(s, seen: set, log=print, offline_check=None):
-    """Baixa anexos permitidos sem alocar o arquivo inteiro na memoria."""
-    if not (s.trello_key and s.trello_token and s.trello_in_list) or _is_offline(s, offline_check):
+    """Varre listas Trello e baixa somente anexos de imagem selecionados."""
+    input_lists = _trello_input_lists(s)
+    if not (s.trello_key and s.trello_token and input_lists) or _is_offline(s, offline_check):
         return 0
     os.makedirs(s.hot_folder, exist_ok=True)
     if _is_offline(s, offline_check):
         return 0
-    cards = _req(_trello(s, f"/lists/{s.trello_in_list}/cards", attachments="true",
-                         attachment_fields="name,url,id"), headers=_trello_headers(s))
     trello_base = urllib.parse.urlsplit(s.trello_base)
     allow_loopback = trello_base.scheme == "http" and _loopback_host(trello_base.hostname or "")
     count = 0
+    cards = []
+    for list_id in input_lists:
+        result = _req(_trello(s, f"/lists/{list_id}/cards", attachments="true",
+                              attachment_fields="name,url,id"), headers=_trello_headers(s))
+        if isinstance(result, list):
+            cards.extend(result)
     for card in cards:
         for attachment in card.get("attachments", []):
             if _is_offline(s, offline_check):
@@ -219,7 +244,7 @@ def pull_trello(s, seen: set, log=print, offline_check=None):
             name = safe_filename(attachment.get("name", ""))
             identifier = attachment.get("id")
             url = attachment.get("url", "")
-            if not identifier or identifier in seen or not name.lower().endswith(IMG) or not url:
+            if not identifier or identifier in seen or not _trello_attachment_allowed(s, name) or not url:
                 continue
             if not _allowed_attachment_url(url, allow_loopback=allow_loopback):
                 log("Trello: anexo ignorado (URL nao permitida)")

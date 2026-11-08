@@ -71,7 +71,7 @@ Desligar o modo offline permite tráfego externo para os serviços que você con
 
 ## Integrações opcionais
 
-Trello pode buscar anexos de imagem de uma lista de entrada e criar cartão de conclusão; Notion, Jira e webhook recebem avisos de trabalhos concluídos. O agente de IA fornece sugestões técnicas. O AutoRIP não envia a imagem original nem faz upload do `.PRT` para essas integrações.
+Trello pode varrer periodicamente uma ou várias listas de entrada, baixar somente extensões e padrões de arquivo autorizados e criar cartão de conclusão na lista configurada; Notion, Jira e webhook recebem avisos de trabalhos concluídos. A configuração do painel permite selecionar os IDs das listas, filtros de anexos e o intervalo do scanner de cards novos. O agente de IA fornece sugestões técnicas. O AutoRIP não envia a imagem original nem faz upload do `.PRT` para essas integrações.
 
 ## Testes
 

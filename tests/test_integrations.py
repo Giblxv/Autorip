@@ -210,6 +210,38 @@ def test_trello_falha_de_publicacao_nao_registra_anexo_como_baixado(
     assert not list(hot.glob(".trello.*.part"))
 
 
+def test_trello_varre_multiplas_listas_e_filtra_anexos(tmp_path, sample_png, monkeypatch):
+    import shutil
+
+    hot = tmp_path / "hot"
+    hot.mkdir()
+    settings = Settings(offline_mode=False, hot_folder=str(hot), trello_key="K",
+                        trello_token="T", trello_in_lists=["L1", "L2"],
+                        trello_attachment_extensions="png,jpg",
+                        trello_attachment_patterns="cliente-*.png")
+    calls = []
+
+    def request(url, *args, **kwargs):
+        calls.append(url)
+        if "/lists/L1/cards" in url:
+            return [{"name": "A", "attachments": [
+                {"id": "ok", "name": "cliente-01.png", "url": "https://trello.com/a"},
+                {"id": "pattern", "name": "outro.png", "url": "https://trello.com/b"},
+            ]}]
+        return [{"name": "B", "attachments": [
+            {"id": "ext", "name": "cliente-02.pdf", "url": "https://trello.com/c"},
+        ]}]
+
+    monkeypatch.setattr(integrations, "_req", request)
+    monkeypatch.setattr(integrations, "_download_attachment",
+                        lambda url, path, headers, **kwargs: shutil.copyfile(sample_png, path))
+    seen = set()
+    assert integrations.pull_trello(settings, seen) == 1
+    assert seen == {"ok"}
+    assert (hot / "cliente-01.png").is_file()
+    assert len(calls) == 2
+
+
 def test_outbox_preserva_canal_pendente_apos_desativacao_parcial(tmp_path, monkeypatch):
     settings = Settings(offline_mode=False, webhook_url="https://example.invalid/hook",
                         trello_key="K", trello_token="T", trello_out_list="OUT")
