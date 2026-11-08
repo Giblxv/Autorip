@@ -1,0 +1,66 @@
+name: Validação integrada Windows (somente PR #32)
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-integrado:
+    if: github.head_ref == 'review/integracao-016-030'
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Checkout da branch de integração
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Instalar dependências e PyInstaller
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt pyinstaller
+          python -m PyInstaller --version
+
+      - name: Testar o conjunto integrado antes da compilação
+        run: python -m pytest -q
+
+      - name: Instalar Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Compilar executável e instalador Windows
+        shell: cmd
+        run: build_windows.bat
+
+      - name: Conferir artefatos e gerar checksums SHA256
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist\AutoRIP\AutoRIP.exe')) { throw 'Executável não encontrado' }
+          if (-not (Test-Path 'Output\AutoRIP_Setup.exe')) { throw 'Instalador não encontrado' }
+          $exe = (Get-FileHash 'dist\AutoRIP\AutoRIP.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+          $setup = (Get-FileHash 'Output\AutoRIP_Setup.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$exe  AutoRIP.exe" | Out-File -Encoding ascii SHA256SUMS.txt
+          "$setup  AutoRIP_Setup.exe" | Out-File -Encoding ascii -Append SHA256SUMS.txt
+          Get-Item 'dist\AutoRIP\AutoRIP.exe', 'Output\AutoRIP_Setup.exe' | Select-Object Name, Length
+
+      - name: Guardar resultados apenas como artefatos do PR
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoRIP-integracao-Windows-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            dist/AutoRIP/AutoRIP.exe
+            Output/AutoRIP_Setup.exe
+            SHA256SUMS.txt
