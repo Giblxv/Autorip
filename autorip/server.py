@@ -782,6 +782,7 @@ class App:
 
 APP = None
 HTTP_SERVER = None
+LAST_CLIENT_SEEN = 0.0
 
 
 class H(BaseHTTPRequestHandler):
@@ -899,6 +900,8 @@ class H(BaseHTTPRequestHandler):
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
         if u.path == "/api/state":
+            global LAST_CLIENT_SEEN
+            LAST_CLIENT_SEEN = time.monotonic()
             with APP.lock:
                 jobs = [dict(job) for job in APP.jobs[-12:]]
                 logs = list(APP.log_lines[-60:])
@@ -1051,7 +1054,7 @@ class H(BaseHTTPRequestHandler):
 
 
 def serve(port=8765, open_browser=True):
-    global APP, HTTP_SERVER
+    global APP, HTTP_SERVER, LAST_CLIENT_SEEN
     home_lock = ProcessLock(os.path.join(home_dir(), ".autorip.instance.lock"))
     watch_locks = []
     output_locks = []
@@ -1100,9 +1103,18 @@ def serve(port=8765, open_browser=True):
         APP._instance_lock.release()
         raise OSError("nenhuma porta local disponivel para o painel AutoRIP")
     HTTP_SERVER = srv
+    LAST_CLIENT_SEEN = time.monotonic()
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     print("AutoRIP em", url, flush=True)
     if open_browser: threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    if open_browser:
+        def browser_monitor():
+            while HTTP_SERVER is srv:
+                if time.monotonic() - LAST_CLIENT_SEEN > 15:
+                    srv.shutdown()
+                    return
+                time.sleep(2)
+        threading.Thread(target=browser_monitor, daemon=True).start()
     try:
         srv.serve_forever()
     finally:
@@ -1120,9 +1132,50 @@ def shutdown_server():
         srv.shutdown()
 
 
+def run_direct():
+    """Executa a hot-folder em janela nativa, sem servidor HTTP nem navegador."""
+    from .config import Settings
+    from .watcher import watch
+    stop_event = threading.Event()
+    home = home_dir()
+    settings = Settings.load(os.path.join(home, "autorip.json"), base=home)
+    try:
+        import tkinter as tk
+    except Exception:
+        watch(settings, stop=stop_event.is_set)
+        return
+
+    root = tk.Tk()
+    root.title("AutoRIP — modo direto")
+    root.geometry("560x190")
+    root.minsize(460, 150)
+    root.configure(bg="#1a1a1a")
+    status = tk.StringVar(value="Iniciando hot-folder local…")
+    tk.Label(root, text="AutoRIP", fg="#00aeef", bg="#1a1a1a",
+             font=("Segoe UI", 24, "bold")).pack(pady=(18, 4))
+    tk.Label(root, textvariable=status, fg="white", bg="#1a1a1a",
+             font=("Segoe UI", 10), wraplength=520).pack(pady=4)
+    tk.Button(root, text="Encerrar", command=lambda: (stop_event.set(), root.destroy()),
+              bg="#ec008c", fg="white", relief="flat", padx=18, pady=7).pack(pady=12)
+
+    def log(message):
+        text = str(message).replace("\n", " ")[-180:]
+        try:
+            root.after(0, status.set, text)
+        except tk.TclError:
+            pass
+
+    threading.Thread(target=watch, args=(settings, log, stop_event.is_set), daemon=True).start()
+    root.protocol("WM_DELETE_WINDOW", lambda: (stop_event.set(), root.destroy()))
+    root.mainloop()
+
+
 def main():
     if sys.stdout is None:                                    # .exe sem console
         lf = open(os.path.join(home_dir(), "autorip.log"), "a", buffering=1)
         sys.stdout = sys.stderr = lf
     headless = "--headless" in sys.argv or "--no-browser" in sys.argv
-    serve(open_browser=(not headless and os.environ.get("AUTORIP_NOBROWSER") != "1"))
+    if headless or "--direct" in sys.argv:
+        run_direct()
+    else:
+        serve(open_browser=os.environ.get("AUTORIP_NOBROWSER") != "1")

@@ -20,9 +20,9 @@ A base branca respeita o alfa/transparência e oferece controles de densidade, r
 
 Também existe o workflow manual **Build Windows** no GitHub Actions. Ele compila em Windows, gera os dois arquivos e publica ambos como artefato baixável por 14 dias. O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
 
-O navegador é somente a interface opcional do painel; o RIP, a conversão ICC, o meio-tom e a geração do `.PRT` rodam localmente no computador. Para deixar o AutoRIP trabalhando como serviço de hot-folder, sem abrir navegador, use o atalho **AutoRIP (segundo plano)** criado pelo instalador ou execute `AutoRIP.exe --headless`. Isso reduz o uso de interface, mas não altera a matemática do RIP: a velocidade depende principalmente de CPU, memória, resolução, tamanho da arte e perfil ICC.
+O navegador é somente a interface opcional do painel; o RIP, a conversão ICC, o meio-tom e a geração do `.PRT` rodam localmente no computador. Para trabalhar sem navegador, use o atalho **AutoRIP (modo direto)** ou execute `AutoRIP.exe --direct`. Ele abre uma pequena janela nativa de status e processa a hot-folder localmente. `--headless` continua aceito como alias. Isso reduz a dependência da interface, mas não altera a matemática do RIP: a velocidade depende principalmente de CPU, memória, resolução, tamanho da arte e perfil ICC.
 
-O botão **⏻ Encerrar** do painel encerra o servidor local de forma segura. Fechar apenas a aba/janela do navegador não encerra um processo separado do Windows; nesse caso, use o botão do painel ou finalize o atalho/processo do AutoRIP.
+O botão **⏻ Encerrar** do painel encerra o servidor local de forma segura. O painel também encerra automaticamente o servidor depois de aproximadamente 15 segundos sem receber o navegador; isso evita que fechar a aba deixe o processo permanente em segundo plano.
 
 O instalador é por usuário e não precisa de privilégios administrativos. A configuração inicial fica em `%APPDATA%\AutoRIP\autorip.json`; atualizações não sobrescrevem a configuração existente.
 
@@ -35,7 +35,7 @@ python -m autorip --icc perfil.icc --width-cm 20 arte.png
 python -m autorip --force arte.png        # reprocessa intencionalmente uma entrada já concluída
 python -m autorip --watch                 # observa a hot-folder
 python -m autorip --once                  # processa a hot-folder uma vez
-AutoRIP.exe --headless                    # Windows: worker local sem abrir navegador
+AutoRIP.exe --direct                      # Windows: janela nativa e worker local
 ```
 
 O painel atende somente em `127.0.0.1`. O modo automático lê a hot-folder, espera os arquivos estabilizarem, reivindica cada arquivo antes do RIP e arquiva a entrada em concluídos ou erros. Um journal local grava o SHA-256 do PRT temporário **antes** da publicação; na retomada, o AutoRIP só associa uma saída ao job se o hash exato e o cabeçalho PRT forem válidos. Um arquivo homônimo não é prova de conclusão. Após uma interrupção, a retomada recria o sidecar de dimensões e reconstitui a outbox de forma idempotente antes de arquivar a entrada. Se o estado for ambíguo, o AutoRIP preserva a entrada para revisão ou a encaminha para erros, em vez de declarar falsamente que um PRT concorrente é seu.
