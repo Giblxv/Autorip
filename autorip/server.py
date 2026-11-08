@@ -256,7 +256,18 @@ class App:
                 except Exception as metadata_error:
                     self.log(f"Recuperacao aguardando metadados auxiliares ({type(metadata_error).__name__}).")
                     return True
-            services = integrations.enabled_services(settings)
+            configured_services = integrations.enabled_services(settings)
+            required_services = marker.get("required_services")
+            if required_services is None:
+                # Journals legados não guardavam destinos; preserve o melhor esforço histórico.
+                services = configured_services
+            elif (isinstance(required_services, list)
+                    and all(type(name) is str and name in {"webhook", "Trello", "Notion", "Jira"}
+                            for name in required_services)):
+                services = frozenset(required_services)
+            else:
+                self.log("Recuperacao aguardando lista de destinos valida no journal.")
+                return True
             if not marker.get("outbox_handled"):
                 if services and isinstance(info, dict) and marker.get("job_id"):
                     try:
@@ -385,10 +396,12 @@ class App:
                 job["status"] = "processando"
             self.log(f"RIP: {job['name']}")
             out = None
+            services = integrations.enabled_services(settings)
             marker = {"phase": "processing", "target": "done", "job_id": job["id"],
                       "name": job["name"], "output_dir": settings.output_folder,
                       "started_ns": time.time_ns(), "metadata_written": False,
-                      "outbox_handled": False, "source_signature": list(_signature(path) or ())}
+                      "outbox_handled": False, "required_services": sorted(services),
+                      "source_signature": list(_signature(path) or ())}
             try:
                 out = next_available_path(settings.output_folder, os.path.splitext(job["name"])[0] + ".PRT")
                 marker["output"] = os.path.basename(out)
@@ -434,7 +447,6 @@ class App:
                 job["thumb"] = thumb
                 job.update(status="pronto", progress=1.0, out=out)
             self.log(f"OK: {os.path.basename(out)}  {info['width_cm']:.2f} x {info['height_cm']:.2f} cm")
-            services = integrations.enabled_services(settings)
             outbox_handled = not services
             try:
                 if services:

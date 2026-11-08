@@ -314,6 +314,35 @@ def test_journal_success_sem_prt_do_hash_exato_vai_para_revisao(app, sample_png)
     assert os.path.isfile(output)
 
 
+def test_recuperacao_preserva_destinos_desativados_na_outbox(app, sample_png):
+    source = os.path.join(app.processing_folder, "outbox-recuperacao.png")
+    os.makedirs(app.processing_folder, exist_ok=True)
+    with open(sample_png, "rb") as origin, open(source, "wb") as target:
+        target.write(origin.read())
+    output = os.path.join(app.s.output_folder, "outbox-recuperacao.PRT")
+    writer = PrtWriter(output, 300, 300, 1, 8)
+    writer.write_block([np.zeros((1, 8), dtype=np.uint8)] * 12)
+    writer.close()
+    info = {"width_cm": 1.0, "height_cm": 1.0, "dpi_x": 300, "dpi_y": 300,
+            "n_rows": 1, "n_dots": 8, "has_alpha": True}
+    app.s.webhook_url = "http://127.0.0.1:1/hook"
+    app.s.offline_mode = True
+    write_archive_marker(source, {
+        "phase": "success", "target": "done", "output": os.path.basename(output),
+        "output_dir": app.s.output_folder, "output_sha256": file_sha256(output),
+        "job_id": "outbox-recovery-job", "name": os.path.basename(source), "info": info,
+        "metadata_written": True, "outbox_handled": False,
+        "required_services": ["webhook", "Trello"],
+        "source_signature": _source_signature(source),
+    })
+
+    assert app._recover_marked_source(source, app.s) is True
+    pending = server_module.integrations.outbox_load(app.home)
+    assert len(pending) == 1
+    assert pending[0]["required"] == ["Trello", "webhook"]
+    assert os.path.isfile(os.path.join(app.s.done_folder, "outbox-recuperacao.png"))
+
+
 def test_lock_de_output_antigo_e_liberado_apos_job_ativo(app, tmp_path):
     old_output = app.s.output_folder
     old_lock = ProcessLock(os.path.join(old_output, ".autorip.output.lock")).acquire()
