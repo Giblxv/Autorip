@@ -445,3 +445,39 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     status, _, _ = request(panel, "/api/upload?name=evil.png", "POST", raw,
                            {"Origin": "http://evil.example", "Sec-Fetch-Site": "cross-site"})
     assert status == 403
+
+
+def test_modo_automatico_persiste_entre_reinicios(panel, app):
+    from autorip.config import Settings
+
+    app.tokens.add("sessao-auto")
+    headers = {"X-Token": "sessao-auto", "Origin": panel, "Sec-Fetch-Site": "same-origin"}
+    for enabled in (True, False):
+        status, body, _ = request(panel, "/api/auto", "POST",
+                                  json.dumps({"on": enabled}).encode(), headers)
+        assert status == 200
+        assert json.loads(body)["auto"] is enabled
+        assert app.auto is enabled
+        assert app.s.auto_mode is enabled
+        assert Settings.load(app.cfg_path, base=app.home).auto_mode is enabled
+
+
+def test_modo_automatico_nao_ativa_se_salvar_configuracao_falhar(
+        panel, app, monkeypatch):
+    from autorip.config import Settings
+
+    app.tokens.add("sessao-auto")
+    previous = app.auto
+    assert previous is False
+
+    def cannot_save(self, path):
+        raise OSError("disco indisponivel durante a persistencia")
+
+    monkeypatch.setattr(Settings, "save", cannot_save)
+    status, _, _ = request(panel, "/api/auto", "POST",
+                           json.dumps({"on": True}).encode(),
+                           {"X-Token": "sessao-auto", "Origin": panel})
+    assert status == 500
+    assert app.auto is previous
+    assert app.s.auto_mode is False
+    assert json.loads(open(app.cfg_path, encoding="utf-8").read())["auto_mode"] is False
