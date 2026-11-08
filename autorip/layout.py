@@ -12,7 +12,7 @@ import os
 from dataclasses import asdict, dataclass
 from typing import Iterable
 
-from PIL import Image, ImageOps
+from PIL import Image
 
 MAX_SHEET_WIDTH_CM = 58.0
 DEFAULT_MARGIN_CM = 0.20
@@ -79,18 +79,23 @@ def inspect_image(path: str) -> ImageInfo:
         raise FileNotFoundError(path)
     size = os.path.getsize(path)
     with Image.open(path) as opened:
-        image = ImageOps.exif_transpose(opened)
-        dpi = image.info.get("dpi", (300, 300))
+        # Use o leitor base: PNG.getexif pode decodificar pixels para buscar
+        # chunks EXIF apos os dados da imagem, fora do contrato de cabecalho.
+        orientation = Image.Image.getexif(opened).get(274, 1)
+        dpi = opened.info.get("dpi", (300, 300))
         dpi_x = _dpi(dpi[0] if isinstance(dpi, (tuple, list)) else dpi)
         dpi_y = _dpi(dpi[1] if isinstance(dpi, (tuple, list)) and len(dpi) > 1 else dpi_x)
-        width, height = image.size
-        mode = image.mode
-        has_alpha = mode in ("RGBA", "LA", "PA") or "transparency" in image.info
+        width, height = opened.size
+        if orientation in (5, 6, 7, 8):
+            width, height = height, width
+            dpi_x, dpi_y = dpi_y, dpi_x
+        mode = opened.mode
+        has_alpha = mode in ("RGBA", "LA", "PA") or "transparency" in opened.info
         return ImageInfo(
             path=os.path.realpath(path), name=os.path.basename(path),
             width_px=int(width), height_px=int(height), dpi_x=dpi_x, dpi_y=dpi_y,
             width_cm=width / dpi_x * 2.54, height_cm=height / dpi_y * 2.54,
-            bytes=int(size), format=str(image.format or ""), has_alpha=bool(has_alpha),
+            bytes=int(size), format=str(opened.format or ""), has_alpha=bool(has_alpha),
         )
 
 
@@ -194,7 +199,8 @@ def layout_to_svg(items: Iterable[LayoutItem], sheet_width_cm: float = MAX_SHEET
              '<rect width="100%" height="100%" fill="#f7f0dc" stroke="#1a1a1a" stroke-width="0.08"/>']
     for index, item in enumerate(items):
         width, item_height = _dimensions(item)
-        parts.append(f'<g transform="translate({item.x_cm:g} {item.y_cm:g}) rotate({item.rotation} {width/2:g} {item_height/2:g})">')
+        # O retangulo ja representa a caixa ocupada apos a rotacao.
+        parts.append(f'<g transform="translate({item.x_cm:g} {item.y_cm:g})" data-rotation="{item.rotation}">')
         parts.append(f'<rect width="{width:g}" height="{item_height:g}" rx="0.12" fill="#00aeef" fill-opacity=".22" stroke="#1a1a1a" stroke-width=".06"/>')
         label = esc(item.name[:32])
         parts.append(f'<text x="{width/2:g}" y="{item_height/2:g}" text-anchor="middle" dominant-baseline="middle" font-size="{max(.22, min(.8, width/12)):g}" fill="#1a1a1a">{label}</text>')

@@ -108,13 +108,29 @@ let brandShown="";function setBrand(n,has){if(n!==brandShown){brandShown=n;$("lo
 setBrand("AutoRIP",false);
 async function api(path,opt={}){opt.headers=Object.assign({},opt.headers,token?{"X-Token":token}:{});const r=await fetch(path,opt);return{ok:r.ok,d:await r.json()}}
 async function shutdownApp(){if(!confirm("Encerrar o AutoRIP no computador? O processamento e o painel serão fechados."))return;const r=await api("/api/shutdown",{method:"POST",body:"{}"});if(r.ok){document.body.innerHTML="<main style='padding:40px'><h1>AutoRIP encerrado</h1><p>Você pode fechar esta aba.</p></main>"}else if(r.d&&r.d.error==="login"){openCfg()}}
-async function poll(){try{const {d}=await api("/api/state");hasPass=d.has_pass;setBrand(d.brand,d.has_logo);{const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending>0?" · "+d.pending+" aviso(s) na fila":d.pending<0?" · aviso local indisponível":"")}$("ver").textContent="v"+d.version;
+async function privateThumbnail(img,path){
+ if(!token||typeof path!=="string"||!path.startsWith("/api/thumb?"))return;
+ try{const response=await fetch(path,{headers:{"X-Token":token},cache:"no-store"});
+  if(!response.ok)throw new Error("miniatura indisponível");
+  const blob=await response.blob();if(!blob.type.startsWith("image/"))throw new Error("imagem inválida");
+  const objectUrl=URL.createObjectURL(blob);
+  if(!img.isConnected){URL.revokeObjectURL(objectUrl);return}
+  img.onload=()=>URL.revokeObjectURL(objectUrl);
+  img.onerror=()=>URL.revokeObjectURL(objectUrl);
+  img.src=objectUrl;
+ }catch(e){if(img.isConnected)img.alt="Miniatura indisponível"}
+}
+async function poll(){try{const {d}=await api("/api/state");hasPass=d.has_pass;setBrand(d.brand,d.has_logo);$("ver").textContent="v"+d.version;
+ if(d.locked){$("off").style.display="none";$("pin").textContent="Acesso restrito";$("pout").textContent="Acesso restrito";$("picc").textContent="Entre para consultar";
+ $("sw").classList.remove("on");$("autoTxt").textContent="Entre para consultar o estado";
+ $("jobs").textContent="Faça login para ver seus trabalhos";renderLog([]);return}
+ {const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending>0?" · "+d.pending+" aviso(s) na fila":d.pending<0?" · aviso local indisponível":"")}$("ver").textContent="v"+d.version;
  $("pin").textContent=d.hot_folder;$("pout").textContent=d.output_folder;$("picc").textContent=d.icc;
  $("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";
  const jobs=$("jobs");jobs.replaceChildren();
  if(!d.jobs.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";jobs.appendChild(empty)}
  d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";const p=Math.max(0,Math.min(100,Math.round(Number(j.progress)||0)));
-  if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.src=j.thumb;im.alt="Miniatura da arte";im.style.cssText="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
+  if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
   const name=document.createElement("span");name.textContent=String(j.name||"");e.appendChild(name);
   const status=document.createElement("span");status.className="st "+(["fila","processando","pronto","erro"].includes(j.status)?j.status:"");status.textContent=String(j.status||"");e.appendChild(status);
   const bar=document.createElement("div");bar.className="bar";const fill=document.createElement("div");fill.className="fill";fill.style.width=p+"%";bar.appendChild(fill);
@@ -132,9 +148,11 @@ function renderLog(lines){const key=lines.join("\n");if(key===lastLog)return;las
  if(atEnd)L.scrollTop=L.scrollHeight}
 function copyLog(){navigator.clipboard&&navigator.clipboard.writeText(lastLog)}
 function ago(ts){const s=Math.max(0,Date.now()/1000-ts);return s<90?"agora":s<3600?Math.round(s/60)+" min":s<86400?Math.round(s/3600)+" h":Math.round(s/86400)+" d"}
-async function pollPrints(){try{const {d}=await api("/api/prints");$("pqn").textContent=d.length;const box=$("pq");box.innerHTML="";
+async function pollPrints(){try{if(!token){$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";return}
+ const {ok,d}=await api("/api/prints");if(!ok){if(d?.error==="login")token="";return}
+ $("pqn").textContent=d.length;const box=$("pq");box.innerHTML="";
  if(!d.length){box.innerHTML='<div class="empty">Nada esperando impressão 🎉</div>';return}
- d.forEach((p,i)=>{const r=document.createElement("div");r.className="pq";const im=document.createElement("img");im.src=p.thumb;im.onerror=()=>{const ph=document.createElement("div");ph.className="ph";ph.textContent="🖨️";im.replaceWith(ph)};
+ d.forEach((p,i)=>{const r=document.createElement("div");r.className="pq";const im=document.createElement("img");im.alt="Prévia";privateThumbnail(im,p.thumb);
   const g=document.createElement("div");g.className="gr";const n=document.createElement("div");n.className="nm";n.textContent=p.name;if(i===0){const nx=document.createElement("span");nx.className="nx";nx.textContent="próximo";n.append(" ",nx)}
   const sm=document.createElement("small");sm.textContent=`${p.width_cm.toFixed(1)} × ${p.height_cm.toFixed(1)} cm · ${p.mb} MB · há ${ago(p.mtime)}`;g.append(n,sm);
   const bt=document.createElement("div");bt.className="bt";const ok=document.createElement("button");ok.className="sm c";ok.textContent="✔ Impresso";ok.onclick=()=>markPrinted(p.name);
@@ -144,7 +162,7 @@ async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+
 function celebrate(){const f=$("fim");f.classList.remove("go");void f.offsetWidth;f.classList.add("go")}
 async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
 async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});if(!r.ok){token="";openCfg();return}poll()}
-async function upload(files){for(const f of files){const w=$("wcm").value;const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(w)}`,{method:"POST",body:f});if(!r.ok){alert(`${f.name}: ${r.d.error||"falha no upload"}`);break}}poll();$("file").value=""}
+async function upload(files){if(!token){openCfg();return}for(const f of files){const w=$("wcm").value;const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(w)}`,{method:"POST",body:f});if(!r.ok){alert(`${f.name}: ${r.d.error||"falha no upload"}`);break}}poll();$("file").value=""}
 $("file").onchange=e=>upload(e.target.files);
 const dz=$("drop");["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over")}));
 ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over")}));dz.addEventListener("drop",e=>upload(e.dataTransfer.files));
@@ -155,7 +173,7 @@ const SCHEMA=[["h","Pastas e perfil"],["icc_path","Perfil ICC (caminho completo)
 ["h","Marca do cliente"],["brand_name","Nome do programa","t"],["label_enabled","Etiqueta (arquivo e medidas) nas margens","b"],["watermark_opacity","Opacidade da marca d'água (0 a 1)","n"],["@logo"],["@wm"],
 ["h","Integrações de pedidos"],["webhook_url","Webhook (URL, recebe JSON ao concluir)","t",1],["trello_key","Trello — API key","p"],["trello_token","Trello — token","p"],["trello_in_list","Trello — ID da lista de ENTRADA (anexos viram arte)","t"],["trello_out_list","Trello — ID da lista de PRONTOS","t"],["notion_token","Notion — token","p"],["notion_db","Notion — ID do banco (título: Name)","t"],["jira_url","Jira — URL (https://empresa.atlassian.net)","t"],["jira_email","Jira — e-mail","t"],["jira_token","Jira — API token","p"],["jira_project","Jira — chave do projeto","t"],
 ["h","Agente de IA"],["anthropic_key","Chave da API Anthropic","p",1],["anthropic_model","Modelo","t"],
-["h","Modo automático"],["auto_mode","Ligar automático ao abrir","b"],["poll_seconds","Intervalo de vigia (s)","n"]];
+ ["h","Modo automático"],["auto_mode","Ligar automático ao abrir","b"],["auto_update","Atualizar automaticamente pelo GitHub","b"],["poll_seconds","Intervalo de vigia (s)","n"]];
 function openCfg(){$("dlg").showModal();$("lmsg").textContent="";if(token){showCfg()}else{$("loginBox").style.display="";$("cfgBox").style.display="none";
  $("loginTxt").textContent=hasPass?"Digite a senha para abrir as configurações.":"Primeiro acesso: crie uma senha (mínimo 8 caracteres).";$("pw2box").style.display=hasPass?"none":""}}
 async function doLogin(){let r;if(hasPass)r=await api("/api/login",{method:"POST",body:JSON.stringify({password:$("pw").value})});

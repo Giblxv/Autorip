@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from PIL import Image
+from PIL import Image, ImageFile
 
 from autorip import engine
 from autorip.config import Settings
@@ -66,8 +66,15 @@ def test_perfil_icc_invalido_falha_explicitamente(sample_png, tmp_path):
 
 def test_rejeita_imagem_acima_do_limite_sem_decodificar(monkeypatch, sample_png, tmp_path):
     monkeypatch.setattr(engine, "MAX_INPUT_PIXELS", 100)
+
+    def forbid_decode(*args, **kwargs):
+        pytest.fail("Imagem acima do limite chegou a decodificacao de pixels")
+
+    monkeypatch.setattr(ImageFile.ImageFile, "load", forbid_decode)
     with pytest.raises(ValueError, match="limite"):
         Rip(Settings(label_enabled=False)).process(str(sample_png), str(tmp_path / "x.PRT"), 2.54)
+    assert not (tmp_path / "x.PRT").exists()
+    assert not list(tmp_path.glob("*.part"))
 
 
 def test_verifica_espaco_estimado_antes_de_criar_temporario(monkeypatch, sample_png, tmp_path):
@@ -75,6 +82,27 @@ def test_verifica_espaco_estimado_antes_de_criar_temporario(monkeypatch, sample_
     with pytest.raises(ValueError, match="Espaco insuficiente"):
         Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False)).process(
             str(sample_png), str(tmp_path / "saida.PRT"), 2.54)
+    assert not list(tmp_path.glob("*.part"))
+
+
+def test_rip_preserva_128_mib_de_reserva_de_disco(monkeypatch, sample_png, tmp_path):
+    # Existe espaco suficiente para o arquivo, mas nao para a reserva minima.
+    livre = engine.MIN_FREE_DISK_BYTES + 10
+    monkeypatch.setattr(engine.shutil, "disk_usage",
+                        lambda path: SimpleNamespace(free=livre))
+    destination = tmp_path / "sem-reserva.PRT"
+    with pytest.raises(ValueError, match="128 MiB"):
+        Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False)).process(
+            str(sample_png), str(destination), 2.54)
+    assert not destination.exists()
+    assert not list(tmp_path.glob("*.part"))
+
+
+def test_rejeita_tira_acima_do_orcamento_de_memoria(monkeypatch, sample_png, tmp_path):
+    monkeypatch.setattr(engine, "MAX_STRIP_MEMORY_BYTES", 1)
+    with pytest.raises(ValueError, match="memória"):
+        Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False)).process(
+            str(sample_png), str(tmp_path / "memoria.PRT"), 2.54)
     assert not list(tmp_path.glob("*.part"))
 
 
@@ -106,6 +134,92 @@ def test_publicacao_no_clobber_preserva_arquivo_criado_durante_rip(monkeypatch, 
     assert info["output_path"] == str(tmp_path / "corrida_001.PRT")
     assert read_header(info["output_path"])["n_channels"] == 12
 
+
+@pytest.mark.parametrize("dpi_x,dpi_y", [(300, 300), (720, 1440), (1440, 720)])
+def test_reticula_muda_com_grade_de_impressao_sem_alterar_cobertura(dpi_x, dpi_y):
+    settings = Settings(dpi_x=dpi_x, dpi_y=dpi_y, label_enabled=False)
+    rip = Rip(settings)
+    reference = Rip(Settings(label_enabled=False))
+    values = np.full((256, 256), 0.65, dtype=np.float32)
+    levels = rip._halftone(values, 0)
+    original = reference._halftone(values, 0)
+    # A disposicao muda, mas o volume e as contagens de gotas sao preservados.
+    assert not np.array_equal(levels, original)
+    assert np.array_equal(np.bincount(levels.ravel(), minlength=4),
+                          np.bincount(original.ravel(), minlength=4))
+    # Dobrar os dois DPIs preserva a proporcao fisica e a mesma reticula.
+    doubled = Rip(Settings(dpi_x=2 * dpi_x, dpi_y=2 * dpi_y, label_enabled=False))
+    assert np.array_equal(levels, doubled._halftone(values, 0))
+
+
+def test_resolucao_padrao_preserva_reticula_existente():
+    rip = Rip(Settings(label_enabled=False))
+    assert np.array_equal(rip.noise, engine._blue_noise())
+
+
+@pytest.mark.parametrize("fmt", ["JPEG", "TIFF"])
+@pytest.mark.parametrize("orientation", [1, 6])
+@pytest.mark.parametrize("width_cm", [None, 2.54])
+def test_rip_preserva_proporcao_fisica_de_dpi_anisotropico(tmp_path, orientation, width_cm, fmt):
+    path = tmp_path / "anisotropica.jpg"
+    exif = Image.Exif()
+    exif[274] = orientation
+    Image.new("RGB", (200, 100), "blue").save(path, format=fmt, dpi=(100, 200), exif=exif)
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0,
+                        margin_bottom_in=0, label_enabled=False)
+    output = tmp_path / "anisotropica.PRT"
+    info = Rip(settings).process(str(path), str(output), width_cm=width_cm)
+    natural_width, natural_height = (5.08, 1.27) if orientation == 1 else (1.27, 5.08)
+    expected_width = natural_width if width_cm is None else width_cm
+    expected_height = natural_height * expected_width / natural_width
+    header = read_header(output)
+    assert info["width_cm"] == pytest.approx(expected_width)
+    assert info["height_cm"] == pytest.approx(expected_height, abs=0.01)
+    assert header["n_dots"] == round(expected_width / 2.54 * 300)
+    assert header["n_rows"] == round(expected_height / 2.54 * 300)
+
+
+def test_etiquetas_nao_se_misturam_em_rips_simultaneos(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier, local
+
+    entradas = []
+    for nome in ("ALFA-TESTE.png", "BETA-TESTE.png"):
+        path = tmp_path / nome
+        Image.new("RGBA", (64, 64), (255, 255, 255, 255)).save(path)
+        entradas.append(path)
+
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0.3,
+                        margin_bottom_in=0.3, label_enabled=True,
+                        white_enabled=False)
+    referencias = []
+    for index, path in enumerate(entradas):
+        destino = tmp_path / f"referencia-{index}.PRT"
+        Rip(settings).process(str(path), str(destino), width_cm=2.54)
+        referencias.append(destino.read_bytes())
+    assert referencias[0] != referencias[1]  # a etiqueta distingue as artes
+
+    rip = Rip(settings)
+    original = rip._render
+    barrier = Barrier(2)
+    thread_state = local()
+
+    def render_simultaneo(*args, **kwargs):
+        if not getattr(thread_state, "entered", False):
+            thread_state.entered = True
+            barrier.wait(timeout=10)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(rip, "_render", render_simultaneo)
+    saidas = [tmp_path / "paralelo-alfa.PRT", tmp_path / "paralelo-beta.PRT"]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(rip.process, str(src), str(dest), 2.54)
+                   for src, dest in zip(entradas, saidas)]
+        for future in futures:
+            future.result(timeout=30)
+
+    for resultado, esperado in zip(saidas, referencias):
+        assert resultado.read_bytes() == esperado
 
 @pytest.mark.parametrize("width_cm", [0, -1, float("nan"), float("inf")])
 def test_rejeita_largura_explicita_invalida(sample_png, tmp_path, width_cm):

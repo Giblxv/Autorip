@@ -21,7 +21,7 @@ def test_arquivo_pendente_retentado_sem_reexecutar_o_rip(app, sample_png, monkey
     wait_for_job(job)
     deadline = time.monotonic() + 8
     archived = os.path.join(app.s.done_folder, sample_png.name)
-    while time.monotonic() < deadline and not os.path.exists(archived):
+    while time.monotonic() < deadline and (not os.path.exists(archived) or job.get("archive_pending")):
         time.sleep(0.05)
 
     assert failures["count"] == 2

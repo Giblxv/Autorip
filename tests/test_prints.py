@@ -67,3 +67,21 @@ def test_miniatura_url_encodeia_caracteres_especiais_do_nome(app):
         target.write('{"width_cm":' + "9" * 1000 + ',"height_cm":2}')
     item = next(entry for entry in app.list_prints() if entry["name"] == name)
     assert item["thumb"] == "/api/thumb?name=arte%23%25%26%3D"
+
+
+@pytest.mark.parametrize("orientation", [1, 6, 8])
+def test_miniatura_respeita_orientacao_exif(app, tmp_path, orientation):
+    from PIL import Image
+    path = tmp_path / "orientada.jpg"
+    image = Image.new("RGB", (100, 50), "red")
+    image.paste("blue", (50, 0, 100, 50))
+    exif = Image.Exif()
+    exif[274] = orientation
+    image.save(path, exif=exif)
+    assert app._thumb("exif-test", str(path), output_name="orientada")
+    for thumb in [os.path.join(app.home, "thumbs", "exif-test.jpg"),
+                  os.path.join(app.home, "thumbs", "by_name", "orientada.jpg")]:
+        with Image.open(thumb) as preview:
+            assert preview.size == ((100, 50) if orientation == 1 else (50, 100))
+            red, _, blue = preview.getpixel((10, 10))
+            assert (red > blue) == (orientation != 8)
