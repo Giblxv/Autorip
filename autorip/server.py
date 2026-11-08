@@ -1016,7 +1016,8 @@ class H(BaseHTTPRequestHandler):
                 if not self._auth(): return self._send(401, {"error": "login"})
                 on = self._json().get("on")
                 if type(on) is not bool: raise ValueError("O estado automatico precisa ser booleano.")
-                with APP.settings_lock: APP.auto = on
+                # Persistir a escolha antes de alterar o estado em memoria.
+                APP.apply_settings({"auto_mode": on})
                 APP.log("Modo automatico " + ("LIGADO" if on else "desligado"))
                 return self._send(200, {"auto": on})
             if u.path == "/api/shutdown":
