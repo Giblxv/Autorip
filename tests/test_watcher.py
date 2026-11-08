@@ -195,3 +195,65 @@ def test_watcher_nao_repete_rip_com_journal_corrompido(tmp_path, sample_png):
     marker.unlink()
     assert run_once(settings, Rip(settings), log=logs.append) == 1
     assert (output / "pedido-antigo.PRT").is_file()
+
+def test_watcher_continua_se_arte_some_apos_listar_processamento(
+        tmp_path, sample_png, monkeypatch):
+    from autorip.watcher import run_once
+
+    hot, out, done, error = (tmp_path / n for n in ("hot", "out", "done", "error"))
+    processing = hot / ".autorip_processing"
+    processing.mkdir(parents=True)
+    disappeared = processing / "a-sumiu.png"
+    valid = processing / "b-valida.png"
+    shutil.copyfile(sample_png, disappeared)
+    shutil.copyfile(sample_png, valid)
+
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0,
+                        margin_bottom_in=0, label_enabled=False,
+                        hot_folder=str(hot), output_folder=str(out),
+                        done_folder=str(done), error_folder=str(error))
+    original = watcher_module._signature
+
+    def signature_with_race(path):
+        if os.fspath(path) == str(disappeared):
+            disappeared.unlink(missing_ok=True)
+            raise FileNotFoundError("arquivo removido entre listdir e stat")
+        return original(path)
+
+    monkeypatch.setattr(watcher_module, "_signature", signature_with_race)
+    assert run_once(settings, Rip(settings), log=lambda _: None) == 1
+    assert (out / "b-valida.PRT").is_file()
+    assert (done / "b-valida.png").is_file()
+    assert not (out / "a-sumiu.PRT").exists()
+
+
+def test_integracao_watcher_nao_trava_com_journal_corrompido_e_origem_removida(
+        tmp_path, sample_png, monkeypatch):
+    hot, out, done, err = (tmp_path / n for n in ("hot", "out", "done", "err"))
+    processing = hot / ".autorip_processing"
+    processing.mkdir(parents=True)
+    missing = processing / "a-sumiu.png"
+    bad = processing / "b-com-journal.png"
+    valid = processing / "c-valida.png"
+    for path in (missing, bad, valid):
+        shutil.copyfile(sample_png, path)
+    corrupt = processing / "b-com-journal.png.autorip.json"
+    corrupt.write_text('{"version":1,"phase":"success"', encoding="utf-8")
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0, margin_bottom_in=0,
+                        label_enabled=False, hot_folder=str(hot), output_folder=str(out),
+                        done_folder=str(done), error_folder=str(err))
+    original = watcher_module._signature
+
+    def signature_with_race(path):
+        if os.fspath(path) == str(missing):
+            missing.unlink(missing_ok=True)
+            raise FileNotFoundError("entrada sumiu")
+        return original(path)
+
+    monkeypatch.setattr(watcher_module, "_signature", signature_with_race)
+    assert run_once(settings, Rip(settings), log=lambda _: None) == 1
+    assert not list(out.glob("a-sumiu.PRT"))
+    assert not list(out.glob("b-com-journal.PRT"))
+    assert bad.is_file() and corrupt.is_file()
+    assert (out / "c-valida.PRT").is_file()
+    assert (done / "c-valida.png").is_file()
