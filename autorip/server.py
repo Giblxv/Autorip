@@ -995,6 +995,7 @@ class H(BaseHTTPRequestHandler):
                 threading.Thread(target=shutdown_server, daemon=True).start()
                 return
             if u.path == "/api/upload":
+                if not self._auth(): return self._send(401, {"error": "login"})
                 q = parse_qs(u.query)
                 name = safe_filename(q.get("name", ["arte.png"])[0])
                 if not name.lower().endswith(EXTS):
