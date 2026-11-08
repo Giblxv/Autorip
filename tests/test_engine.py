@@ -142,3 +142,55 @@ def test_reticula_muda_com_grade_de_impressao_sem_alterar_cobertura(dpi_x, dpi_y
 def test_resolucao_padrao_preserva_reticula_existente():
     rip = Rip(Settings(label_enabled=False))
     assert np.array_equal(rip.noise, engine._blue_noise())
+
+
+def test_rip_converte_tiff_lab_com_perfil_icc_embutido(tmp_path):
+    from PIL import ImageCms
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB", 6500))
+    lab = Image.new("LAB", (24, 24), (150, 180, 200))
+    source = tmp_path / "lab.tif"
+    lab.save(source, icc_profile=profile.tobytes())
+    rgb = ImageCms.profileToProfile(lab, profile, ImageCms.createProfile("sRGB"), outputMode="RGB")
+    reference = tmp_path / "srgb.png"
+    rgb.save(reference, icc_profile=b"")
+    settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0, margin_bottom_in=0,
+                        label_enabled=False, white_choke_mm=0, white_fill_holes_mm=0)
+    rip = Rip(settings)
+    actual, expected = tmp_path / "lab.PRT", tmp_path / "srgb.PRT"
+    rip.process(str(source), str(actual), width_cm=1)
+    rip.process(str(reference), str(expected), width_cm=1)
+    assert actual.read_bytes() == expected.read_bytes()
+
+
+def test_rip_rejeita_perfil_icc_embutido_invalido(tmp_path):
+    source = tmp_path / "invalido.png"
+    Image.new("RGB", (20, 20), "blue").save(source, icc_profile=b"perfil invalido")
+    output = tmp_path / "invalido.PRT"
+    with pytest.raises(ValueError, match="ICC.*entrada"):
+        Rip(Settings(label_enabled=False)).process(str(source), str(output), width_cm=1)
+    assert not output.exists()
+    assert not list(tmp_path.glob("*.part"))
+
+
+
+def test_perfil_rgb_embutido_preserva_alpha(tmp_path):
+    from PIL import ImageCms
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    source = tmp_path / "alpha-icc.png"
+    image = Image.new("RGBA", (12, 12), (80, 140, 200, 128))
+    image.putpixel((0, 0), (200, 0, 0, 0))
+    image.save(source, icc_profile=profile)
+    with Image.open(source) as opened:
+        converted = Rip(Settings())._source_rgba(opened)
+        assert converted.mode == "RGBA"
+        assert converted.getchannel("A").tobytes() == image.getchannel("A").tobytes()
+        assert converted.getpixel((6, 6))[:3] == (80, 140, 200)
+
+
+def test_perfil_incompativel_com_modo_da_arte_falha(tmp_path):
+    from PIL import ImageCms
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("LAB")).tobytes()
+    source = tmp_path / "perfil-incompativel.png"
+    Image.new("RGB", (20, 20), "blue").save(source, icc_profile=profile)
+    with pytest.raises(ValueError, match="ICC.*entrada"):
+        Rip(Settings()).process(str(source), str(tmp_path / "nao-criar.PRT"), width_cm=1)

@@ -1,5 +1,6 @@
 """Motor do RIP: PNG -> (ICC) CMYK -> meio-tom estocastico 2 bits + branco automatico -> .PRT"""
 import os
+import io
 import shutil
 import tempfile
 import numpy as np
@@ -45,6 +46,28 @@ class Rip:
                     srgb, prof, "RGB", "CMYK", renderingIntent=ImageCms.Intent(s.intent), flags=flags)
             except Exception as exc:
                 self.icc_error = f"Perfil ICC indisponivel ou invalido: {exc}"
+
+    def _source_rgba(self, source: Image.Image) -> Image.Image:
+        embedded = source.info.get("icc_profile")
+        if not embedded:
+            return source.convert("RGBA")
+        try:
+            profile = ImageCms.ImageCmsProfile(io.BytesIO(embedded))
+            if source.mode in ("RGBA", "P", "PA"):
+                color = source.convert("RGB")
+            elif source.mode == "LA":
+                color = source.getchannel("L")
+            else:
+                color = source
+            flags = ImageCms.Flags.BLACKPOINTCOMPENSATION if self.s.black_point_comp else 0
+            rgb = ImageCms.profileToProfile(color, profile, ImageCms.createProfile("sRGB"),
+                                           outputMode="RGB", renderingIntent=self.s.intent, flags=flags)
+            rgba = rgb.convert("RGBA")
+            if source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info:
+                rgba.putalpha(source.convert("RGBA").getchannel("A"))
+            return rgba
+        except Exception as exc:
+            raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc
 
     # ---------- cor ----------
     def _to_cmyk(self, rgb: Image.Image) -> np.ndarray:
@@ -133,7 +156,7 @@ class Rip:
             has_alpha = source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info
             dpi = source.info.get("dpi", (300, 300))[0] or 300
             source.load()
-            im = source.convert("RGBA")
+            im = self._source_rgba(source)
         w_cm = width_cm or (im.width / dpi * 2.54)
         if not np.isfinite(w_cm) or w_cm <= 0:
             raise ValueError("A largura de impressão precisa ser um número positivo.")
