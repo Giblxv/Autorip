@@ -464,5 +464,5 @@ def test_worker_sobrevive_a_arte_removida_antes_do_processamento(app, sample_png
     assert valid["status"] == "pronto"
     assert valid["out"] and os.path.isfile(valid["out"])
     assert not (tmp_path / "arte-removida.png.autorip.json").exists()
-    assert missing not in app.archive_pending
+    assert str(missing) not in app.archive_pending
 
