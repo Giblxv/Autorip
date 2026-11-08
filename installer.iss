@@ -1,6 +1,6 @@
 ; AutoRIP - instalador (Inno Setup 6). Compile com: ISCC installer.iss  (build_windows.bat ja faz isso)
 #define AppName "AutoRIP"
-#define AppVersion "0.8.8"
+#define AppVersion "0.8.9"
 #define AppExe "AutoRIP.exe"
 
 [Setup]
@@ -55,7 +55,7 @@ Name: "desktopicon"; Description: "{cm:TaskDesktop}"; GroupDescription: "{cm:Add
 Name: "autostart"; Description: "{cm:TaskAutoStart}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "dist\AutoRIP\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion createallsubdirs
+Source: "dist\AutoRIP\AutoRIP.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
