@@ -85,6 +85,14 @@ def test_verifica_espaco_estimado_antes_de_criar_temporario(monkeypatch, sample_
     assert not list(tmp_path.glob("*.part"))
 
 
+def test_rejeita_tira_acima_do_orcamento_de_memoria(monkeypatch, sample_png, tmp_path):
+    monkeypatch.setattr(engine, "MAX_STRIP_MEMORY_BYTES", 1)
+    with pytest.raises(ValueError, match="memória"):
+        Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False)).process(
+            str(sample_png), str(tmp_path / "memoria.PRT"), 2.54)
+    assert not list(tmp_path.glob("*.part"))
+
+
 def test_rip_usa_sufixo_sem_alterar_destino_existente(sample_png, tmp_path):
     output = tmp_path / "existente.PRT"
     output.write_bytes(b"arquivo original")

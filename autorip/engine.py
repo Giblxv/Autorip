@@ -11,6 +11,8 @@ from .paths import publish_unique_file
 
 MAX_INPUT_PIXELS = 80_000_000
 STRIP = 512  # reduz o pico de memoria em folhas largas
+MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
+_BYTES_PER_RENDER_PIXEL = 48  # planos, alpha, CMYK float e buffers temporários
 
 
 def _blue_noise(h=256, w=256, sx=1.0, sy=None, seed=7):
@@ -148,17 +150,21 @@ class Rip:
         free_bytes = shutil.disk_usage(out_dir).free
         if estimated_bytes > free_bytes:
             raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB.")
-        fd, tmp_path = tempfile.mkstemp(prefix=f".{os.path.basename(out_path)}.", suffix=".part", dir=out_dir)
-        os.close(fd)
-        wr = None
         fill_rows = int(round(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         choke_rows = int(round(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         halo = 2 * fill_rows + choke_rows + 2
+        available_rows = MAX_STRIP_MEMORY_BYTES // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
+        if available_rows < 1:
+            raise ValueError("A largura/DPI exigem mais memória do que o limite seguro de processamento por tira.")
+        strip_rows = max(1, min(STRIP, int(available_rows)))
+        fd, tmp_path = tempfile.mkstemp(prefix=f".{os.path.basename(out_path)}.", suffix=".part", dir=out_dir)
+        os.close(fd)
+        wr = None
         try:
             wr = PrtWriter(tmp_path, s.dpi_x, s.dpi_y, n_rows, n_dots)
             y = 0
             while y < n_rows:
-                y1 = min(n_rows, y + STRIP)
+                y1 = min(n_rows, y + strip_rows)
                 a0, a1 = max(0, y - halo), min(n_rows, y1 + halo)       # com halo para morfologia
                 planes_full = self._render(im, a0, a1, top, art_rows, n_dots)
                 o = y - a0
