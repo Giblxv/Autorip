@@ -18,6 +18,27 @@ MAX_API_RESPONSE_BYTES = 16 * 1024 * 1024
 MAX_ATTACHMENT_BYTES = 200 * 1024 * 1024
 _OUTBOX_LOCK = threading.RLock()
 _OUTBOX_FLUSH_LOCK = threading.Lock()
+_TRELLO_SEEN_LIMIT = 10000  # evita crescimento infinito do registro de anexos
+
+
+def _trello_seen_path(home):
+    return os.path.join(home, "trello_seen.json")
+
+
+def _load_trello_seen(home):
+    """Preserva registros invalidos para inspeção, sem repetir downloads em silencio."""
+    try:
+        with open(_trello_seen_path(home), encoding="utf-8") as source:
+            stored = json.load(source)
+    except FileNotFoundError:
+        return []
+    if (not isinstance(stored, list) or len(stored) > _TRELLO_SEEN_LIMIT
+            or any(type(identifier) is not str or not 1 <= len(identifier) <= 128
+                   for identifier in stored)
+            or len(set(stored)) != len(stored)):
+        raise ValueError("Registro de anexos Trello invalido; downloads suspensos para evitar duplicacao.")
+    return stored
+
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -200,10 +221,16 @@ def _download_attachment(url, path, headers, timeout=120, allow_loopback=False):
     return total
 
 
-def pull_trello(s, seen: set, log=print, offline_check=None):
-    """Baixa anexos permitidos sem alocar o arquivo inteiro na memoria."""
+def pull_trello(s, seen: set, log=print, offline_check=None, seen_home=None):
+    """Baixa anexos permitidos e, opcionalmente, persiste recibos entre reinicios.
+
+    O registro e gravado somente apos publicar o arquivo. Uma falha de energia
+    entre esses dois passos ainda pode exigir reconciliacao manual (at-least-once).
+    """
     if not (s.trello_key and s.trello_token and s.trello_in_list) or _is_offline(s, offline_check):
         return 0
+    receipts = _load_trello_seen(seen_home) if seen_home is not None else []
+    seen.update(receipts)
     os.makedirs(s.hot_folder, exist_ok=True)
     if _is_offline(s, offline_check):
         return 0
@@ -219,7 +246,8 @@ def pull_trello(s, seen: set, log=print, offline_check=None):
             name = safe_filename(attachment.get("name", ""))
             identifier = attachment.get("id")
             url = attachment.get("url", "")
-            if not identifier or identifier in seen or not name.lower().endswith(IMG) or not url:
+            if (type(identifier) is not str or not 1 <= len(identifier) <= 128
+                    or identifier in seen or not name.lower().endswith(IMG) or not url):
                 continue
             if not _allowed_attachment_url(url, allow_loopback=allow_loopback):
                 log("Trello: anexo ignorado (URL nao permitida)")
@@ -236,6 +264,13 @@ def pull_trello(s, seen: set, log=print, offline_check=None):
                     continue
                 destination = publish_unique_file(temporary, os.path.join(s.hot_folder, name))
                 seen.add(identifier)
+                if seen_home is not None:
+                    # Falha na persistencia e reportada, nunca apresentada como sucesso.
+                    # Os IDs mais antigos saem apos 10 mil anexos confirmados.
+                    receipts = [existing for existing in receipts if existing != identifier]
+                    receipts.append(identifier)
+                    receipts = receipts[-_TRELLO_SEEN_LIMIT:]
+                    _atomic_json(_trello_seen_path(seen_home), receipts)
                 count += 1
                 log(f"Trello: baixado {os.path.basename(destination)} (cartao {safe_filename(card.get('name', ''))})")
             except Exception:
