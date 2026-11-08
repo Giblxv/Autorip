@@ -1,0 +1,2 @@
+434528d2023adbf39e1384f5c94055956bffcb0a2ceb3f129e7a8cebe8225d48  backup/AutoRIP-Windows-e5f5022/AutoRIP.exe
+a381802fb94dcebcbdd3decd444e3a21706533d386b83c29f6e0c4694567e19e  backup/AutoRIP-Windows-e5f5022/AutoRIP_Setup.exe
