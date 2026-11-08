@@ -385,11 +385,19 @@ class App:
                 job["status"] = "processando"
             self.log(f"RIP: {job['name']}")
             out = None
+            # A entrada pode desaparecer depois de entrar na fila; essa falha nao
+            # pode encerrar o unico worker e bloquear os pedidos seguintes.
+            try:
+                source_signature = _signature(path)
+            except OSError:
+                source_signature = None
             marker = {"phase": "processing", "target": "done", "job_id": job["id"],
                       "name": job["name"], "output_dir": settings.output_folder,
                       "started_ns": time.time_ns(), "metadata_written": False,
-                      "outbox_handled": False, "source_signature": list(_signature(path) or ())}
+                      "outbox_handled": False, "source_signature": list(source_signature or ())}
             try:
+                if source_signature is None:
+                    raise FileNotFoundError("Arte da fila ausente ou insegura para processamento.")
                 out = next_available_path(settings.output_folder, os.path.splitext(job["name"])[0] + ".PRT")
                 marker["output"] = os.path.basename(out)
                 if move:
@@ -407,7 +415,10 @@ class App:
                 info = rip.process(path, out, width_cm, progress=prog, before_publish=before_publish)
                 out = info.pop("output_path")
             except Exception as e:
-                if move:
+                # Nao cria journal fantasma nem arquivamento pendente para uma
+                # entrada removida enquanto aguardava o worker.
+                archive_source = move and os.path.isfile(path) and not os.path.islink(path)
+                if archive_source:
                     marker.update(phase="error", target="error", error=str(e)[:500])
                     try:
                         write_archive_marker(path, marker)
@@ -417,7 +428,7 @@ class App:
                     job.update(status="erro", error=str(e)[:500])
                 self.log(f"ERRO {job['name']}: {type(e).__name__}: {e}")
                 traceback.print_exc()
-                if move:
+                if archive_source:
                     self._archive_input(path, settings.error_folder, job, "pasta de erros")
                 self._release_source(path)
                 self._finish_output_use()
