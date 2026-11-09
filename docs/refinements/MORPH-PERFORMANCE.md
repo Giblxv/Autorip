@@ -113,8 +113,8 @@ Linux, mas não substituem uma avaliação visual do executável no Windows.
 
 ## Compatibilidade e rollback
 
-Nenhuma release é publicada por esta alteração. As configurações existentes não
-são migradas. Para reverter, restaure os arquivos de código da base; não apague as
+O refinamento foi incorporado à `main` pelo PR #48 e incluído na release
+`v0.8.13`. As configurações existentes não são migradas. Para reverter, restaure os arquivos de código da base; não apague as
 pastas de produção ou os journals. Antes de usar uma versão antiga sem suporte ao
 novo sidecar, conclua ou revise uploads pendentes: ela não restaura sua largura
 manual. Uma reversão muda novamente a geometria do branco de novos PRTs.
