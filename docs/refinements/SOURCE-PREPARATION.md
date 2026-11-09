@@ -169,3 +169,5 @@ O benchmark de preparação exige `morph.py` e `prt.py` iguais aos da base,
 verifica essa condição e registra seus hashes, isolando a preparação da imagem.
 Os relatórios foram medidos com esses módulos idênticos. A campanha de hipóteses
 é separada e registra o hash conjunto de seus três módulos.
+
+Continuação: [cache limitado de ICC de entrada e nova campanha com 18 PRTs](INPUT-ICC-CACHE.md).

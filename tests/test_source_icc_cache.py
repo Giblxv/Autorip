@@ -2,6 +2,7 @@
 from concurrent.futures import ThreadPoolExecutor
 import gc
 import io
+from pathlib import Path
 import threading
 import weakref
 
@@ -28,15 +29,22 @@ def original_rgba(source, settings):
 def image_with_profile(mode='RGB', variant=0):
     pixels = np.random.default_rng(104).integers(0,256,(29,37,4),dtype=np.uint8)
     image = Image.fromarray(pixels,'RGBA')
-    profile = ImageCms.createProfile('LAB' if mode == 'LAB' else 'sRGB')
+    if mode == 'CMYK':
+        path = Path(__file__).resolve().parents[1] / 'Sublinks_DTF_E602 LM720x2400 8Pass .icc'
+        if not path.is_file():pytest.skip('Perfil de avaliação local não está disponível')
+        profile = ImageCms.getOpenProfile(str(path))
+        image = ImageCms.profileToProfile(image.convert('RGB'),ImageCms.createProfile('sRGB'),profile,outputMode='CMYK')
+    else:
+        profile = ImageCms.createProfile('LAB' if mode == 'LAB' else 'sRGB')
     if mode == 'LAB':
         image = ImageCms.profileToProfile(image.convert('RGB'),ImageCms.createProfile('sRGB'),profile,outputMode='LAB')
     elif mode == 'P':
         image = image.convert('P')
         image.info['transparency'] = 0
-    elif mode != 'RGBA':
+    elif mode not in ('RGBA','CMYK'):
         image = image.convert(mode)
-    embedded = bytearray(ImageCms.ImageCmsProfile(profile).tobytes())
+    wrapper = profile if isinstance(profile,ImageCms.ImageCmsProfile) else ImageCms.ImageCmsProfile(profile)
+    embedded = bytearray(wrapper.tobytes())
     # Somente a data do perfil muda; as tabelas de cor continuam válidas.
     embedded[24:26] = (2020 + variant).to_bytes(2,'big')
     image.info['icc_profile'] = bytes(embedded)
@@ -53,7 +61,7 @@ def count_builds(monkeypatch):
     return builds
 
 
-@pytest.mark.parametrize('mode',['RGB','RGBA','P','LAB'])
+@pytest.mark.parametrize('mode',['RGB','RGBA','P','LAB','CMYK'])
 @pytest.mark.parametrize('intent',range(4))
 @pytest.mark.parametrize('bpc',[False,True])
 def test_cache_frio_quente_preserva_pixels_e_prt(tmp_path,mode,intent,bpc):
@@ -68,7 +76,7 @@ def test_cache_frio_quente_preserva_pixels_e_prt(tmp_path,mode,intent,bpc):
         assert actual.tobytes() == expected.tobytes()
         actual.close()
     expected.close()
-    path = tmp_path / ('source.tif' if mode == 'LAB' else 'source.png')
+    path = tmp_path / ('source.tif' if mode in ('LAB','CMYK') else 'source.png')
     image.save(path,icc_profile=image.info['icc_profile'],dpi=(100,200))
     image.close()
     reference = engine.Rip(settings)
