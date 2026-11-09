@@ -32,6 +32,10 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
     const evidence=await fn(page);assert.deepEqual(errors,[]);results.push({name,passed:true,...evidence});
    }catch(e){results.push({name,passed:false,error:e.message,pageErrors:errors,...await page.evaluate(()=>window.__evidence||{}).catch(()=>({}))})}finally{closing=true;await page.close()}
   }
+  await test('authenticated lists remove all login placeholder nodes',async page=>{
+   assert(!await page.locator('#hotFiles').innerText().then(t=>t.includes('Faça login')));assert(!await page.locator('#pq').innerText().then(t=>t.includes('Faça login')));
+   assert.equal(await page.evaluate(()=>[...document.querySelector('#hotFiles').childNodes,...document.querySelector('#pq').childNodes].filter(n=>n.nodeType===Node.TEXT_NODE&&n.textContent.trim()).length),0);
+  });
   await test('unchanged hot rows preserve nodes and focus',async page=>{
    await page.evaluate(()=>{window.originalHot=document.querySelector('#hotFiles .hot-file');window.hotButton=originalHot.querySelector('button');hotButton.focus()});
    await page.evaluate(async()=>{let mutations=0;const observer=new MutationObserver(records=>mutations+=records.length);observer.observe(document.querySelector('#hotFiles'),{childList:true,subtree:true});for(let i=0;i<20;i++)await pollHotFiles();observer.disconnect();window.__evidence={polls:20,childListMutations:mutations}});
@@ -81,6 +85,7 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
    assert.equal(await page.evaluate(()=>token),'');assert.equal(await page.locator('#jobs .job,#pq .pq,#hotFiles .hot-file').count(),0);
   });
   await test('unchanged print list makes no DOM writes',async page=>{
+   await page.locator('#pq').scrollIntoViewIfNeeded();await page.waitForFunction(()=>[...document.querySelectorAll('#pq img')].every(img=>img.complete&&img.naturalWidth>0));
    const mutations=await page.evaluate(async()=>{let count=0;const observer=new MutationObserver(records=>count+=records.length);observer.observe(document.querySelector('#pq'),{childList:true,subtree:true,attributes:true,characterData:true});for(let i=0;i<20;i++)await pollPrints();observer.disconnect();return count});assert.equal(mutations,0);return{polls:20,domMutations:mutations};
   });
   await test('changed print preserves neighbour and preview',async page=>{

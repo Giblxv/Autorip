@@ -55,13 +55,13 @@ ambos os casos usam o mesmo backend de teste, sem impressora ou dados reais.
 | Mutações childList na hot-folder, 20 consultas idênticas | 60 | 0 |
 | Pedidos na rajada: uma consulta + 12 ticks + 8 atualizações explícitas | 21 | 2, sequenciais |
 | Pedidos após encerrar, janela de 3,3 segundos com timers ativos | 5 | 0 |
-| Provas de comportamento | 3/22 aprovadas | 22/22 aprovadas |
+| Provas de comportamento | 4/23 aprovadas | 23/23 aprovadas |
 
 O teste também verifica foco e nós após alterar/reordenar listas, prévias
 preservadas, atualização da idade sem substituir linhas, zero escritas no DOM
 da fila de impressão em 20 consultas idênticas, sessão nova protegida de 401 e
 dados antigos, limpeza imediata em 401 atual, falhas 404/500/rede sem logout,
-diálogo fechado e descarte de uma lista anterior à confirmação de impressão.
+diálogo fechado, remoção completa do aviso de login e descarte de uma lista anterior à confirmação de impressão.
 Nenhum erro JavaScript foi observado na versão refinada. As reprovações da base
 são cenários de regressão, não uma contagem de defeitos independentes.
 

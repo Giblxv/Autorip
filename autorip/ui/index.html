@@ -324,7 +324,7 @@ function copyLog(){navigator.clipboard&&navigator.clipboard.writeText(lastLog)}
 function ago(ts){const s=Math.max(0,Date.now()/1000-ts);return s<90?"agora":s<3600?Math.round(s/60)+" min":s<86400?Math.round(s/3600)+" h":Math.round(s/86400)+" d"}
 // Keep unchanged rows connected: this preserves keyboard focus and decoded previews.
 function reconcileRows(box,nodes){const focused=document.activeElement,identity=box.contains(focused)?focused.closest("[data-name]")?.dataset.name:null,action=focused?.dataset.action;
- const keep=new Set(nodes);for(const child of [...box.children])if(!keep.has(child))child.remove();let cursor=box.firstChild;
+ const keep=new Set(nodes);for(const child of [...box.childNodes])if(!keep.has(child))child.remove();let cursor=box.firstChild;
  for(const node of nodes){if(node===cursor)cursor=cursor.nextSibling;else box.insertBefore(node,cursor)}
  if(identity&&document.activeElement!==focused){const row=nodes.find(n=>n.dataset.name===identity);row?.querySelector(`[data-action="${action}"]`)?.focus({preventScroll:true})}
 }

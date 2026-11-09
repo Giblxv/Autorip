@@ -7,8 +7,12 @@
     "browser": "156.0.8078.79",
     "uiSha256": "4a194e6ff3e5de0316c0ff754ae328441f7c7cced7e83dfe6073ca011e3a459c",
     "passed": false,
-    "cases": 22,
+    "cases": 23,
     "results": [
+      {
+        "name": "authenticated lists remove all login placeholder nodes",
+        "passed": true
+      },
       {
         "name": "unchanged hot rows preserve nodes and focus",
         "passed": false,
@@ -84,7 +88,7 @@
       {
         "name": "network failure keeps session and reports failure",
         "passed": false,
-        "error": "page.evaluate: TypeError: Failed to fetch\n    at api (http://127.0.0.1:41841/:217:20)\n    at toggleAuto (http://127.0.0.1:41841/:319:71)\n    at eval (eval at evaluate (:311:30), <anonymous>:1:5)\n    at UtilityScript.evaluate (<anonymous>:313:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+        "error": "page.evaluate: TypeError: Failed to fetch\n    at api (http://127.0.0.1:34431/:217:20)\n    at toggleAuto (http://127.0.0.1:34431/:319:71)\n    at eval (eval at evaluate (:311:30), <anonymous>:1:5)\n    at UtilityScript.evaluate (<anonymous>:313:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
         "pageErrors": []
       },
       {
@@ -151,10 +155,14 @@
   "refined": {
     "baseline": null,
     "browser": "156.0.8078.79",
-    "uiSha256": "0a9c413a06dd3747a8259bea8648c31f190c9a4e7d54e63f16d203391de7570a",
+    "uiSha256": "c6aad88e48c74b87aee08de4adcf4fe77b929558418b1bc920ac3f9ec90fe56c",
     "passed": true,
-    "cases": 22,
+    "cases": 23,
     "results": [
+      {
+        "name": "authenticated lists remove all login placeholder nodes",
+        "passed": true
+      },
       {
         "name": "unchanged hot rows preserve nodes and focus",
         "passed": true,
@@ -293,8 +301,8 @@
     "inflightRequestSharedAcrossRender": true,
     "idleDomPreserved": true,
     "observerCleanupAfter30Renders": {
-      "pending": 311,
-      "queued": 7,
+      "pending": 309,
+      "queued": 5,
       "active": 4
     },
     "cacheByteLimit": 8388608,
