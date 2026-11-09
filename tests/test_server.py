@@ -450,6 +450,25 @@ def test_alias_de_caminho_nao_duplica_job_nem_recupera_journal_ativo(sample_png,
     assert not app.queued_sources and not app.source_jobs and not app.job_controls
 
 
+def test_hot_folder_em_lote_nao_duplica_rip_nem_perde_metadados(app, sample_png):
+    import shutil
+
+    names = [f"lote-{i:02}" for i in range(4)]
+    for name in names:
+        shutil.copyfile(sample_png, os.path.join(app.s.hot_folder, name + ".png"))
+    app.s.poll_seconds = .25
+    app.auto = True
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        if all(os.path.isfile(os.path.join(app.s.done_folder, name + ".png")) for name in names):
+            break
+        time.sleep(.05)
+    assert all(os.path.isfile(os.path.join(app.s.done_folder, name + ".png")) for name in names)
+    assert len(app.jobs) == 4 and all(job["status"] == "pronto" for job in app.jobs)
+    assert sorted(name for name in os.listdir(app.s.output_folder) if name.endswith(".PRT")) == [name + ".PRT" for name in names]
+    assert all(os.path.isfile(os.path.join(app.s.output_folder, name + ".PRT.meta.json")) for name in names)
+
+
 def test_troca_de_senha_revoga_sessoes_anteriores(panel, app):
     origin = {"Origin": panel, "Sec-Fetch-Site": "same-origin"}
     first = json.dumps({"new": "senha-inicial-123"}).encode()

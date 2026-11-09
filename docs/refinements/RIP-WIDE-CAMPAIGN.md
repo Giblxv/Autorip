@@ -1,5 +1,8 @@
 # Ripagem: campanha ampliada após integração da main
 
+Continuação posterior: [menos espera na hot-folder com estabilidade em lote](BATCH-FLOW.md).
+As 15 rodadas e medições abaixo permanecem como registro desta campanha do motor.
+
 Base: `3606308`, integração da main v0.8.14 com o motor paralelo do PR #51.
 Foram concluídas **15 rodadas adicionais consecutivas sem melhoria aceitável**.
 Nenhuma hipótese alterou o motor de produção nesta campanha. O hash conjunto de

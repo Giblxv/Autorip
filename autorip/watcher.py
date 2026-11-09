@@ -1,5 +1,6 @@
 """Observacao de hot-folder com journal duravel, locks e recuperacao de arquivamento."""
 import os
+import stat
 import time
 import traceback
 from .config import Settings
@@ -14,21 +15,39 @@ EXTS = (".png", ".tif", ".tiff", ".jpg", ".jpeg")
 
 
 def _signature(path):
-    stat = os.stat(path, follow_symlinks=False)
-    if os.path.islink(path) or not os.path.isfile(path):
+    info = os.stat(path, follow_symlinks=False)
+    if not stat.S_ISREG(info.st_mode):
         return None
-    return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
+    return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns
 
 
 def _stable(path, wait=1.0):
-    try:
-        first = _signature(path)
-        if first is None or first[2] <= 0:
-            return False
-        time.sleep(max(0, wait))
-        return first == _signature(path)
-    except OSError:
-        return False
+    return next(_stable_files((path,), wait), None) is not None
+
+
+def _stable_files(paths, wait=1.0):
+    """Observa o lote na mesma janela e revalida cada arquivo antes de liberá-lo.
+
+    A segunda assinatura é lida ao consumir o iterador, inclusive para arquivos
+    que mudaram enquanto os anteriores eram processados. Nenhuma thread extra.
+    """
+    observed = []
+    for path in paths:
+        try:
+            first = _signature(path)
+        except OSError:
+            continue
+        if first is not None and first[2] > 0:
+            observed.append((path, first))
+    if not observed:
+        return
+    time.sleep(max(0, wait))
+    for path, first in observed:
+        try:
+            if first == _signature(path):
+                yield path, first
+        except OSError:
+            continue
 
 
 def _claim(src, processing_folder):
@@ -186,32 +205,18 @@ def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None):
         pending.append(path)
 
     # Espera a origem estabilizar e a move sem substituir destinos concorrentes.
-    for name in sorted(os.listdir(s.hot_folder)):
-        if not name.lower().endswith(EXTS):
-            continue
-        src = os.path.join(s.hot_folder, name)
-        try:
-            signature = _signature(src)
-        except OSError:
-            continue
-        if signature is None or signature[2] <= 0 or not _stable(src):
-            continue
+    candidates = (os.path.join(s.hot_folder, name) for name in sorted(os.listdir(s.hot_folder))
+                  if name.lower().endswith(EXTS))
+    for src, _ in _stable_files(candidates):
         try:
             pending.append(_claim(src, processing_folder))
         except OSError:
             continue
 
     n = 0
-    for src in pending:
-        try:
-            signature = _signature(src)
-        except OSError:
-            continue
-        if signature is None or signature[2] <= 0 or src in archive_pending:
-            continue
+    candidates = (src for src in pending if src not in archive_pending)
+    for src, signature in _stable_files(candidates, wait=0.25):
         if seen is not None and seen.get(src) == signature:
-            continue
-        if not _stable(src, wait=0.25):
             continue
         if seen is not None:
             seen[src] = signature

@@ -8,7 +8,7 @@ from .config import Settings
 from .engine import Rip, MAX_INPUT_PIXELS
 from .prt import read_header
 from .prints import PrintCatalog
-from .watcher import EXTS, _signature, _stable
+from .watcher import EXTS, _signature, _stable_files
 from .paths import (ProcessLock, safe_filename, move_unique, next_available_path,
                     read_archive_marker, remove_archive_marker, write_archive_marker,
                     file_sha256, find_marked_output, source_signature_matches, write_json_atomic)
@@ -714,40 +714,35 @@ class App:
                 with self.lock:
                     pending_archives = {_source_key(path) for path in self.archive_pending}
                     queued_sources = set(self.queued_sources)
+                recovery_candidates = []
                 for hot_folder, processing_folder in processing_folders:
                     if not os.path.isdir(processing_folder):
                         continue
                     for n in sorted(os.listdir(processing_folder)):
                         p = os.path.join(processing_folder, n)
                         if (not n.lower().endswith(EXTS) or os.path.islink(p) or not os.path.isfile(p)
-                                or _source_key(p) in queued_sources or _source_key(p) in pending_archives
-                                or not _stable(p, wait=0.5)):
+                                or _source_key(p) in queued_sources or _source_key(p) in pending_archives):
                             continue
                         has_marker = os.path.lexists(p + ".autorip.json")
                         if not auto and not has_marker:
                             continue
-                        if self._recover_marked_source(p, settings):
-                            continue
-                        elif auto:
-                            self.enqueue(p, move_to_done=True)
+                        recovery_candidates.append(p)
+                for p, _ in _stable_files(recovery_candidates, wait=0.5):
+                    if not self._recover_marked_source(p, settings) and auto:
+                        self.enqueue(p, move_to_done=True)
                 if auto:
-                    for n in sorted(os.listdir(settings.hot_folder)):
-                        if not n.lower().endswith(EXTS):
-                            continue
-                        src = os.path.join(settings.hot_folder, n)
+                    candidates = (os.path.join(settings.hot_folder, n)
+                                  for n in sorted(os.listdir(settings.hot_folder))
+                                  if n.lower().endswith(EXTS))
+                    for src, _ in _stable_files(candidates, wait=0.5):
                         try:
-                            signature = _signature(src)
-                        except OSError:
-                            continue
-                        if signature is None or signature[2] <= 0 or not _stable(src, wait=0.5):
-                            continue
-                        try:
-                            claimed = move_unique(src, current_processing, n)
+                            claimed = move_unique(src, current_processing, os.path.basename(src))
                         except OSError:
                             continue
                         self.enqueue(claimed, move_to_done=True)
                 # Uploads manuais ficam em subpastas privadas; retomá-los também após reinício.
                 with self.upload_lock:
+                    manual_candidates = []
                     for root, directories, files in os.walk(self.inbox, topdown=True, followlinks=False):
                         directories[:] = [name for name in directories if not os.path.islink(os.path.join(root, name))]
                         for name in sorted(files):
@@ -758,10 +753,10 @@ class App:
                                 if (_source_key(path) in self.queued_sources
                                         or _source_key(path) in {_source_key(p) for p in self.archive_pending}):
                                     continue
-                            if os.path.islink(path) or not os.path.isfile(path) or not _stable(path, wait=0.5):
-                                continue
-                            if not self._recover_marked_source(path, settings):
-                                self._enqueue_manual_recovery(path)
+                            manual_candidates.append(path)
+                    for path, _ in _stable_files(manual_candidates, wait=0.5):
+                        if not self._recover_marked_source(path, settings):
+                            self._enqueue_manual_recovery(path)
             except Exception as e:
                 self.log(f"Falha ao observar hot-folder: {type(e).__name__}: {e}")
             with self.settings_lock:
