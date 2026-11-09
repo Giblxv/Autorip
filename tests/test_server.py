@@ -21,6 +21,20 @@ def _source_signature(path):
     return list(server_module._signature(path))
 
 
+def test_bind_host_preserva_loopback_por_padrao(monkeypatch):
+    monkeypatch.delenv("AUTORIP_BIND_HOST", raising=False)
+    monkeypatch.delenv("AUTORIP_ALLOWED_HOSTS", raising=False)
+    assert server_module._bind_host() == "127.0.0.1"
+    assert server_module._allowed_hosts("127.0.0.1") == {"127.0.0.1", "localhost"}
+
+
+def test_bind_host_lan_exige_lista_de_hosts(monkeypatch):
+    monkeypatch.setenv("AUTORIP_BIND_HOST", "0.0.0.0")
+    monkeypatch.setenv("AUTORIP_ALLOWED_HOSTS", "192.168.1.50, autorip.local")
+    assert server_module._bind_host() == "0.0.0.0"
+    assert server_module._allowed_hosts("0.0.0.0") == {"192.168.1.50", "autorip.local"}
+
+
 def test_main_headless_nao_abre_navegador(monkeypatch):
     called = []
     monkeypatch.setattr(server_module, "run_direct", lambda: called.append(True))

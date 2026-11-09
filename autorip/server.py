@@ -880,6 +880,22 @@ LAST_CLIENT_SEEN = 0.0
 DIRECT_CLOSING = False
 
 
+def _bind_host():
+    """Host de escuta; mantém loopback por padrão e só abre LAN por opt-in."""
+    value = os.environ.get("AUTORIP_BIND_HOST", "127.0.0.1").strip()
+    return value or "127.0.0.1"
+
+
+def _allowed_hosts(bind_host):
+    configured = os.environ.get("AUTORIP_ALLOWED_HOSTS", "").split(",")
+    values = {item.strip().lower().rstrip(".") for item in configured if item.strip()}
+    if not values:
+        values = {"127.0.0.1", "localhost"}
+    if bind_host not in ("0.0.0.0", "::"):
+        values.add(bind_host.lower().rstrip("."))
+    return values
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
@@ -904,10 +920,10 @@ class H(BaseHTTPRequestHandler):
         return bool(incoming) and any(secrets.compare_digest(incoming, token) for token in tokens)
 
     def _host_allowed(self):
-        """Aceita apenas o Host do painel local e a porta real do servidor."""
+        """Aceita apenas hosts explicitamente autorizados e a porta real."""
         try:
             parsed = urlparse("//" + self.headers.get("Host", ""))
-            return (parsed.hostname in ("127.0.0.1", "localhost")
+            return (parsed.hostname and parsed.hostname.lower().rstrip(".") in _allowed_hosts(_bind_host())
                     and parsed.port == self.server.server_address[1]
                     and not parsed.username and not parsed.password
                     and not parsed.path and not parsed.query and not parsed.fragment)
@@ -1243,9 +1259,10 @@ def serve(port=8765, open_browser=True, status_callback=None):
             lock.release()
         home_lock.release()
         raise
+    bind_host = _bind_host()
     srv = None
     for p in range(port, port + 20):
-        try: srv = ThreadingHTTPServer(("127.0.0.1", p), H); break
+        try: srv = ThreadingHTTPServer((bind_host, p), H); break
         except OSError: continue
     if srv is None:
         for lock in APP._watch_locks: lock.release()
@@ -1254,7 +1271,8 @@ def serve(port=8765, open_browser=True, status_callback=None):
         raise OSError("nenhuma porta local disponivel para o painel AutoRIP")
     HTTP_SERVER = srv
     LAST_CLIENT_SEEN = time.monotonic()
-    url = f"http://127.0.0.1:{srv.server_address[1]}/"
+    display_host = os.environ.get("AUTORIP_PUBLIC_HOST", bind_host)
+    url = f"http://{display_host}:{srv.server_address[1]}/"
     print("AutoRIP em", url, flush=True)
     report("AutoRIP ativo — monitorando a pasta de entrada")
     if open_browser: threading.Timer(0.8, lambda: webbrowser.open(url)).start()

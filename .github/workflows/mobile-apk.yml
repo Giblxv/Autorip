@@ -1,0 +1,53 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'mobile-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Build debug APK
+        working-directory: mobile
+        run: |
+          npm ci
+          npx cap sync android
+          cd android
+          ./gradlew assembleDebug --no-daemon
+      - name: Verify APK
+        working-directory: mobile
+        run: test -s android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoRIP-Mobile-${{ github.sha }}
+          if-no-files-found: error
+          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+      - name: Publish mobile release
+        if: startsWith(github.ref, 'refs/tags/mobile-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          generate_release_notes: true
+          files: mobile/android/app/build/outputs/apk/debug/app-debug.apk
