@@ -9,12 +9,13 @@ from scipy import ndimage as ndi
 from .config import Settings
 from .prt import PrtWriter, plane_bytes_for, HEADER_SIZE
 from .paths import publish_unique_file
+from . import morph
 
 MAX_INPUT_PIXELS = 80_000_000
 MIN_FREE_DISK_BYTES = 128 * 1024 * 1024  # reserva para logs, journal e sistema
 STRIP = 512  # reduz o pico de memoria em folhas largas
 MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
-_BYTES_PER_RENDER_PIXEL = 48  # planos, alpha, CMYK float e buffers temporários
+_BYTES_PER_RENDER_PIXEL = 96  # planos, alpha, CMYK float e buffers temporários
 
 
 def _blue_noise(h=256, w=256, sx=1.0, sy=None, seed=7):
@@ -97,20 +98,13 @@ class Rip:
     def _white_levels(self, alpha: np.ndarray, y0: int = 0) -> np.ndarray:
         s = self.s
         a = alpha
+        if s.white_density == 0 or not a.any():
+            return np.zeros(a.shape, dtype=np.uint8)
         # fecha furos de meio-tom / areas claras: cobertura = alpha >= limiar
         original_mask = a >= s.white_alpha_threshold
         mask = original_mask
-        fh = s.white_fill_holes_mm / 25.4
-        ry, rx = int(round(fh * s.dpi_y)), int(round(fh * s.dpi_x))
-        if rx > 0 or ry > 0:
-            st = np.ones((2 * ry + 1, 2 * rx + 1), bool)
-            pad = np.pad(mask, ((ry, ry), (rx, rx)))
-            mask = ndi.binary_closing(pad, structure=st)[ry:ry + a.shape[0], rx:rx + a.shape[1]]
-        # recuo (choke) para o branco nao aparecer na borda
-        cm = s.white_choke_mm / 25.4
-        cy, cx = int(round(cm * s.dpi_y)), int(round(cm * s.dpi_x))
-        if cx > 0 or cy > 0:
-            mask = ndi.binary_erosion(mask, structure=np.ones((2 * cy + 1, 2 * cx + 1), bool))
+        mask = morph.close_holes(original_mask, s.white_fill_holes_mm, s.dpi_x, s.dpi_y)
+        mask = morph.erode(mask, s.white_choke_mm, s.dpi_x, s.dpi_y)
         # niveis: borda (alpha parcial) = 1, miolo = 3
         # densidade 100% = tudo gota grande (3); abaixo disso: gotas pequenas + grandes esparsas
         dens = np.where(a >= 0.9, s.white_density, 0.5 * (a / 0.9) * s.white_density).astype(np.float32)
@@ -180,8 +174,8 @@ class Rip:
         free_bytes = shutil.disk_usage(out_dir).free
         if estimated_bytes + MIN_FREE_DISK_BYTES > free_bytes:
             raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB, alem de 128 MiB de reserva livre.")
-        fill_rows = int(round(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
-        choke_rows = int(round(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
+        fill_rows = int(np.ceil(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
+        choke_rows = int(np.ceil(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         halo = 2 * fill_rows + choke_rows + 2
         available_rows = MAX_STRIP_MEMORY_BYTES // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
         if available_rows < 1:
@@ -200,6 +194,8 @@ class Rip:
                 o = y - a0
                 blk = [p[o:o + (y1 - y)] for p in planes_full]
                 wr.write_block(blk)
+                # Libere a tira anterior antes de alocar a próxima e seus buffers EDT.
+                del blk, planes_full
                 y = y1
                 if progress:
                     progress(y / n_rows)

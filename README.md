@@ -76,6 +76,18 @@ Os testes usam imagens sintéticas e servidores HTTP locais simulados; não exig
 
 O workflow do GitHub Actions executa a mesma suíte em pushes e pull requests para `main`.
 
+## Refinamentos em revisão
+
+O [patch de morfologia e desempenho](docs/refinements/MORPH-PERFORMANCE.md) prepara
+branco com disco físico por EDT, preserva a largura de uploads após reinício e
+melhora o painel. A alteração do branco modifica sua geometria nos cantos; faça
+uma prova física antes de usar essa versão em produção.
+
+Os módulos opcionais `autorip.nesting` e `autorip.bgremove` são bibliotecas auxiliares,
+ainda sem ligação ao painel ou à composição PRT. Instale `requirements-optional.txt`
+somente se precisar deles. A remoção de fundo exige `model_path` apontando para um
+modelo ONNX local compatível; o AutoRIP não baixa modelos automaticamente.
+
 ## Histórico recente
 
 - **0.8.1:** journal com hash do PRT antes da publicação, recovery seguro do CLI posicional, sidecar/outbox recuperáveis e idempotentes, proteção contra PRT homônimo e liberação de locks antigos de saída após jobs ativos.

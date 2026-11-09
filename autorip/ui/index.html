@@ -73,19 +73,44 @@ dialog::backdrop{background:rgba(0,0,0,.55)}dialog[open]{animation:pop .45s}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;max-height:62vh;overflow:auto;padding:4px}
 .grid label{font-size:16px;display:block}.grid .full{grid-column:1/-1}.grid h3{grid-column:1/-1;margin:10px 0 0;font-size:24px;border-bottom:4px solid var(--m)}
 .msg{color:var(--m);min-height:22px}
+/* Operação: informação estável, foco visível e formulário responsivo. */
+body{font-family:"Segoe UI",Arial,sans-serif;background:#f4f6f9;letter-spacing:0}
+main{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+main>section,.grid>label{min-width:0}
+.card{border-width:2px;border-color:#d5dae3;border-radius:16px;box-shadow:0 3px 12px #1a1a1a0d}
+.card h2{font-size:24px}.card h2 i{padding:3px 9px}
+.card.h-y h2 i,.card.h-c h2 i,.tag.ok,.st.pronto{color:var(--k)}
+button{border-width:2px;box-shadow:none;font-size:16px}
+button:hover{animation:none;filter:brightness(.96)}
+button:focus-visible,input:focus-visible{outline:3px solid #00689d;outline-offset:4px}
+button:disabled{opacity:.6;cursor:wait}
+.logo span,.fill,.drop{animation:none}.drop{display:none}
+#intro,#fim{display:none}
+.sw{flex:none;padding:0;box-shadow:none;width:110px;border-width:5px}
+#connection{padding:10px 28px;font-size:14px;background:#e4f2eb;color:#195b3a}
+#connection.stale{background:#fff0d6;color:#704500}
+#notice{position:fixed;right:20px;bottom:20px;z-index:100;background:#1a1a1a;color:#fff;border-radius:12px;padding:12px 18px;max-width:min(90vw,440px)}
+#notice:empty{display:none}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid input{max-width:100%;min-width:0}
+@media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:560px){.grid{grid-template-columns:minmax(0,1fr)}dialog{padding:18px 14px}.card{padding:16px}.row{flex-wrap:wrap}#connection{padding:10px 14px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style></head><body>
 <div id="intro"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="ring r4"></div><h1>AutoRIP!</h1></div>
 <div id="fim"><h1>É ISSO AÍ,<br>PESSOAL!</h1></div>
 <header><img id="blogo" alt="" style="height:52px;display:none"><div class="logo" id="logo"></div><div class="sp"></div><span id="off" style="display:none;background:var(--y);border:3px solid #fff;border-radius:14px;padding:4px 12px;margin-right:12px;font-size:18px"></span><small id="ver"></small><button class="m" onclick="openCfg()">⚙ Configurações</button><button class="k" onclick="shutdownApp()" title="Encerra o servidor local do AutoRIP">⏻ Encerrar</button></header>
+<div id="connection" class="stale" role="status">Conectando ao AutoRIP…</div>
+<div id="notice" role="status" aria-live="polite"></div>
 <main>
  <section>
   <div class="card h-m"><h2><i>Automático</i></h2>
-   <div class="auto"><div class="sw" id="sw" onclick="toggleAuto()"></div><div id="autoTxt" style="font-size:24px"></div></div>
+   <div class="auto"><button type="button" class="sw" id="sw" role="switch" aria-label="Modo automático" aria-checked="false" onclick="toggleAuto()"></button><div id="autoTxt" style="font-size:24px"></div></div>
    <div class="paths"><b>Pasta de entrada:</b> <span id="pin"></span><br><b>Saída (.PRT):</b> <span id="pout"></span><br><b>Perfil ICC:</b> <span id="picc"></span></div>
   </div>
   <div class="card h-c" style="margin-top:24px"><h2><i>Manual</i></h2>
    <div id="drop">🖨️ Arraste a arte aqui (PNG, TIFF ou JPEG)<br><small style="font-size:15px">Prefira PNG com transparência real para o branco automático.</small><br><br><button class="c" onclick="document.getElementById('file').click()">Escolher arquivo</button><input id="file" type="file" multiple accept=".png,.tif,.tiff,.jpg,.jpeg">
-    <div class="row">Largura (cm): <input id="wcm" type="number" step="0.1" placeholder="auto" style="width:130px"></div></div>
+    <div class="row"><label for="wcm">Largura (cm):</label> <input id="wcm" type="number" min="0.1" max="300" step="0.1" placeholder="auto" style="width:130px"></div></div>
   </div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Fila de impressão</i></h2><span class="cnt" id="pqn">0</span></div>
    <div style="font-size:15px;margin-bottom:6px">Arquivos <b>.PRT</b> prontos, esperando o PrintExp. O mais antigo vai primeiro.</div><div id="pq"><div class="empty">Nada esperando impressão 🎉</div></div></div>
@@ -98,46 +123,66 @@ dialog::backdrop{background:rgba(0,0,0,.55)}dialog[open]{animation:pop .45s}
  </section>
 </main>
 <dialog id="dlg"><h2 style="margin-top:0">⚙ Configurações</h2><div id="loginBox"><p id="loginTxt"></p>
- <input type="password" id="pw" placeholder="senha" maxlength="128"><div id="pw2box" style="margin-top:8px;display:none"><input type="password" id="pw2" placeholder="repita a senha" maxlength="128"></div>
+ <input type="password" id="pw" aria-label="Senha" autocomplete="current-password" placeholder="senha" maxlength="128"><div id="pw2box" style="margin-top:8px;display:none"><input type="password" id="pw2" aria-label="Repita a senha" autocomplete="new-password" placeholder="repita a senha" maxlength="128"></div>
  <p class="msg" id="lmsg"></p><button class="k" onclick="doLogin()">Entrar</button> <button onclick="dlg.close()">Fechar</button></div>
  <div id="cfgBox" style="display:none"><div class="grid" id="grid"></div><p class="msg" id="cmsg"></p>
  <button class="c" onclick="saveCfg()">Salvar</button> <button onclick="dlg.close()">Fechar</button></div></dialog>
 <script>
 const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new Set(),first=true;
+let jobsKey="",printsKey="",polling=false,printsPolling=false,noticeTimer;
+const thumbnailCache=new Map();
+function notify(message){$("notice").textContent=message;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$("notice").textContent="",6000)}
+function connection(ok){$("connection").classList.toggle("stale",!ok);$("connection").textContent=ok?"Servidor local conectado":"Conexão perdida. Os dados exibidos podem estar desatualizados.";if(!ok){$("autoTxt").textContent="Estado indisponível";$("sw").disabled=true}}
 let brandShown="";function setBrand(n,has){if(n!==brandShown){brandShown=n;$("logo").innerHTML="";n.split("").forEach(ch=>{const s=document.createElement("span");s.textContent=ch===" "?"\u00a0":ch;$("logo").appendChild(s)});document.title=n}const b=$("blogo");if(has&&!b.src){b.src="/api/brand-logo?"+Date.now();b.style.display=""}if(!has){b.style.display="none";b.removeAttribute("src")}}
 setBrand("AutoRIP",false);
-async function api(path,opt={}){opt.headers=Object.assign({},opt.headers,token?{"X-Token":token}:{});const r=await fetch(path,opt);return{ok:r.ok,d:await r.json()}}
+async function api(path,opt={}){
+ const session=token;
+ opt.headers=Object.assign({},opt.headers,session?{"X-Token":session}:{});
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),path==="/api/state"?5000:180000);
+ try{const r=await fetch(path,{...opt,signal:controller.signal});const d=await r.json();
+  if(r.status===401&&token===session){token="";jobsKey=printsKey="";thumbnailCache.clear()}
+  return{ok:r.ok,d};
+ }finally{clearTimeout(timeout)}
+}
 async function shutdownApp(){if(!confirm("Encerrar o AutoRIP no computador? O processamento e o painel serão fechados."))return;const r=await api("/api/shutdown",{method:"POST",body:"{}"});if(r.ok){document.body.innerHTML="<main style='padding:40px'><h1>AutoRIP encerrado</h1><p>Você pode fechar esta aba.</p></main>"}else if(r.d&&r.d.error==="login"){openCfg()}}
 async function privateThumbnail(img,path){
- if(!token||typeof path!=="string"||!path.startsWith("/api/thumb?"))return;
- try{const response=await fetch(path,{headers:{"X-Token":token},cache:"no-store"});
-  if(!response.ok)throw new Error("miniatura indisponível");
-  const blob=await response.blob();if(!blob.type.startsWith("image/"))throw new Error("imagem inválida");
+ const session=token;
+ if(!session||typeof path!=="string"||!path.startsWith("/api/thumb?"))return;
+ const key=session+path;
+ try{
+  let entry=thumbnailCache.get(key);
+  if(!entry||Date.now()-entry.time>60000){
+   const promise=fetch(path,{headers:{"X-Token":session},cache:"no-store"}).then(async response=>{
+    if(!response.ok)throw new Error("miniatura indisponível");
+    const blob=await response.blob();if(!blob.type.startsWith("image/"))throw new Error("imagem inválida");return blob});
+   entry={time:Date.now(),promise};thumbnailCache.set(key,entry);
+   if(thumbnailCache.size>64)thumbnailCache.delete(thumbnailCache.keys().next().value);
+  }
+  const blob=await entry.promise;
+  if(!img.isConnected||token!==session)return;
   const objectUrl=URL.createObjectURL(blob);
-  if(!img.isConnected){URL.revokeObjectURL(objectUrl);return}
-  img.onload=()=>URL.revokeObjectURL(objectUrl);
-  img.onerror=()=>URL.revokeObjectURL(objectUrl);
-  img.src=objectUrl;
- }catch(e){if(img.isConnected)img.alt="Miniatura indisponível"}
+  img.onload=img.onerror=()=>URL.revokeObjectURL(objectUrl);img.src=objectUrl;
+ }catch(e){thumbnailCache.delete(key);if(img.isConnected)img.alt="Miniatura indisponível"}
 }
-async function poll(){try{const {d}=await api("/api/state");hasPass=d.has_pass;setBrand(d.brand,d.has_logo);$("ver").textContent="v"+d.version;
- if(d.locked){$("off").style.display="none";$("pin").textContent="Acesso restrito";$("pout").textContent="Acesso restrito";$("picc").textContent="Entre para consultar";
+async function poll(){if(polling)return;polling=true;try{const session=token;const {ok,d}=await api("/api/state");if(token!==session)return;if(!ok)throw new Error("estado indisponível");connection(true);$("sw").disabled=false;hasPass=d.has_pass;setBrand(d.brand,d.has_logo);$("ver").textContent="v"+d.version;
+ if(d.locked){token="";jobsKey=printsKey="";thumbnailCache.clear();$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";$("sw").setAttribute("aria-checked","false");$("off").style.display="none";$("pin").textContent="Acesso restrito";$("pout").textContent="Acesso restrito";$("picc").textContent="Entre para consultar";
  $("sw").classList.remove("on");$("autoTxt").textContent="Entre para consultar o estado";
  $("jobs").textContent="Faça login para ver seus trabalhos";renderLog([]);return}
  {const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending>0?" · "+d.pending+" aviso(s) na fila":d.pending<0?" · aviso local indisponível":"")}$("ver").textContent="v"+d.version;
  $("pin").textContent=d.hot_folder;$("pout").textContent=d.output_folder;$("picc").textContent=d.icc;
- $("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";
+ $("sw").setAttribute("aria-checked",String(Boolean(d.auto)));$("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";
+ const key=JSON.stringify(d.jobs);if(key===jobsKey){renderLog(d.log);return}jobsKey=key;
  const jobs=$("jobs");jobs.replaceChildren();
  if(!d.jobs.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";jobs.appendChild(empty)}
- d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";const p=Math.max(0,Math.min(100,Math.round(Number(j.progress)||0)));
+ d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
   if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
   const name=document.createElement("span");name.textContent=String(j.name||"");e.appendChild(name);
   const status=document.createElement("span");status.className="st "+(["fila","processando","pronto","erro"].includes(j.status)?j.status:"");status.textContent=String(j.status||"");e.appendChild(status);
-  const bar=document.createElement("div");bar.className="bar";const fill=document.createElement("div");fill.className="fill";fill.style.width=p+"%";bar.appendChild(fill);
+  const bar=document.createElement("div");bar.className="bar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-label","Progresso de "+j.name);bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax","100");bar.setAttribute("aria-valuenow",String(p));const fill=document.createElement("div");fill.className="fill";fill.style.width=p+"%";bar.appendChild(fill);
   const drop=document.createElement("div");drop.className="drop";drop.style.left=`calc(${p}% - 14px)`;drop.textContent=["💧","🎨","💧","🖨️"][p%4];bar.appendChild(drop);e.appendChild(bar);
   if(j.error){const error=document.createElement("small");error.style.color="var(--m)";error.textContent=String(j.error);e.appendChild(error)}
   jobs.appendChild(e);if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
- first=false;renderLog(d.log);}catch(e){}}
+ first=false;renderLog(d.log);}catch(e){connection(false)}finally{polling=false}}
 let lastLog="";
 function tagOf(m){const r=[[/^OK/,"ok","PRONTO"],[/^ERRO|falhou/i,"erro","ERRO"],[/^RIP/,"rip","RIP"],[/^Impresso/,"","IMPRESSO"],[/^Integra|^Trello|^Fila offline|^Agente/,"rede","REDE"],[/^Modo auto/,"rip","AUTO"],[/^Configura/,"","CONFIG"],[/^Removido/,"erro","FILA"]];
  for(const [re,c,t] of r)if(re.test(m))return[c,t,m.replace(/^(OK|RIP|ERRO):?\s*/,"")];return["","INFO",m]}
@@ -148,21 +193,27 @@ function renderLog(lines){const key=lines.join("\n");if(key===lastLog)return;las
  if(atEnd)L.scrollTop=L.scrollHeight}
 function copyLog(){navigator.clipboard&&navigator.clipboard.writeText(lastLog)}
 function ago(ts){const s=Math.max(0,Date.now()/1000-ts);return s<90?"agora":s<3600?Math.round(s/60)+" min":s<86400?Math.round(s/3600)+" h":Math.round(s/86400)+" d"}
-async function pollPrints(){try{if(!token){$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";return}
+async function pollPrints(){if(printsPolling)return;printsPolling=true;try{if(!token){printsKey="";$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";return}
  const {ok,d}=await api("/api/prints");if(!ok){if(d?.error==="login")token="";return}
- $("pqn").textContent=d.length;const box=$("pq");box.innerHTML="";
+ const key=JSON.stringify(d);if(key===printsKey)return;printsKey=key;$("pqn").textContent=d.length;const box=$("pq");box.innerHTML="";
  if(!d.length){box.innerHTML='<div class="empty">Nada esperando impressão 🎉</div>';return}
  d.forEach((p,i)=>{const r=document.createElement("div");r.className="pq";const im=document.createElement("img");im.alt="Prévia";privateThumbnail(im,p.thumb);
   const g=document.createElement("div");g.className="gr";const n=document.createElement("div");n.className="nm";n.textContent=p.name;if(i===0){const nx=document.createElement("span");nx.className="nx";nx.textContent="próximo";n.append(" ",nx)}
   const sm=document.createElement("small");sm.textContent=`${p.width_cm.toFixed(1)} × ${p.height_cm.toFixed(1)} cm · ${p.mb} MB · há ${ago(p.mtime)}`;g.append(n,sm);
   const bt=document.createElement("div");bt.className="bt";const ok=document.createElement("button");ok.className="sm c";ok.textContent="✔ Impresso";ok.onclick=()=>markPrinted(p.name);
-  const del=document.createElement("button");del.className="sm m";del.textContent="🗑";del.title="Remover da fila (pede senha)";del.onclick=()=>delPrint(p.name);bt.append(ok,del);r.append(im,g,bt);box.appendChild(r)})}catch(e){}}
+  const del=document.createElement("button");del.className="sm m";del.textContent="🗑";del.title="Remover da fila (pede senha)";del.onclick=()=>delPrint(p.name);bt.append(ok,del);r.append(im,g,bt);box.appendChild(r)})}catch(e){notify("Não foi possível atualizar a fila de impressão.")}finally{printsPolling=false}}
 async function markPrinted(n){if(!token){openCfg();return}const r=await api("/api/prints/printed",{method:"POST",body:JSON.stringify({name:n})});if(!r.ok){token="";openCfg();return}pollPrints();poll()}
 async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+" da fila? O arquivo será apagado."))return;const r=await api("/api/prints/delete",{method:"POST",body:JSON.stringify({name:n})});if(!r.ok)token="";pollPrints();poll()}
-function celebrate(){const f=$("fim");f.classList.remove("go");void f.offsetWidth;f.classList.add("go")}
+function celebrate(){notify("Trabalho concluído. PRT disponível na fila de impressão.")}
 async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
 async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});if(!r.ok){token="";openCfg();return}poll()}
-async function upload(files){if(!token){openCfg();return}for(const f of files){const w=$("wcm").value;const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(w)}`,{method:"POST",body:f});if(!r.ok){alert(`${f.name}: ${r.d.error||"falha no upload"}`);break}}poll();$("file").value=""}
+async function upload(files){
+ const width=$("wcm").value;
+ if(width&&(!Number.isFinite(Number(width))||Number(width)<=0||Number(width)>300)){notify("Informe uma largura maior que zero e até 300 cm.");return}
+ try{for(const f of files){const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(width)}`,{method:"POST",body:f});if(!r.ok){notify(`${f.name}: ${r.d.error||"falha no upload"}`);break}}}
+ catch(e){notify("Falha de conexão ao enviar a arte. Confira a fila antes de tentar novamente.")}
+ finally{poll();$("file").value=""}
+}
 $("file").onchange=e=>upload(e.target.files);
 const dz=$("drop");["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over")}));
 ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over")}));dz.addEventListener("drop",e=>upload(e.dataTransfer.files));
@@ -178,7 +229,7 @@ function openCfg(){$("dlg").showModal();$("lmsg").textContent="";if(token){showC
  $("loginTxt").textContent=hasPass?"Digite a senha para abrir as configurações.":"Primeiro acesso: crie uma senha (mínimo 8 caracteres).";$("pw2box").style.display=hasPass?"none":""}}
 async function doLogin(){let r;if(hasPass)r=await api("/api/login",{method:"POST",body:JSON.stringify({password:$("pw").value})});
  else{if($("pw").value.length<8){$("lmsg").textContent="Use pelo menos 8 caracteres";return}if($("pw").value!==$("pw2").value){$("lmsg").textContent="As senhas não conferem";return}r=await api("/api/setpass",{method:"POST",body:JSON.stringify({new:$("pw").value})})}
- if(r.ok){token=r.d.token;showCfg()}else $("lmsg").textContent=r.d.error}
+ if(r.ok){token=r.d.token;jobsKey=printsKey="";thumbnailCache.clear();showCfg();poll();pollPrints()}else $("lmsg").textContent=r.d.error}
 async function showCfg(){const {ok,d}=await api("/api/settings");if(!ok){token="";return openCfg()}$("loginBox").style.display="none";$("cfgBox").style.display="";
  const g=$("grid");g.replaceChildren();window._cfg=d;SCHEMA.forEach(f=>{if(f[0]==="h"){const h=document.createElement("h3");h.textContent=f[1];g.appendChild(h);return}
   if(f[0]==="@logo"||f[0]==="@wm"){const label=document.createElement("label");label.appendChild(document.createTextNode(f[0]==="@logo"?"Logo da marca (PNG)":"Marca d'água (PNG)"));const file=document.createElement("input");file.type="file";file.accept="image/*";file.addEventListener("change",()=>upImg(f[0]==="@logo"?"logo":"watermark",file));label.appendChild(file);g.appendChild(label);return}
@@ -189,9 +240,9 @@ async function showCfg(){const {ok,d}=await api("/api/settings");if(!ok){token="
  const heading=document.createElement("h3");heading.textContent="Limite de tinta (%)";g.appendChild(heading);["K","C","M","Y"].forEach(c=>{const label=document.createElement("label"),input=document.createElement("input");label.appendChild(document.createTextNode(c));input.type="number";input.id="ink_"+c;input.value=String(d.ink_limit[c]);label.appendChild(input);g.appendChild(label)})}
 async function upImg(kind,el){const f=el.files[0];if(!f)return;const r=await api("/api/"+kind,{method:"POST",body:f});$("cmsg").textContent=r.ok?"Imagem enviada! 🎉":(r.d.error||"erro");poll()}
 async function saveCfg(){if(!token){openCfg();return}const o={};for(const f of SCHEMA){if(f[0]==="h"||f[0][0]==="@")continue;const [k,,t]=f,e=$("f_"+k);
-  if(t==="b")o[k]=e.checked;else if(t==="n"){const v=Number.isInteger(window._cfg[k])?parseInt(e.value):parseFloat(e.value);if(!Number.isFinite(v)){$("cmsg").textContent=`Valor inválido: ${k}`;return}o[k]=v}
+  if(t==="b")o[k]=e.checked;else if(t==="n"){const v=Number(e.value);if(!e.value.trim()||!Number.isFinite(v)){$("cmsg").textContent=`Valor inválido: ${k}`;return}o[k]=v}
   else if(t==="p"){if(e.value)o[k]=e.value}else o[k]=e.value}
- o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=parseInt($("ink_"+c).value));
+ o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=Number($("ink_"+c).value));
  const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok){await showCfg();poll()}}
 poll();pollPrints();setInterval(poll,1000);setInterval(pollPrints,3000);
 </script></body></html>

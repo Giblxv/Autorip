@@ -799,3 +799,58 @@ def test_modo_direto_sem_janela_inicia_servidor_sem_browser(monkeypatch, missing
     monkeypatch.setattr(server, "serve", lambda **kwargs: calls.append(kwargs))
     server.run_direct()
     assert calls == [{"open_browser": False}]
+
+
+def test_janela_nativa_recebe_estado_por_fila_e_abre_painel(monkeypatch):
+    from types import SimpleNamespace
+    main_thread = threading.get_ident()
+    ready = threading.Event()
+    values, buttons, browser = [], [], []
+
+    class Root:
+        def __init__(self):
+            self.callbacks = []
+        def title(self, *args): pass
+        def geometry(self, *args): pass
+        def minsize(self, *args): pass
+        def configure(self, **kwargs): pass
+        def after(self, delay, callback):
+            assert threading.get_ident() == main_thread
+            self.callbacks.append(callback)
+        def protocol(self, name, callback): self.close = callback
+        def destroy(self): pass
+        def mainloop(self):
+            assert ready.wait(2)
+            self.callbacks.pop(0)()
+            buttons[0]()
+            self.close()
+
+    class Variable:
+        def __init__(self, value): values.append(value)
+        def set(self, value):
+            assert threading.get_ident() == main_thread
+            values.append(value)
+
+    class Widget:
+        def __init__(self, *args, **kwargs):
+            if 'command' in kwargs: buttons.append(kwargs['command'])
+        def pack(self, **kwargs): pass
+
+    monkeypatch.setitem(sys.modules, 'tkinter', SimpleNamespace(
+        Tk=Root, StringVar=Variable, Label=Widget, Button=Widget, TclError=RuntimeError))
+    state = SimpleNamespace(lock=threading.RLock(),settings_lock=threading.RLock(),
+                            jobs=[{'status':'processando'}],auto=True,
+                            s=SimpleNamespace(offline_mode=True),q=__import__('queue').Queue())
+    monkeypatch.setattr(server_module, 'APP', state)
+    monkeypatch.setattr(server_module, 'HTTP_SERVER', SimpleNamespace(server_address=('127.0.0.1',8765)))
+    monkeypatch.setattr(server_module, 'DIRECT_CLOSING', False)
+    def serve(**kwargs):
+        kwargs['status_callback']('Servidor pronto')
+        ready.set()
+        return True
+    monkeypatch.setattr(server_module,'serve',serve)
+    monkeypatch.setattr(server_module,'shutdown_server',lambda:None)
+    monkeypatch.setattr(server_module.webbrowser,'open',browser.append)
+    server_module.run_direct()
+    assert any('RIP: 1' in text and 'Offline' in text for text in values)
+    assert browser == ['http://127.0.0.1:8765/']
