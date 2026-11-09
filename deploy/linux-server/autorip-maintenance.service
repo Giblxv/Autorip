@@ -1,0 +1,8 @@
+[Unit]
+Description=Manutenção noturna do servidor AutoRIP
+Documentation=file:/usr/local/sbin/autorip-maintenance.sh
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/autorip-maintenance.sh

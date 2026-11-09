@@ -1,0 +1,10 @@
+[Unit]
+Description=Executa a manutenção noturna do AutoRIP às 03:00
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+Unit=autorip-maintenance.service
+
+[Install]
+WantedBy=timers.target

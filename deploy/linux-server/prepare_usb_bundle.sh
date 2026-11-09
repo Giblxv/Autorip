@@ -9,6 +9,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 OUT="${1:-${ROOT}/dist/autorip-linux-server}"
 mkdir -p "${OUT}/deploy/linux-server" "${OUT}/docs"
 cp -a "${ROOT}/deploy/linux-server/autorip.service" \
+      "${ROOT}/deploy/linux-server/autorip-maintenance.sh" \
+      "${ROOT}/deploy/linux-server/autorip-maintenance.service" \
+      "${ROOT}/deploy/linux-server/autorip-maintenance.timer" \
       "${ROOT}/deploy/linux-server/install_autorip_server.sh" \
       "${ROOT}/deploy/linux-server/install_remote_access.sh" \
       "${ROOT}/deploy/linux-server/build_autorip_iso.sh" \
@@ -16,6 +19,7 @@ cp -a "${ROOT}/deploy/linux-server/autorip.service" \
 cp -a "${ROOT}/README.md" "${ROOT}/docs/LINUX_SERVIDOR_DESKTOP.md" "${OUT}/docs/"
 cp -a "${ROOT}/autorip" "${ROOT}/autorip_gui.py" "${ROOT}/requirements.txt" "${OUT}/"
 chmod 0755 "${OUT}/deploy/linux-server/install_autorip_server.sh"
+chmod 0755 "${OUT}/deploy/linux-server/autorip-maintenance.sh"
 cat > "${OUT}/INSTALAR.txt" <<'EOF'
 1. Instale Ubuntu Desktop LTS x86_64 no SSD de destino.
 2. Conecte o PC à rede por Ethernet.
@@ -26,5 +30,7 @@ cat > "${OUT}/INSTALAR.txt" <<'EOF'
 4. Defina a senha do compartilhamento Samba quando solicitado.
 5. Configure o perfil ICC em /var/lib/autorip/autorip.json.
 6. Configure o IP fixo conforme docs/LINUX_SERVIDOR_DESKTOP.md.
+7. A manutenção diária às 03:00 limpa temporários antigos e reinicia o servidor;
+   confira o timer com: systemctl list-timers autorip-maintenance.timer
 EOF
 printf 'Pacote criado em %s\n' "${OUT}"

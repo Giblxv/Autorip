@@ -56,6 +56,32 @@ O instalador solicita uma senha para o login compartilhado `autorip`. Essa é a 
 
 O worker começa automaticamente no boot. O Ubuntu Desktop fornece a interface para manutenção, terminal, navegador e diagnóstico; não execute uma segunda cópia de `python -m autorip --gui` enquanto o serviço estiver ativo, pois ela iniciaria outro worker. O estado operacional deve ser acompanhado por `systemctl` e `journalctl`.
 
+### Manutenção automática às 03:00
+
+O instalador habilita `autorip-maintenance.timer`, usando o fuso horário local do servidor. Todos os dias às **03:00**, o serviço:
+
+1. para o worker do AutoRIP de forma controlada;
+2. executa `systemd-tmpfiles --clean`;
+3. remove apenas arquivos e links com mais de 24 horas em `/tmp` e `/var/tmp`;
+4. não acessa nem apaga `/srv/autorip`, incluindo a hot folder e a saída PRT;
+5. reinicia o computador para liberar memória e encerrar processos antigos.
+
+O agendamento e o histórico podem ser conferidos com:
+
+```bash
+systemctl list-timers autorip-maintenance.timer
+sudo systemctl status autorip-maintenance.timer
+sudo journalctl -u autorip-maintenance.service
+```
+
+Se o servidor estiver ligado fora do horário e o timer perder uma execução, `Persistent=true` executa a manutenção no próximo boot. Para testar somente a limpeza, sem reiniciar, use em uma janela de manutenção:
+
+```bash
+sudo AUTORIP_MAINTENANCE_NO_REBOOT=1 /usr/local/sbin/autorip-maintenance.sh
+```
+
+O reboot é intencional: o processo noturno não deve ser usado enquanto houver trabalhos ativos. Programe o servidor para não receber artes nesse horário ou ajuste o horário do timer se a produção operar durante a madrugada.
+
 O instalador também instala **Firefox**, **XRDP** e **Cockpit**. O Firefox fica disponível na área de trabalho do Ubuntu para login no Trello e demais aplicativos. No Windows, abra `mstsc.exe` e conecte-se ao IP do servidor para acessar a área de trabalho. Para administração rápida, use `https://IP-DO-SERVIDOR:9090` no navegador. As regras do firewall são criadas para `AUTORIP_LAN_CIDR` (padrão `192.168.0.0/16`); para outra rede, instale com:
 
 ```bash

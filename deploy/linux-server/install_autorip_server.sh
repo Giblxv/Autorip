@@ -92,6 +92,9 @@ EOF
 fi
 
 install -m 0644 "${PROJECT_ROOT}/deploy/linux-server/autorip.service" /etc/systemd/system/autorip.service
+install -m 0755 "${PROJECT_ROOT}/deploy/linux-server/autorip-maintenance.sh" /usr/local/sbin/autorip-maintenance.sh
+install -m 0644 "${PROJECT_ROOT}/deploy/linux-server/autorip-maintenance.service" /etc/systemd/system/autorip-maintenance.service
+install -m 0644 "${PROJECT_ROOT}/deploy/linux-server/autorip-maintenance.timer" /etc/systemd/system/autorip-maintenance.timer
 
 # Samba usa o mesmo usuário lógico do serviço. A senha é solicitada sem aparecer na tela.
 if [[ "${SERVICE_USER}" != "${SHARE_USER}" ]]; then
@@ -145,6 +148,7 @@ fi
 testparm -s >/dev/null
 systemctl daemon-reload
 systemctl enable --now autorip.service
+systemctl enable --now autorip-maintenance.timer
 systemctl enable --now smbd
 
 # Firewall: SMB apenas na rede local; ajuste a sub-rede se necessário.
@@ -160,6 +164,7 @@ Serviço:       systemctl status autorip
 Configuração:  ${STATE_ROOT}/autorip.json
 Entrada:       ${DATA_ROOT}/hot
 Saída PRT:     ${DATA_ROOT}/saida
+Manutenção:    todos os dias às 03:00 (hora local), com limpeza de temporários antigos e reboot
 Interface:      Ubuntu Desktop para administração; o worker é um único serviço systemd
 
 Edite o ICC antes de operar:
@@ -168,5 +173,7 @@ Edite o ICC antes de operar:
 
 Para validar:
   journalctl -u autorip -f
+  systemctl status autorip-maintenance.timer
+  journalctl -u autorip-maintenance.service
   smbclient -L localhost -U ${SHARE_USER}
 EOF
