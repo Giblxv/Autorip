@@ -22,6 +22,18 @@ A suíte de linha de base passou com **197 testes** antes da rodada 1.
 
 **Risco:** o fallback protege entradas corrompidas, mas não prova que um DPI positivo incorreto representa a mídia física real. Não houve alteração de PRT, canais, branco, ICC, meio-tom, mirror ou geometria explicitamente informada.
 
+## Rodada 2 — AR-017
+
+**Achado:** o atualizador validava o host dos redirecionamentos, mas aceitava qualquer caminho no `github.com`, embora o fluxo esperado fosse baixar somente assets de release do próprio repositório.
+
+**Mudança:** redirecionamentos que permanecem no GitHub agora exigem o caminho `/Giblxv/Autorip/releases/download/`, sem porta, query ou fragmento; as CDNs permitidas continuam aceitas. Foram adicionados testes para destinos válidos e caminhos genéricos ou adulterados.
+
+**Arquivos:** `autorip/updater.py`, `tests/test_updater.py`, `docs/refinements/AR-017.md`.
+
+**Evidência:** teste focado `43 passed em 0,25 s`; `python -m compileall -q autorip tools` passou; `git diff --check` passou.
+
+**Risco:** a mudança não foi exercitada contra servidor real de redirecionamento neste ambiente; a validação do handler foi feita por testes de URL. A conferência SHA-256 continua obrigatória.
+
 ## Bloqueios mantidos
 
 A compatibilidade física com PrintExp/Hoson, a validação de branco/canais/ICC/meio-tom/mirror e o envio real à impressora continuam fora do que pode ser afirmado por testes automatizados neste ambiente. Releases e merges permanecem sujeitos à revisão humana.

@@ -35,7 +35,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 class _SafeReleaseRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, request, response, code, message, headers, newurl):
-        if not _allowed_download_url(newurl):
+        if not _allowed_download_redirect_url(newurl):
             return None
         return super().redirect_request(request, response, code, message, headers, newurl)
 
@@ -55,6 +55,17 @@ def _allowed_download_url(url):
     parsed = urllib.parse.urlsplit(url)
     return (parsed.scheme == "https" and not parsed.username and not parsed.password
             and (parsed.hostname or "").lower().rstrip(".") in _ALLOWED_DOWNLOAD_HOSTS)
+
+
+def _allowed_download_redirect_url(url):
+    """Aceita CDN autorizada ou o caminho de download do repositório no GitHub."""
+    if not _allowed_download_url(url):
+        return False
+    parsed = urllib.parse.urlsplit(url)
+    if (parsed.hostname or "").lower().rstrip(".") != "github.com":
+        return True
+    return (parsed.port is None and not parsed.query and not parsed.fragment
+            and parsed.path.startswith(f"/{REPOSITORY}/releases/download/"))
 
 
 def _release_asset_url(url, tag, filename):
