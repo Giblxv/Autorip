@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a1a">
+  <title>AutoRIP Mobile</title>
+  <style>
+    :root{color-scheme:light;--ink:#1a1a1a;--cyan:#00aeef;--pink:#ec008c;--yellow:#ffd800;--paper:#fff8e1}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:24px}
+    main{width:min(560px,100%);background:#fff;border:4px solid var(--ink);border-radius:20px;box-shadow:8px 8px 0 var(--ink);padding:24px}
+    h1{margin:0 0 8px;font-size:clamp(32px,9vw,52px);letter-spacing:-1px}h1 b:nth-child(1){color:var(--cyan)}h1 b:nth-child(2){color:var(--pink)}h1 b:nth-child(3){color:var(--yellow);text-shadow:2px 2px var(--ink)}
+    p{line-height:1.45}.hint{font-size:14px;color:#555}.row{display:flex;gap:10px;flex-wrap:wrap}input{flex:1;min-width:220px;padding:14px;border:3px solid var(--ink);border-radius:10px;font-size:16px}button{padding:14px 18px;border:3px solid var(--ink);border-radius:10px;background:var(--yellow);font-weight:700;font-size:16px;box-shadow:3px 3px 0 var(--ink)}button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}ul{padding:0;list-style:none}li{display:flex;gap:8px;margin:8px 0}li button{padding:8px 10px;font-size:13px;background:#eee;box-shadow:none}.error{color:#a00050;min-height:24px}
+  </style>
+</head>
+<body>
+<main>
+  <h1><b>A</b><b>u</b><b>to</b>RIP</h1>
+  <p>Conecte o aplicativo ao painel AutoRIP executando no servidor interno.</p>
+  <label for="url"><strong>Endereço do servidor</strong></label>
+  <div class="row" style="margin-top:8px"><input id="url" inputmode="url" autocomplete="url" placeholder="http://192.168.1.50:8765"><button id="connect">Conectar</button></div>
+  <p id="error" class="error" role="alert"></p>
+  <p class="hint">Use HTTPS quando o servidor estiver publicado na internet. Para uma rede local HTTP, configure explicitamente <code>AUTORIP_BIND_HOST</code> e <code>AUTORIP_ALLOWED_HOSTS</code> no servidor.</p>
+  <section id="recent" hidden><strong>Endereços recentes</strong><ul id="recentList"></ul></section>
+</main>
+<script>
+const input=document.querySelector('#url'), error=document.querySelector('#error'), recent=document.querySelector('#recent'), list=document.querySelector('#recentList');
+const key='autorip.server.urls';
+function urls(){try{return JSON.parse(localStorage.getItem(key)||'[]').filter(x=>typeof x==='string')}catch{return[]}}
+function render(){const items=urls();recent.hidden=!items.length;list.replaceChildren();items.forEach(value=>{const li=document.createElement('li');const b=document.createElement('button');b.textContent=value;b.onclick=()=>{input.value=value;connect(value)};li.appendChild(b);list.appendChild(li)})}
+function connect(value=input.value){error.textContent='';let url;try{url=new URL(value.trim());if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.search||url.hash)throw new Error()}catch{error.textContent='Informe um endereço HTTP(S) válido, sem usuário, senha, query ou fragmento.';return}
+ const clean=url.href.replace(/\/$/,'');const items=[clean,...urls().filter(x=>x!==clean)].slice(0,5);localStorage.setItem(key,JSON.stringify(items));location.replace(clean+'/');}
+document.querySelector('#connect').onclick=()=>connect();input.addEventListener('keydown',e=>{if(e.key==='Enter')connect()});render();
+</script>
+</body>
+</html>

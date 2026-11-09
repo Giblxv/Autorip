@@ -14,6 +14,23 @@ def test_updater_restringe_hosts_de_download():
     assert not updater._allowed_download_url("https://github.com@evil.example/file")
 
 
+@pytest.mark.parametrize("url", [
+    "https://github.com/Giblxv/Autorip/releases/download/v1/AutoRIP_Setup.exe",
+    "https://release-assets.githubusercontent.com/file",
+])
+def test_redirecionamento_de_download_mantem_caminho_seguro(url):
+    assert updater._allowed_download_redirect_url(url)
+
+
+@pytest.mark.parametrize("url", [
+    "https://github.com/Giblxv/Autorip/archive/main.zip",
+    "https://github.com/Giblxv/Autorip/releases/latest",
+    "https://github.com/Giblxv/Autorip/releases/download/v1/file?token=1",
+])
+def test_redirecionamento_de_download_recusa_caminho_github_generico(url):
+    assert not updater._allowed_download_redirect_url(url)
+
+
 def test_manifest_hash_exige_sha256_valido():
     raw = b"abc123  outro.exe\n" + b"a" * 64 + b"  AutoRIP_Setup.exe\n"
     assert updater._manifest_hash(raw, "AutoRIP_Setup.exe") == "a" * 64
