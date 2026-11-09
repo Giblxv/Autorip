@@ -152,7 +152,7 @@ class Rip:
         return [((top - h_rows) // 2, x0, lab), (top + art_rows + (bot - h_rows) // 2, x0, lab)]
 
     # ---------- job ----------
-    def process(self, png_path: str, out_path: str, width_cm: float = None, progress=None, before_publish=None):
+    def process(self, png_path: str, out_path: str, width_cm: float = None, progress=None, before_publish=None, control=None):
         s = self.s
         if self.icc_error:
             raise RuntimeError(self.icc_error)
@@ -209,6 +209,8 @@ class Rip:
             wr = PrtWriter(tmp_path, s.dpi_x, s.dpi_y, n_rows, n_dots)
             y = 0
             while y < n_rows:
+                if control:
+                    control()
                 y1 = min(n_rows, y + strip_rows)
                 a0, a1 = max(0, y - halo), min(n_rows, y1 + halo)       # com halo para morfologia
                 planes_full = self._render(im, a0, a1, top, art_rows, n_dots, labels)
@@ -218,6 +220,8 @@ class Rip:
                 y = y1
                 if progress:
                     progress(y / n_rows)
+                if control:
+                    control()
             wr.close()
             result = dict(n_rows=n_rows, n_dots=n_dots, width_cm=w_cm,
                           height_cm=art_rows / s.dpi_y * 2.54, dpi_x=s.dpi_x,

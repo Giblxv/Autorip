@@ -45,7 +45,8 @@ main{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;padding:24px 28px;max
 #drop input[type=file]{display:none}.row{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;font-size:18px}
 input[type=text],input[type=number],input[type=password]{font-family:monospace;font-size:15px;padding:7px 10px;border:3px solid var(--k);border-radius:10px;width:100%}
 /* ---- fila com gotas correndo ---- */
-.job{margin:10px 0;font-size:18px;overflow:hidden}.bar{height:34px;border:4px solid var(--k);border-radius:20px;background:#eee;position:relative;overflow:hidden;margin-top:4px}
+.job{margin:10px 0;font-size:18px;overflow:hidden;padding:8px;border:2px solid transparent;border-radius:14px;transition:.15s}.job:hover,.job.selected{border-color:var(--v);background:rgba(124,77,255,.08)}.job-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:7px}.job-actions button{font-size:13px;padding:4px 9px;border-width:2px;box-shadow:3px 3px 0 var(--k)}.job-actions .danger{background:var(--m);color:#fff}.hot-file{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:2px dashed #d9c9f4}.hot-file:last-child{border-bottom:0}.hot-file .hot-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:15px monospace}.hot-file small{color:#6c5a8d;white-space:nowrap}.hot-file button{font-size:13px;padding:4px 8px;border-width:2px;box-shadow:3px 3px 0 var(--k)}.hot-empty{font-size:14px;color:#6c5a8d;padding:10px 0}
+.bar{height:34px;border:4px solid var(--k);border-radius:20px;background:#eee;position:relative;overflow:hidden;margin-top:4px}
 .fill{height:100%;background:linear-gradient(90deg,var(--c) 0 25%,var(--m) 25% 50%,var(--y) 50% 75%,var(--k) 75%);background-size:60px 100%;transition:width .4s;animation:stripes 1s linear infinite}
 @keyframes stripes{to{background-position:60px 0}}
 .drop{position:absolute;top:-4px;font-size:26px;transition:left .4s;animation:run .35s infinite alternate}
@@ -128,11 +129,15 @@ dialog{z-index:4;border:4px solid var(--c);border-radius:25px;background:linear-
    <div id="drop">🖨️ Arraste a arte aqui (PNG, TIFF ou JPEG)<br><small style="font-size:15px">Prefira PNG com transparência real para o branco automático.</small><br><br><button class="c" onclick="document.getElementById('file').click()">Escolher arquivo</button><input id="file" type="file" multiple accept=".png,.tif,.tiff,.jpg,.jpeg">
     <div class="row">Largura (cm): <input id="wcm" type="number" step="0.1" placeholder="auto" style="width:130px"></div></div>
   </div>
+  <div class="card h-k" style="margin-top:24px"><div class="hd"><h2><i>Hot folder</i></h2><button class="sm c" onclick="pollHotFiles()">↻ Atualizar</button></div>
+   <div style="font-size:15px;margin-bottom:8px">Artes salvas na pasta de entrada. Escolha uma para iniciar o RIP manualmente.</div>
+   <div id="hotFiles"><div class="empty">Faça login para listar os arquivos.</div></div>
+  </div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Fila de impressão</i></h2><span class="cnt" id="pqn">0</span></div>
    <div style="font-size:15px;margin-bottom:6px">Arquivos <b>.PRT</b> prontos, esperando o PrintExp. O mais antigo vai primeiro.</div><div id="pq"><div class="empty">Nada esperando impressão 🎉</div></div></div>
  </section>
  <section>
-  <div class="card h-m"><h2><i>Fila de RIP</i></h2><div id="jobs"><em>Nenhum trabalho ainda…</em></div></div>
+  <div class="card h-m"><h2><i>Fila de RIP</i></h2><div style="font-size:14px;margin:-6px 0 10px;color:#5d477f">Selecione um trabalho para pausar, retomar ou cancelar com segurança.</div><div id="jobs"><em>Nenhum trabalho ainda…</em></div></div>
   <div class="card h-c" style="margin-top:24px"><h2><i>Agente de IA</i></h2><div style="font-size:16px">Pesquisa na internet como aprimorar o RIP. <b>Só sugere</b>, não muda nada sozinho.</div>
    <div class="row" style="justify-content:flex-start"><button class="c" onclick="askAgent()">🔎 Pesquisar melhorias</button></div><div id="agentOut" style="white-space:pre-wrap;font:14px/1.5 sans-serif;margin-top:10px"></div></div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Registro</i></h2><button class="sm" onclick="copyLog()">📋 Copiar</button></div><div class="logbox" id="log"></div></div>
@@ -170,13 +175,18 @@ async function poll(){try{const {d}=await api("/api/state");hasPass=d.has_pass;s
  $("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";
  const jobs=$("jobs");jobs.replaceChildren();
  if(!d.jobs.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";jobs.appendChild(empty)}
- d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";const p=Math.max(0,Math.min(100,Math.round(Number(j.progress)||0)));
+ d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};const p=Math.max(0,Math.min(100,Math.round(Number(j.progress)||0)));
   if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
   const name=document.createElement("span");name.textContent=String(j.name||"");e.appendChild(name);
   const status=document.createElement("span");status.className="st "+(["fila","processando","pronto","erro"].includes(j.status)?j.status:"");status.textContent=String(j.status||"");e.appendChild(status);
   const bar=document.createElement("div");bar.className="bar";const fill=document.createElement("div");fill.className="fill";fill.style.width=p+"%";bar.appendChild(fill);
   const drop=document.createElement("div");drop.className="drop";drop.style.left=`calc(${p}% - 14px)`;drop.textContent=["💧","🎨","💧","🖨️"][p%4];bar.appendChild(drop);e.appendChild(bar);
   if(j.error){const error=document.createElement("small");error.style.color="var(--m)";error.textContent=String(j.error);e.appendChild(error)}
+  if(["fila","processando","pausando","pausado","cancelando"].includes(j.status)){const actions=document.createElement("div");actions.className="job-actions";
+   if(j.status==="pausado"){const resume=document.createElement("button");resume.className="c";resume.textContent="▶ Retomar";resume.onclick=()=>controlJob(j.id,"resume");actions.appendChild(resume)}
+   else if(["fila","processando"].includes(j.status)){const pause=document.createElement("button");pause.className="y";pause.textContent="Ⅱ Pausar";pause.onclick=()=>controlJob(j.id,"pause");actions.appendChild(pause)}
+   if(!["cancelando","pausando"].includes(j.status)){const cancel=document.createElement("button");cancel.className="danger";cancel.textContent="✕ Cancelar";cancel.onclick=()=>controlJob(j.id,"cancel");actions.appendChild(cancel)}
+   e.appendChild(actions)}
   jobs.appendChild(e);if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
  first=false;renderLog(d.log);}catch(e){}}
 let lastLog="";
@@ -204,6 +214,10 @@ function celebrate(){const f=$("fim");f.classList.remove("go");void f.offsetWidt
 async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
 async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});if(!r.ok){token="";openCfg();return}poll()}
 async function upload(files){if(!token){openCfg();return}for(const f of files){const w=$("wcm").value;const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(w)}`,{method:"POST",body:f});if(!r.ok){alert(`${f.name}: ${r.d.error||"falha no upload"}`);break}}poll();$("file").value=""}
+async function controlJob(id,action){if(!token){openCfg();return}if(action==="cancel"&&!confirm("Cancelar este trabalho? A arte será preservada na pasta de erros para revisão."))return;const r=await api("/api/jobs/control",{method:"POST",body:JSON.stringify({id,action})});if(!r.ok)alert(r.d.error||"Não foi possível alterar o trabalho");poll()}
+function humanSize(bytes){const units=["B","KiB","MiB","GiB","TiB"];let value=Number(bytes)||0,index=0;while(value>=1024&&index<units.length-1){value/=1024;index++}return `${value.toFixed(index?1:0)} ${units[index]}`}
+async function enqueueHot(name){if(!token){openCfg();return}const r=await api("/api/hot-files/enqueue",{method:"POST",body:JSON.stringify({name,width:$("wcm").value||""})});if(!r.ok)alert(r.d.error||"O arquivo não está mais na hot folder");pollHotFiles();poll()}
+async function pollHotFiles(){try{if(!token){$("hotFiles").innerHTML='<div class="hot-empty">Faça login para listar os arquivos.</div>';return}const {ok,d}=await api("/api/hot-files");if(!ok)return;const box=$("hotFiles");box.innerHTML="";if(!d.length){box.innerHTML='<div class="hot-empty">Nenhuma arte disponível na hot folder.</div>';return}d.forEach(file=>{const row=document.createElement("div");row.className="hot-file";const name=document.createElement("span");name.className="hot-name";name.title=file.name;name.textContent=file.name;const size=document.createElement("small");size.textContent=humanSize(file.size);const button=document.createElement("button");button.className="c";button.textContent="RIP agora";button.onclick=()=>enqueueHot(file.name);row.append(name,size,button);box.appendChild(row)})}catch(e){}}
 $("file").onchange=e=>upload(e.target.files);
 const dz=$("drop");["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over")}));
 ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over")}));dz.addEventListener("drop",e=>upload(e.dataTransfer.files));
@@ -234,5 +248,5 @@ async function saveCfg(){if(!token){openCfg();return}const o={};for(const f of S
   else if(t==="p"){if(e.value)o[k]=e.value}else o[k]=e.value}
  o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=parseInt($("ink_"+c).value));
  const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok){await showCfg();poll()}}
-poll();pollPrints();setInterval(poll,1000);setInterval(pollPrints,3000);
+poll();pollPrints();pollHotFiles();setInterval(poll,1000);setInterval(pollPrints,3000);setInterval(pollHotFiles,3000);
 </script></body></html>
