@@ -171,3 +171,29 @@ Esta versão é uma prévia técnica. Antes de usar em produção, valide:
 - Comportamento do servidor durante perda de conexão do telefone.
 
 Nunca altere parâmetros de produção de PRT, canais, branco, ICC, meio-tom, mirror ou geometria sem validação física na impressora DTF/DTF UV.
+
+11. INSTALAÇÃO AUTOMÁTICA PARA DESENVOLVEDORES
+----------------------------------------------
+
+Linux ou macOS:
+
+./scripts/install.sh --all
+
+Esse comando cria ou atualiza o ambiente Python do servidor, instala requirements.txt, valida a compilação Python, instala dependências npm, sincroniza o Capacitor e compila o APK.
+
+Para instalar o APK em um telefone Android conectado por USB e autorizado:
+
+./scripts/install.sh --mobile --install
+
+O telefone precisa estar com Opções do desenvolvedor e Depuração USB ativadas. Quando aparecer a pergunta de autorização RSA no telefone, aceite-a. Se houver mais de um telefone conectado, o script para sem instalar no dispositivo errado.
+
+Windows PowerShell:
+
+.\scripts\install.ps1 -All
+.\scripts\install.ps1 -Mobile -Install
+
+Alternativamente, dentro da pasta mobile:
+
+npm run android:install
+
+Esses comandos não sobrescrevem autorip.json nem outras configurações existentes do servidor. A instalação física no telefone não pode ser concluída automaticamente sem que o aparelho esteja conectado e autorizado via ADB.
