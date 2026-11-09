@@ -58,15 +58,18 @@ jobs:
         shell: powershell
         run: |
           if (-not (Test-Path 'dist\AutoRIP\AutoRIP.exe')) { throw 'AutoRIP.exe não foi gerado' }
+          if (-not (Test-Path 'dist\MediaWizard\AutoRIP_Ubuntu_Media_Wizard.exe')) { throw 'Assistente Ubuntu não foi gerado' }
           if (-not (Test-Path 'Output\AutoRIP_Setup.exe')) { throw 'AutoRIP_Setup.exe não foi gerado' }
-          Get-Item 'dist\AutoRIP\AutoRIP.exe', 'Output\AutoRIP_Setup.exe' | Select-Object FullName, Length
+          Get-Item 'dist\AutoRIP\AutoRIP.exe', 'dist\MediaWizard\AutoRIP_Ubuntu_Media_Wizard.exe', 'Output\AutoRIP_Setup.exe' | Select-Object FullName, Length
 
       - name: Create release checksums
         shell: powershell
         run: |
           $exe = (Get-FileHash 'dist\AutoRIP\AutoRIP.exe' -Algorithm SHA256).Hash.ToLower()
+          $wizard = (Get-FileHash 'dist\MediaWizard\AutoRIP_Ubuntu_Media_Wizard.exe' -Algorithm SHA256).Hash.ToLower()
           $setup = (Get-FileHash 'Output\AutoRIP_Setup.exe' -Algorithm SHA256).Hash.ToLower()
           "$exe  AutoRIP.exe" | Out-File -Encoding ascii SHA256SUMS.txt
+          "$wizard  AutoRIP_Ubuntu_Media_Wizard.exe" | Out-File -Encoding ascii -Append SHA256SUMS.txt
           "$setup  AutoRIP_Setup.exe" | Out-File -Encoding ascii -Append SHA256SUMS.txt
 
       - name: Upload executable and installer
@@ -76,6 +79,7 @@ jobs:
           if-no-files-found: error
           path: |
             dist/AutoRIP/AutoRIP.exe
+            dist/MediaWizard/AutoRIP_Ubuntu_Media_Wizard.exe
             Output/AutoRIP_Setup.exe
             SHA256SUMS.txt
           retention-days: 14
@@ -87,5 +91,6 @@ jobs:
           generate_release_notes: true
           files: |
             dist/AutoRIP/AutoRIP.exe
+            dist/MediaWizard/AutoRIP_Ubuntu_Media_Wizard.exe
             Output/AutoRIP_Setup.exe
             SHA256SUMS.txt

@@ -2,6 +2,7 @@
 REM Gera dist\AutoRIP\AutoRIP.exe (one-file) e, se o Inno Setup 6 estiver instalado, Output\AutoRIP_Setup.exe
 python -m pip install -r requirements.txt || goto :err
 pyinstaller --noconfirm --clean --onefile --name AutoRIP --distpath dist\AutoRIP --workpath build\pyinstaller --noconsole --icon installer_assets\autorip.ico --collect-all scipy --add-data "autorip\ui;autorip\ui" autorip_gui.py || goto :err
+pyinstaller --noconfirm --clean --onefile --name AutoRIP_Ubuntu_Media_Wizard --distpath dist\MediaWizard --workpath build\media-wizard --windowed tools\autorip_ubuntu_media_wizard.py || goto :err
 if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" (
   "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" installer.iss
   if errorlevel 1 goto :err

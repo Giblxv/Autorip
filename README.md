@@ -20,6 +20,8 @@ A base branca respeita o alfa/transparência e oferece controles de densidade, r
 
 Também existe o workflow **Build Windows** no GitHub Actions. Em uma tag `v*`, ele compila em Windows e publica uma release com `AutoRIP.exe`, `AutoRIP_Setup.exe` e `SHA256SUMS.txt`; a release atual está em [v0.8.10](https://github.com/Giblxv/Autorip/releases/tag/v0.8.10). O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
 
+As releases Windows também incluem `AutoRIP_Ubuntu_Media_Wizard.exe`, um assistente separado para baixar/verificar o Ubuntu Desktop, preparar o pacote Linux do servidor e abrir o Rufus oficial para gravação da mídia. A instalação do Ubuntu exige reinicialização e confirmação do disco de destino; o assistente não apaga discos silenciosamente.
+
 O RIP, a conversão ICC, o meio-tom, as integrações e a geração do `.PRT` rodam localmente no computador usando a conexão de internet do próprio Windows quando necessário. O executável Windows inicia por padrão em uma pequena janela nativa de status, sem abrir navegador. Para isso, use o atalho **AutoRIP (modo direto)** ou execute `AutoRIP.exe --direct`; `--headless` continua aceito como alias. O painel web é apenas opcional para diagnóstico e só abre com `AutoRIP.exe --web`. A velocidade depende principalmente de CPU, memória, resolução, tamanho da arte e perfil ICC.
 
 O botão **⏻ Encerrar** do painel encerra o servidor local de forma segura. O painel também encerra automaticamente o servidor depois de aproximadamente 15 segundos sem receber o navegador; isso evita que fechar a aba deixe o processo permanente em segundo plano.

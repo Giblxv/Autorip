@@ -8,4 +8,6 @@ O motor utiliza esse perfil para escolher automaticamente o tamanho das tiras de
 
 A detecção interna continua como fallback quando o programa é executado fora do instalador ou quando o arquivo de perfil não está disponível.
 
+A release também inclui `AutoRIP_Ubuntu_Media_Wizard.exe`, um assistente Windows separado que baixa e valida o Ubuntu Desktop, baixa o pacote Linux do AutoRIP, baixa o Rufus portátil oficial e abre a preparação da mídia. A seleção do pendrive/SSD e a confirmação de apagamento continuam explícitas no Rufus.
+
 Validação: 191 testes passando, compilação Python, Ruff, Bash e sintaxe do instalador verificadas.
