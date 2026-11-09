@@ -45,7 +45,7 @@ def load(bundle,folder,index):
     return loaded
 
 
-def make_cases(folder,icc):
+def make_cases(folder,icc,suite="standard"):
     rng=np.random.default_rng(20261109)
     h,w=216,288
     data=rng.integers(0,256,(h,w,4),dtype=np.uint8)
@@ -54,15 +54,15 @@ def make_cases(folder,icc):
     rgb=folder/'opaque.png';Image.fromarray(data[...,:3],'RGB').save(rgb)
     sparse=np.zeros_like(data);sparse[70:100,100:150]=data[70:100,100:150];sparse[70:100,100:150,3]=255
     sparse_path=folder/'sparse.png';Image.fromarray(sparse,'RGBA').save(sparse_path)
-    large=folder/'large.png';Image.fromarray(rng.integers(0,256,(1000,1200,4),dtype=np.uint8),'RGBA').save(large)
+    large=folder/'large.png';Image.fromarray(rng.integers(0,256,((2000,2400,4) if suite=='extended' else (1000,1200,4)),dtype=np.uint8),'RGBA').save(large)
     oriented=folder/'oriented.jpg';exif=Image.Exif();exif[274]=6
     Image.fromarray(data[...,:3],'RGB').save(oriented,exif=exif,dpi=(100,200))
     tiff=folder/'input.tiff';Image.fromarray(data,'RGBA').save(tiff,dpi=(100,200))
     common=dict(label_enabled=False,margin_top_in=.05,margin_bottom_in=.05,
                 white_choke_mm=.1,white_fill_holes_mm=.3)
-    def case(name,path,width=2.54,timed=True,**kwargs):
-        return dict(name=name,path=path,width=width,timed=timed,settings=Settings(**(common|kwargs)))
-    return [case('alpha',source),case('icc',rgb,icc_path=icc or ''),
+    def case(name,path,width=2.54,timed=True,cpu_limit=None,**kwargs):
+        return dict(name=name,path=path,width=width,timed=timed,cpu_limit=cpu_limit,settings=Settings(**(common|kwargs)))
+    cases = [case('alpha',source),case('icc',rgb,icc_path=icc or ''),
             case('no_white',rgb,white_enabled=False,mirror=False),
             case('sparse',sparse_path),case('large_source',large),
             case('low_dpi',source,timed=False,dpi_x=72,dpi_y=72),
@@ -71,10 +71,40 @@ def make_cases(folder,icc):
             case('white_planes',source,timed=False,dpi_x=300,dpi_y=720,
                  channel_order=['M','Y','K','C'],white_planes=[4,7],white_density=.55),
             case('narrow',source,width=.013,timed=False,dpi_x=300,dpi_y=300)]
+    if suite == 'extended':
+        for item in cases:
+            item['timed'] = item['name'] in ('alpha','large_source')
+        line=rng.integers(0,256,(1,400,3),dtype=np.uint8)
+        banner=folder/'wide-opaque.png'
+        Image.fromarray(np.repeat(line,40,axis=0),'RGB').save(banner)
+        wide=folder/'wide-alpha.png'
+        pixels=rng.integers(0,256,(80,400,4),dtype=np.uint8)
+        pixels[...,3]=np.linspace(0,255,400,dtype=np.uint8)[None,:]
+        Image.fromarray(pixels,'RGBA').save(wide)
+        flat=folder/'flat-icc.png';Image.new('RGB',(100,100),(20,120,210)).save(flat)
+        cases.extend([case('wide_opaque',banner,width=6000/720*2.54),
+                      case('wide_alpha',wide,width=3000/720*2.54),
+                      case('icc_two_cpu',rgb,icc_path=icc or '',cpu_limit=2),
+                      case('icc_single_cpu',flat,width=1.7,icc_path=icc or '',cpu_limit=1,white_enabled=False),
+                      case('wide_edges',source,width=3500/720*2.54,timed=False,dpi_y=300)])
+    return cases
+
+
+
+def new_rip(module,case):
+    original_cpu=os.cpu_count
+    try:
+        if case.get('cpu_limit'):os.cpu_count=lambda:case['cpu_limit']
+        return module.Rip(case['settings'])
+    finally:os.cpu_count=original_cpu
 
 
 def render(rip,case,output,checksum=False):
-    info=rip.process(str(case['path']),str(output),width_cm=case['width'])
+    original_cpu=os.cpu_count
+    try:
+        if case.get('cpu_limit'):os.cpu_count=lambda:case['cpu_limit']
+        info=rip.process(str(case['path']),str(output),width_cm=case['width'])
+    finally:os.cpu_count=original_cpu
     path=Path(info['output_path'])
     try:
         if checksum:return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -152,9 +182,14 @@ def main():
     parser.add_argument('--rounds-without-gain',type=int,default=15)
     parser.add_argument('--repeats',type=int,default=7)
     parser.add_argument('--apply',action='store_true')
+    parser.add_argument('--suite',choices=['standard','extended'],default='standard')
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--baseline-ref',help='Commit/tag Git da base; leitura sem checkout')
     args=parser.parse_args()
+    if args.suite=='extended':
+        from rip_wide_candidates import CANDIDATES as proposals
+    else:
+        proposals=CANDIDATES
     if args.repeats<5 or args.rounds_without_gain<15:parser.error('Minimos: 5 repeticoes e 15 rodadas sem ganho')
     work=args.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)
     previous_report = json.loads((work/'report.json').read_text()) if args.resume else None
@@ -172,35 +207,37 @@ def main():
         for k,source in initial.items():
             path=work/'initial'/f'{k}.py';path.parent.mkdir(exist_ok=True);path.write_text(source)
     original=load(initial,work/'initial_modules','initial')
-    cases=make_cases(work,str(args.icc.resolve()) if args.icc else None)
+    cases=make_cases(work,str(args.icc.resolve()) if args.icc else None,args.suite)
     timed=[c for c in cases if c['timed']]
     output=work/'output.PRT'
-    baseline_rips={c['name']:original['engine'].Rip(c['settings']) for c in cases}
+    baseline_rips={c['name']:new_rip(original['engine'],c) for c in cases}
     oracle={c['name']:render(baseline_rips[c['name']],c,output,True) for c in cases}
     for rip in baseline_rips.values():
         if rip.icc_error:raise RuntimeError(rip.icc_error)
     report={'base_commit':subprocess.check_output(['git','rev-parse',args.baseline_ref or 'HEAD'],cwd=ROOT,text=True).strip(),
             'python':platform.python_version(),'platform':platform.platform(),'cpu_count':os.cpu_count(),
-            'icc_used':bool(args.icc),'repeats':args.repeats,'required_without_gain':args.rounds_without_gain,
+            'icc_used':bool(args.icc),'suite':args.suite,'repeats':args.repeats,'required_without_gain':args.rounds_without_gain,
             'acceptance':{'minimum_speedup':1.015,'bootstrap_low_minimum':1.005,'max_case_slowdown':1.06,
                           'memory_alternative_reduction':.08,'peak_limit_mib':512},
             'rounds':[],'consecutive_without_gain':0,'complete':False}
     if previous_report:
+        if previous_report.get('suite','standard') != args.suite:
+            raise RuntimeError('Suite diferente da campanha persistida')
         report=previous_report
     index=len(report['rounds']);cursor=0;skips=0;accepted_hashes={digest(initial)}
     accepted_hashes.update(r['candidate_hash'] for r in report['rounds'] if r['accepted'])
     if report['rounds']:
         last=report['rounds'][-1]['candidate']
-        cursor=next(i+1 for i,c in enumerate(CANDIDATES) if c[0]==last)
+        cursor=next(i+1 for i,c in enumerate(proposals) if c[0]==last)
     def save():
         report['leader_hash']=digest(leader)
         temporary=work/'report.tmp';temporary.write_text(json.dumps(report,indent=2));temporary.replace(work/'report.json')
     while report['consecutive_without_gain']<args.rounds_without_gain:
-        name,hypothesis,proposal=CANDIDATES[cursor%len(CANDIDATES)];cursor+=1
+        name,hypothesis,proposal=proposals[cursor%len(proposals)];cursor+=1
         bundle=proposal(leader)
         if bundle is None or bundle==leader:
             skips+=1
-            if skips>len(CANDIDATES)*2:raise RuntimeError('Sem hipoteses aplicaveis suficientes; nao declarar convergencia')
+            if skips>len(proposals)*2:raise RuntimeError('Sem hipoteses aplicaveis suficientes; nao declarar convergencia')
             continue
         skips=0;index+=1
         record={'round':index,'candidate':name,'hypothesis':hypothesis,'leader_before':digest(leader),
@@ -211,7 +248,7 @@ def main():
         try:
             module=load(bundle,directory,index)
             mismatch=micro_correct(original,module)
-            candidate_rips={c['name']:module['engine'].Rip(c['settings']) for c in cases}
+            candidate_rips={c['name']:new_rip(module['engine'],c) for c in cases}
             if mismatch is None:
                 for c in cases:
                     if render(candidate_rips[c['name']],c,output,True)!=oracle[c['name']]:
@@ -220,7 +257,7 @@ def main():
                 record['reason']='different-output';record['failure']=mismatch
             else:
                 reference_module=load(leader,work/'leader_modules',f'leader{index}')
-                reference_rips={c['name']:reference_module['engine'].Rip(c['settings']) for c in timed}
+                reference_rips={c['name']:new_rip(reference_module['engine'],c) for c in timed}
                 (work/'status.json').write_text(json.dumps({'round':index,'candidate':name,'phase':'measurement'}))
                 measurement=timed_pair(reference_rips,candidate_rips,timed,output,args.repeats)
                 record['measurement']=measurement
@@ -259,7 +296,7 @@ def main():
     report['complete']=True
     report['accepted_count']=sum(r['accepted'] for r in report['rounds'])
     final=load(leader,work/'final_modules','final')
-    final_rips={c['name']:final['engine'].Rip(c['settings']) for c in timed}
+    final_rips={c['name']:new_rip(final['engine'],c) for c in timed}
     report['final_comparison']=timed_pair(baseline_rips,final_rips,timed,output,args.repeats)
     report['final_peak_mib']={'baseline':peak(baseline_rips,timed,output),'final':peak(final_rips,timed,output)}
     save()

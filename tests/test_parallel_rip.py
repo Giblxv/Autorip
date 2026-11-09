@@ -77,16 +77,18 @@ def test_orcamento_compartilhado_recua_para_uma_thread(tmp_path,monkeypatch):
 
 @pytest.mark.parametrize('workers',[1,4])
 @pytest.mark.parametrize('stop_after',[0,1])
-def test_controle_interrompe_antes_da_publicacao_inclusive_na_ultima_tira(tmp_path,monkeypatch,workers,stop_after):
-    from autorip.server import JobPaused
+@pytest.mark.parametrize('action',['pause','cancel'])
+def test_controle_interrompe_antes_da_publicacao_inclusive_na_ultima_tira(tmp_path,monkeypatch,workers,stop_after,action):
+    from autorip.server import JobPaused, JobCancelled
+    exception = JobPaused if action == 'pause' else JobCancelled
     path=artwork(tmp_path)
     monkeypatch.setattr(engine,'RENDER_WORKERS_MAX',workers)
     monkeypatch.setattr(engine.os,'cpu_count',lambda:4)
     progress=[];published=[]
     def control():
         if progress and progress[-1]>=stop_after:
-            raise JobPaused()
-    with pytest.raises(JobPaused):
+            raise exception()
+    with pytest.raises(exception):
         Rip(Settings(label_enabled=False)).process(
             str(path),str(tmp_path/'controlled.PRT'),width_cm=2.54,
             progress=progress.append,control=control,

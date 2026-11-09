@@ -1,0 +1,20 @@
+{
+  "suite": "extended",
+  "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+  "numpy": "2.5.4",
+  "scipy": "1.18.1",
+  "Pillow": "13.0.0",
+  "cpu_count": 5,
+  "cpu_affinity_count": 5,
+  "cpu_max": "400000 100000",
+  "cpu_simulation": "os.cpu_count patched to 1 or 2 during construction/process; caps RIP workers, not process affinity",
+  "base_commit": "36063080af1440f74a5f01b27be921da89cf33c3",
+  "initial_source_hash": "c7adf48738308ead7addd77f0b22ecd26a9afa83f2430f93ef65ef6dcf371168",
+  "final_source_hash": "c7adf48738308ead7addd77f0b22ecd26a9afa83f2430f93ef65ef6dcf371168",
+  "no_engine_changes": true,
+  "tools_sha256": {
+    "rip_campaign.py": "3be3dc3ee23bcb2e9a5fe60d3c2382baa66d9e29fb13727963b42cc392773df7",
+    "rip_wide_candidates.py": "a21186b11bd7c980d1e8c929e066f915259dadada59fb02fcfd6f07452e9b9a6",
+    "rip_candidates.py": "e0182fb653c785391809060cefe29fe0cc278b791ab471f7916a7085a7bb001e"
+  }
+}

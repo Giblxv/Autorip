@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 
-from rip_campaign import ROOT, FILES, digest, load, make_cases, micro_correct, render
+from rip_campaign import ROOT, FILES, digest, load, make_cases, micro_correct, render, new_rip
 
 
 def main():
@@ -36,11 +36,11 @@ def main():
         baseline=load(initial,folder/'baseline','verify-old')
         final=load(current,folder/'final','verify-final')
         assert micro_correct(baseline,final) is None
-        cases=make_cases(folder,str(args.icc.resolve()) if args.icc else None)
+        cases=make_cases(folder,str(args.icc.resolve()) if args.icc else None,report.get('suite','standard'))
         hashes={}
         for case in cases:
-            old=baseline['engine'].Rip(case['settings'])
-            new=final['engine'].Rip(case['settings'])
+            old=new_rip(baseline['engine'],case)
+            new=new_rip(final['engine'],case)
             a=render(old,case,folder/'x.PRT',True)
             b=render(new,case,folder/'x.PRT',True)
             assert a==b,case['name']

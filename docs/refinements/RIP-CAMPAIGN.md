@@ -1,5 +1,8 @@
 # Campanha de ripagem: 15 rodadas consecutivas sem ganho aceito
 
+Continuação: [campanha ampliada após integração da main](RIP-WIDE-CAMPAIGN.md).
+As medições abaixo se referem à base e ao código desta campanha original.
+
 Base: `eaa2f7c`, refinamento inicial do PR #51, posterior à v0.8.13.
 Esta campanha altera somente a execução do motor; não reduz resolução, canais,
 ICC, transparência ou o modelo físico do branco. A fila otimizada do PR inicial permanece.
