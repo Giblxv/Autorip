@@ -1,5 +1,8 @@
 # Admissão com vaga reservada e preservação das artes
 
+Continuação: [geração e carregamento de miniaturas](THUMBNAILS.md).
+Os resultados abaixo permanecem como registro da etapa de admissão.
+
 Base: `2593790`, após os [controles para lotes longos](JOB-QUEUE.md).
 Esta etapa corrige entrada de arquivos, capacidade e concorrência com uploads.
 Não altera `engine.py`, `prt.py`, `morph.py` ou `watcher.py` e não atribui um novo

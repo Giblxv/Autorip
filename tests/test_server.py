@@ -676,6 +676,19 @@ def test_previa_jpeg_requer_autenticacao(panel, app):
     assert headers["Content-Type"] == "image/jpeg"
 
 
+def test_previa_nao_serve_raiz_de_cache_redirecionada(panel, app, tmp_path):
+    outside=tmp_path/'outside-thumbnails'
+    outside.mkdir()
+    (outside/'pedido.jpg').write_bytes(b'fora-do-cache')
+    try:
+        os.symlink(outside, os.path.join(app.home,'thumbs'),target_is_directory=True)
+    except (OSError,NotImplementedError):
+        pytest.skip('symlink indisponivel')
+    app.tokens.add('thumb-boundary')
+    status,body,_=request(panel,'/api/thumb?id=pedido',headers={'X-Token':'thumb-boundary'})
+    assert status==404 and b'fora-do-cache' not in body
+
+
 def test_tela_login_atualiza_atividade_sem_revelar_jobs(panel, app, monkeypatch):
     before = server_module.LAST_CLIENT_SEEN
     status, body, _ = request(panel, "/api/state")

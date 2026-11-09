@@ -202,7 +202,10 @@ body.tab-hidden *{animation-play-state:paused!important}
 <script>
 const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new Set(),first=true;
 let jobsKey="",printsKey="",polling=false,printsPolling=false,noticeTimer;
-const thumbnailCache=new Map();
+const thumbnailCache=new Map(),thumbnailPending=new Map(),thumbnailQueue=new Map(),thumbnailActive=new Map();
+const THUMBNAIL_WORKERS=4,THUMBNAIL_CACHE_LIMIT=64,THUMBNAIL_CACHE_BYTES=8*1024*1024;
+let thumbnailCacheBytes=0;
+const thumbnailObserver=typeof IntersectionObserver!=="undefined"?new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting)activateThumbnail(entry.target)},{rootMargin:"160px"}):null;
 function notify(message){$("notice").textContent=message;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$("notice").textContent="",6000)}
 function connection(ok){$("connection").classList.toggle("stale",!ok);$("connection").textContent=ok?"Servidor local conectado":"Conexão perdida. Os dados exibidos podem estar desatualizados.";if(!ok){$("autoTxt").textContent="Estado indisponível";$("sw").disabled=true}}
 let brandShown="";function setBrand(n,has){if(n!==brandShown){brandShown=n;$("logo").innerHTML="";n.split("").forEach(ch=>{const s=document.createElement("span");s.textContent=ch===" "?"\u00a0":ch;$("logo").appendChild(s)});document.title=n}const b=$("blogo");if(has&&!b.src){b.src="/api/brand-logo?"+Date.now();b.style.display=""}if(!has){b.style.display="none";b.removeAttribute("src")}}
@@ -212,32 +215,52 @@ async function api(path,opt={}){
  opt.headers=Object.assign({},opt.headers,session?{"X-Token":session}:{});
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),path==="/api/state"?5000:180000);
  try{const r=await fetch(path,{...opt,signal:controller.signal});const d=await r.json();
-  if(r.status===401&&token===session){token="";jobsKey=printsKey="";thumbnailCache.clear()}
+  if(r.status===401&&token===session){token="";jobsKey=printsKey="";resetThumbnails()}
   return{ok:r.ok,d};
  }finally{clearTimeout(timeout)}
 }
-async function shutdownApp(){if(!confirm("Encerrar o AutoRIP no computador? O processamento e o painel serão fechados."))return;const r=await api("/api/shutdown",{method:"POST",body:"{}"});if(r.ok){document.body.innerHTML="<main style='padding:40px'><h1>AutoRIP encerrado</h1><p>Você pode fechar esta aba.</p></main>"}else if(r.d&&r.d.error==="login"){openCfg()}}
-async function privateThumbnail(img,path){
- const session=token;
- if(!session||typeof path!=="string"||!path.startsWith("/api/thumb?"))return;
- const key=session+path;
- try{
-  let entry=thumbnailCache.get(key);
-  if(!entry||Date.now()-entry.time>60000){
-   const promise=fetch(path,{headers:{"X-Token":session},cache:"no-store"}).then(async response=>{
-    if(!response.ok)throw new Error("miniatura indisponível");
-    const blob=await response.blob();if(!blob.type.startsWith("image/"))throw new Error("imagem inválida");return blob});
-   entry={time:Date.now(),promise};thumbnailCache.set(key,entry);
-   if(thumbnailCache.size>64)thumbnailCache.delete(thumbnailCache.keys().next().value);
-  }
-  const blob=await entry.promise;
-  if(!img.isConnected||token!==session)return;
-  const objectUrl=URL.createObjectURL(blob);
-  img.onload=img.onerror=()=>URL.revokeObjectURL(objectUrl);img.src=objectUrl;
- }catch(e){thumbnailCache.delete(key);if(img.isConnected)img.alt="Miniatura indisponível"}
+async function shutdownApp(){if(!confirm("Encerrar o AutoRIP no computador? O processamento e o painel serão fechados."))return;const r=await api("/api/shutdown",{method:"POST",body:"{}"});if(r.ok){resetThumbnails();document.body.innerHTML="<main style='padding:40px'><h1>AutoRIP encerrado</h1><p>Você pode fechar esta aba.</p></main>"}else if(r.d&&r.d.error==="login"){openCfg()}}
+function dropThumbnailCache(key){const previous=thumbnailCache.get(key);if(previous){thumbnailCacheBytes-=previous.blob.size;thumbnailCache.delete(key)}}
+function cachedThumbnail(key){const entry=thumbnailCache.get(key);if(!entry)return null;if(Date.now()-entry.time>60000){dropThumbnailCache(key);return null}thumbnailCache.delete(key);thumbnailCache.set(key,entry);return entry.blob}
+function rememberThumbnail(key,blob){dropThumbnailCache(key);if(blob.size>THUMBNAIL_CACHE_BYTES)return;thumbnailCache.set(key,{time:Date.now(),blob});thumbnailCacheBytes+=blob.size;while(thumbnailCache.size>THUMBNAIL_CACHE_LIMIT||thumbnailCacheBytes>THUMBNAIL_CACHE_BYTES)dropThumbnailCache(thumbnailCache.keys().next().value)}
+function resetThumbnails(){thumbnailCache.clear();thumbnailCacheBytes=0;for(const image of thumbnailPending.keys())thumbnailObserver?.unobserve(image);thumbnailPending.clear();thumbnailQueue.clear();for(const task of thumbnailActive.values()){task.cancelled=true;task.images.clear();task.controller.abort()}}
+function applyThumbnail(image,blob,session){if(!image.isConnected||token!==session)return;const url=URL.createObjectURL(blob);image.onload=image.onerror=()=>URL.revokeObjectURL(url);image.src=url}
+function privateThumbnail(image,path){
+ const session=token;if(!session||typeof path!=="string"||!path.startsWith("/api/thumb?"))return;
+ image.decoding="async";const key=session+path;
+ const active=thumbnailActive.get(key);if(active&&!active.cancelled){active.images.add(image);return}
+ const queued=thumbnailQueue.get(key);if(queued){queued.images.add(image);return}
+ thumbnailPending.set(image,{session,path,key});if(thumbnailObserver)thumbnailObserver.observe(image);else queueMicrotask(()=>activateThumbnail(image));
+}
+function activateThumbnail(image){
+ const request=thumbnailPending.get(image);if(!request)return;thumbnailPending.delete(image);thumbnailObserver?.unobserve(image);
+ if(!image.isConnected||token!==request.session)return;
+ const blob=cachedThumbnail(request.key);if(blob){applyThumbnail(image,blob,request.session);return}
+ const active=thumbnailActive.get(request.key);if(active&&!active.cancelled){active.images.add(image);return}
+ const queued=thumbnailQueue.get(request.key);if(queued)queued.images.add(image);else thumbnailQueue.set(request.key,{...request,images:new Set([image])});
+ pumpThumbnails();
+}
+function pumpThumbnails(){
+ while(thumbnailActive.size<THUMBNAIL_WORKERS){
+  const next=[...thumbnailQueue].find(([key])=>!thumbnailActive.has(key));if(!next)return;
+  const [key,task]=next;thumbnailQueue.delete(key);
+  for(const image of task.images)if(!image.isConnected||token!==task.session)task.images.delete(image);
+  if(!task.images.size)continue;
+  task.controller=new AbortController();task.cancelled=false;thumbnailActive.set(key,task);
+  fetch(task.path,{headers:{"X-Token":task.session},cache:"no-store",signal:task.controller.signal}).then(async response=>{
+   if(!response.ok)throw new Error("miniatura indisponível");const blob=await response.blob();if(!blob.type.startsWith("image/"))throw new Error("imagem inválida");
+   if(task.cancelled||token!==task.session)return;rememberThumbnail(key,blob);for(const image of task.images)applyThumbnail(image,blob,task.session);
+  }).catch(error=>{if(error.name!=="AbortError"&&token===task.session)for(const image of task.images)if(image.isConnected)image.alt="Miniatura indisponível"}).finally(()=>{if(thumbnailActive.get(key)===task)thumbnailActive.delete(key);pumpThumbnails()});
+ }
+}
+function pruneThumbnails(){
+ for(const [image,request] of thumbnailPending)if(!image.isConnected||token!==request.session){thumbnailObserver?.unobserve(image);thumbnailPending.delete(image)}
+ for(const [key,task] of thumbnailQueue){for(const image of task.images)if(!image.isConnected||token!==task.session)task.images.delete(image);if(!task.images.size)thumbnailQueue.delete(key)}
+ for(const task of thumbnailActive.values()){for(const image of task.images)if(!image.isConnected||token!==task.session)task.images.delete(image);if(!task.images.size){task.cancelled=true;task.controller.abort()}}
+ pumpThumbnails();
 }
 async function poll(){if(polling)return;polling=true;try{const session=token;const {ok,d}=await api("/api/state");if(token!==session)return;if(!ok)throw new Error("estado indisponível");connection(true);$("sw").disabled=false;hasPass=d.has_pass;setBrand(d.brand,d.has_logo);$("ver").textContent="v"+d.version;
- if(d.locked){token="";jobsKey=printsKey="";thumbnailCache.clear();$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";$("sw").setAttribute("aria-checked","false");$("off").style.display="none";$("pin").textContent="Acesso restrito";$("pout").textContent="Acesso restrito";$("picc").textContent="Entre para consultar";
+ if(d.locked){token="";jobsKey=printsKey="";resetThumbnails();$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";$("sw").setAttribute("aria-checked","false");$("off").style.display="none";$("pin").textContent="Acesso restrito";$("pout").textContent="Acesso restrito";$("picc").textContent="Entre para consultar";
  $("sw").classList.remove("on");$("autoTxt").textContent="Entre para consultar o estado";
  $("jobs").textContent="Faça login para ver seus trabalhos";$("ripCount").textContent="—";$("queuePreparing").textContent="";renderLog([]);return}
  {const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending>0?" · "+d.pending+" aviso(s) na fila":d.pending<0?" · aviso local indisponível":"")}$("ver").textContent="v"+d.version;
@@ -255,7 +278,7 @@ function renderJobs(items){
  const ids=new Set(items.map(j=>j.id));lastDone=new Set([...lastDone].filter(id=>ids.has(id)));
  if(!items.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";fragment.appendChild(empty)}
  items.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;if(j.id===selected)e.classList.add("selected");e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
-  if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
+  if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;width:64px;height:64px;object-fit:contain;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
   const name=document.createElement("span");name.textContent=String(j.name||"");e.appendChild(name);
   const status=document.createElement("span");status.className="st "+(["fila","processando","pronto","erro"].includes(j.status)?j.status:"");status.textContent=String(j.status||"");e.appendChild(status);
   const bar=document.createElement("div");bar.className="bar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-label","Progresso de "+j.name);bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax","100");bar.setAttribute("aria-valuenow",String(p));const fill=document.createElement("div");fill.className="fill";fill.style.width=p+"%";bar.appendChild(fill);
@@ -268,7 +291,7 @@ function renderJobs(items){
    if(!["cancelando","pausando"].includes(j.status))addAction("cancel","✕ Cancelar","danger");
    e.appendChild(actions)}
   fragment.appendChild(e);if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
- jobs.replaceChildren(fragment);jobs.scrollTop=scroll;if(focusedJob)(focusTarget||focusFallback||jobs).focus({preventScroll:true});
+ jobs.replaceChildren(fragment);pruneThumbnails();jobs.scrollTop=scroll;if(focusedJob)(focusTarget||focusFallback||jobs).focus({preventScroll:true});
 }
 let lastLog="";
 function tagOf(m){const r=[[/^OK/,"ok","PRONTO"],[/^ERRO|falhou/i,"erro","ERRO"],[/^RIP/,"rip","RIP"],[/^Impresso/,"","IMPRESSO"],[/^Integra|^Trello|^Fila offline|^Agente/,"rede","REDE"],[/^Modo auto/,"rip","AUTO"],[/^Configura/,"","CONFIG"],[/^Removido/,"erro","FILA"]];
@@ -283,12 +306,12 @@ function ago(ts){const s=Math.max(0,Date.now()/1000-ts);return s<90?"agora":s<36
 async function pollPrints(){if(printsPolling)return;printsPolling=true;try{if(!token){printsKey="";$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";return}
  const {ok,d}=await api("/api/prints");if(!ok){if(d?.error==="login")token="";return}
  const key=JSON.stringify(d);if(key===printsKey)return;printsKey=key;$("pqn").textContent=d.length;const box=$("pq");box.innerHTML="";
- if(!d.length){box.innerHTML='<div class="empty">Nada esperando impressão 🎉</div>';return}
+ if(!d.length){box.innerHTML='<div class="empty">Nada esperando impressão 🎉</div>';pruneThumbnails();return}
  d.forEach((p,i)=>{const r=document.createElement("div");r.className="pq";const im=document.createElement("img");im.alt="Prévia";privateThumbnail(im,p.thumb);
   const g=document.createElement("div");g.className="gr";const n=document.createElement("div");n.className="nm";n.textContent=p.name;if(i===0){const nx=document.createElement("span");nx.className="nx";nx.textContent="próximo";n.append(" ",nx)}
   const sm=document.createElement("small");sm.textContent=`${p.width_cm.toFixed(1)} × ${p.height_cm.toFixed(1)} cm · ${p.mb} MB · há ${ago(p.mtime)}`;g.append(n,sm);
   const bt=document.createElement("div");bt.className="bt";const ok=document.createElement("button");ok.className="sm c";ok.textContent="✔ Impresso";ok.onclick=()=>markPrinted(p.name);
-  const del=document.createElement("button");del.className="sm m";del.textContent="🗑";del.title="Remover da fila (pede senha)";del.onclick=()=>delPrint(p.name);bt.append(ok,del);r.append(im,g,bt);box.appendChild(r)})}catch(e){notify("Não foi possível atualizar a fila de impressão.")}finally{printsPolling=false}}
+  const del=document.createElement("button");del.className="sm m";del.textContent="🗑";del.title="Remover da fila (pede senha)";del.onclick=()=>delPrint(p.name);bt.append(ok,del);r.append(im,g,bt);box.appendChild(r)});pruneThumbnails()}catch(e){notify("Não foi possível atualizar a fila de impressão.")}finally{printsPolling=false}}
 async function markPrinted(n){if(!token){openCfg();return}const r=await api("/api/prints/printed",{method:"POST",body:JSON.stringify({name:n})});if(!r.ok){token="";openCfg();return}pollPrints();poll()}
 async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+" da fila? O arquivo será apagado."))return;const r=await api("/api/prints/delete",{method:"POST",body:JSON.stringify({name:n})});if(!r.ok)token="";pollPrints();poll()}
 function celebrate(){notify("Trabalho concluído. PRT disponível na fila de impressão.")}
@@ -320,7 +343,7 @@ function openCfg(){$("dlg").showModal();$("lmsg").textContent="";if(token){showC
  $("loginTxt").textContent=hasPass?"Digite a senha para abrir as configurações.":"Primeiro acesso: crie uma senha (mínimo 8 caracteres).";$("pw2box").style.display=hasPass?"none":""}}
 async function doLogin(){let r;if(hasPass)r=await api("/api/login",{method:"POST",body:JSON.stringify({password:$("pw").value})});
  else{if($("pw").value.length<8){$("lmsg").textContent="Use pelo menos 8 caracteres";return}if($("pw").value!==$("pw2").value){$("lmsg").textContent="As senhas não conferem";return}r=await api("/api/setpass",{method:"POST",body:JSON.stringify({new:$("pw").value})})}
- if(r.ok){token=r.d.token;jobsKey=printsKey="";thumbnailCache.clear();showCfg();poll();pollPrints()}else $("lmsg").textContent=r.d.error}
+ if(r.ok){token=r.d.token;jobsKey=printsKey="";resetThumbnails();showCfg();poll();pollPrints()}else $("lmsg").textContent=r.d.error}
 async function showCfg(){const {ok,d}=await api("/api/settings");if(!ok){token="";return openCfg()}$("loginBox").style.display="none";$("cfgBox").style.display="";
  const g=$("grid");g.replaceChildren();window._cfg=d;SCHEMA.forEach(f=>{if(f[0]==="h"){const h=document.createElement("h3");h.textContent=f[1];g.appendChild(h);return}
   if(f[0]==="@logo"||f[0]==="@wm"){const label=document.createElement("label");label.appendChild(document.createTextNode(f[0]==="@logo"?"Logo da marca (PNG)":"Marca d'água (PNG)"));const file=document.createElement("input");file.type="file";file.accept="image/*";file.addEventListener("change",()=>upImg(f[0]==="@logo"?"logo":"watermark",file));label.appendChild(file);g.appendChild(label);return}

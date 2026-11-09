@@ -83,13 +83,19 @@ def home_dir():
     return h
 
 
-def _save_thumbnail_atomic(image, destination):
-    """Escreve JPEG completo antes de substituir uma miniatura visivel no painel."""
+def _encode_thumbnail(image):
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=82)
+    return buffer.getvalue()
+
+
+def _write_thumbnail_atomic(encoded, destination):
+    """Publica os mesmos bytes completos sem repetir a codificação JPEG."""
     directory = os.path.dirname(destination)
     fd, temporary = tempfile.mkstemp(prefix=".thumb.", suffix=".part", dir=directory)
     try:
         with os.fdopen(fd, "wb") as target:
-            image.save(target, format="JPEG", quality=82)
+            target.write(encoded)
             target.flush()
             os.fsync(target.fileno())
         os.replace(temporary, destination)
@@ -98,6 +104,26 @@ def _save_thumbnail_atomic(image, destination):
             os.remove(temporary)
         except OSError:
             pass
+
+
+def _save_thumbnail_atomic(image, destination):
+    """Escreve JPEG completo antes de substituir uma miniatura visivel no painel."""
+    _write_thumbnail_atomic(_encode_thumbnail(image), destination)
+
+
+def _load_thumbnail(path, bounds, *, orient=True, max_pixels=None):
+    with Image.open(path) as source:
+        if max_pixels is not None and source.width * source.height > max_pixels:
+            raise ValueError("Imagem acima do limite da miniatura.")
+        # A orientação PNG/TIFF pode estar disponível somente após o load.
+        source.load()
+        orientation = source.getexif().get(274, 1) if orient else 1
+        image = ImageOps.exif_transpose(source) if orientation in (2, 3, 4, 5, 6, 7, 8) else source
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+        # RGBA já está no modo final: reduza antes de copiar o buffer grande.
+        image.thumbnail(bounds)
+        return image.copy() if image is source else image
 
 
 class App:
@@ -880,11 +906,13 @@ class App:
     def _thumb(self, jid, path, output_name=None, settings=None, size=220):
         try:
             settings = settings or self.s
-            with Image.open(path) as source:
-                if source.width * source.height > 80_000_000:
-                    return ""
-                im = ImageOps.exif_transpose(source).convert("RGBA")
-            im.thumbnail((size, size))
+            thumbs = os.path.join(self.home, "thumbs"); os.makedirs(thumbs, exist_ok=True)
+            if os.path.islink(thumbs):
+                return ""
+            by_name = os.path.join(thumbs, "by_name"); os.makedirs(by_name, exist_ok=True)
+            if os.path.islink(by_name):
+                return ""
+            im = _load_thumbnail(path, (size, size), max_pixels=MAX_INPUT_PIXELS)
             bg = Image.new("RGBA", im.size, (255, 255, 255, 255)); d = ImageDraw.Draw(bg)
             for y in range(0, im.height, 10):                       # xadrez: mostra a transparencia (= area do branco)
                 for x in range(0, im.width, 10):
@@ -892,21 +920,15 @@ class App:
             bg.alpha_composite(im)
             wm = settings.watermark_path
             if wm and os.path.exists(wm):                           # marca d'agua do cliente
-                with Image.open(wm) as watermark:
-                    w = watermark.convert("RGBA")
-                w.thumbnail((im.width // 2, im.height // 2))
+                # A orientação da marca não era aplicada; preserve essa regra.
+                w = _load_thumbnail(wm, (im.width // 2, im.height // 2), orient=False)
                 a = w.getchannel("A").point(lambda v: int(v * settings.watermark_opacity)); w.putalpha(a)
                 bg.alpha_composite(w, ((im.width - w.width) // 2, (im.height - w.height) // 2))
-            d = os.path.join(self.home, "thumbs"); os.makedirs(d, exist_ok=True)
-            if os.path.islink(d):
-                return ""
-            nd = os.path.join(d, "by_name"); os.makedirs(nd, exist_ok=True)
-            if os.path.islink(nd):
-                return ""
             rgb = bg.convert("RGB")
             thumb_name = safe_filename(output_name or os.path.splitext(os.path.basename(path))[0])
-            _save_thumbnail_atomic(rgb, os.path.join(d, jid + ".jpg"))
-            _save_thumbnail_atomic(rgb, os.path.join(nd, thumb_name + ".jpg"))
+            encoded = _encode_thumbnail(rgb)
+            _write_thumbnail_atomic(encoded, os.path.join(thumbs, jid + ".jpg"))
+            _write_thumbnail_atomic(encoded, os.path.join(by_name, thumb_name + ".jpg"))
             return f"/api/thumb?id={jid}"
         except Exception:
             return ""
@@ -1331,7 +1353,10 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/thumb":
             if not self._auth(): return self._send(401, {"error": "login"})
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
-            thumbs_root = os.path.realpath(os.path.join(APP.home, "thumbs"))
+            thumbs_path = os.path.join(APP.home, "thumbs")
+            if os.path.islink(thumbs_path):
+                return self._send(404, {})
+            thumbs_root = os.path.realpath(thumbs_path)
             f = os.path.join(thumbs_root, "by_name", nm + ".jpg") if nm else os.path.join(thumbs_root, jid + ".jpg")
             try:
                 inside = os.path.commonpath((thumbs_root, os.path.realpath(f))) == thumbs_root
