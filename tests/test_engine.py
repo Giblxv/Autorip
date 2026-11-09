@@ -10,6 +10,17 @@ from autorip.engine import Rip
 from autorip.prt import read_header, read_rows
 
 
+def test_perfil_de_hardware_instalado_e_validado(tmp_path, monkeypatch):
+    home = tmp_path / "AutoRIP"
+    home.mkdir()
+    (home / "hardware_profile.json").write_text(
+        '{"performance":"alto","strip_rows":1024,"render_memory_bytes":1073741824}',
+        encoding="utf-8")
+    monkeypatch.setenv("AUTORIP_HOME", str(home))
+    assert engine._installed_performance_profile() == {
+        "name": "alto", "strip": 1024, "memory": 1073741824}
+
+
 def test_rip_png_emite_prt_com_transparencia_e_base_branca(sample_png, tmp_path):
     settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0.1,
                         margin_bottom_in=0.1, label_enabled=False)

@@ -1,6 +1,6 @@
 ; AutoRIP - instalador (Inno Setup 6). Compile com: ISCC installer.iss  (build_windows.bat ja faz isso)
 #define AppName "AutoRIP"
-#define AppVersion "0.8.9"
+#define AppVersion "0.8.10"
 #define AppExe "AutoRIP.exe"
 
 [Setup]
@@ -56,6 +56,7 @@ Name: "autostart"; Description: "{cm:TaskAutoStart}"; GroupDescription: "{cm:Add
 
 [Files]
 Source: "dist\AutoRIP\AutoRIP.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "tools\detect_hardware.ps1"; DestDir: "{app}\tools"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
@@ -66,6 +67,7 @@ Name: "{autodesktop}\{#AppName} (modo direto)"; Filename: "{app}\{#AppExe}"; Par
 Name: "{userstartup}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "--direct"; Tasks: autostart
 
 [Run]
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\tools\detect_hardware.ps1"" -OutputPath ""{userappdata}\AutoRIP\hardware_profile.json"""; Flags: runhidden waituntilterminated skipifsilent
 Filename: "{app}\{#AppExe}"; Description: "{cm:RunApp}"; Flags: postinstall nowait skipifsilent
 
 [Code]

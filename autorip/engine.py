@@ -1,5 +1,6 @@
 """Motor do RIP: PNG -> (ICC) CMYK -> meio-tom estocastico 2 bits + branco automatico -> .PRT"""
 import io
+import json
 import os
 import shutil
 import tempfile
@@ -42,8 +43,30 @@ def _system_memory_bytes():
         return 0
 
 
+def _installed_performance_profile():
+    home = os.environ.get("AUTORIP_HOME")
+    if not home:
+        home = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "AutoRIP")
+    path = os.path.join(home, "hardware_profile.json")
+    try:
+        with open(path, encoding="utf-8-sig") as source:
+            profile = json.load(source)
+        if profile.get("performance") not in {"alto", "equilibrado", "conservador"}:
+            return None
+        strip = int(profile.get("strip_rows", 0))
+        memory = int(profile.get("render_memory_bytes", 0))
+        if not 512 <= strip <= 2048 or not 256 * 1024**2 <= memory <= 2 * 1024**3:
+            return None
+        return {"name": profile["performance"], "strip": strip, "memory": memory}
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+
+
 def _performance_profile():
     """Seleciona blocos maiores em PCs com memória abundante, reduzindo overhead de tiras."""
+    installed = _installed_performance_profile()
+    if installed:
+        return installed
     ram = _system_memory_bytes()
     cores = os.cpu_count() or 1
     if ram >= 24 * 1024**3 and cores >= 6:
