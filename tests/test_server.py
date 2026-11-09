@@ -429,6 +429,7 @@ def test_alias_de_caminho_nao_duplica_job_nem_recupera_journal_ativo(sample_png,
     app.lock = threading.RLock()
     app.q = queue.Queue()
     app.queued_sources = set()
+    app._admission_reservations = set()
     app.source_jobs = {}
     app.job_controls = {}
     app.jobs = []

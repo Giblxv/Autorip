@@ -49,6 +49,7 @@ def panel_scan(module, settings, root, count):
     app._known_hot_folders = [os.path.normcase(os.path.realpath(settings.hot_folder))]
     app.archive_pending = {}
     app.queued_sources = set()
+    app._admission_reservations = set()
     app.source_jobs = {}
     app.job_controls = {}
     app.jobs = []

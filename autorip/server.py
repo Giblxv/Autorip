@@ -3,6 +3,7 @@ import os, sys, json, time, math, hashlib, secrets, tempfile, threading, queue, 
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, urlencode
 from dataclasses import asdict
+from contextlib import contextmanager
 from . import __version__
 from .config import Settings
 from .engine import Rip, MAX_INPUT_PIXELS
@@ -34,6 +35,10 @@ class InsufficientStorageError(Exception):
     pass
 
 
+class QueueFullError(RuntimeError):
+    """Capacidade temporariamente ocupada por trabalhos ou entradas em preparação."""
+
+
 class JobPaused(Exception):
     """Interrupcao cooperativa segura no limite de uma tira de RIP."""
 
@@ -45,6 +50,20 @@ class JobCancelled(Exception):
 def _source_key(path):
     """Identidade de fila comum ao caminho original, aliases e casing Windows."""
     return os.path.normcase(os.path.realpath(path))
+
+
+def _parse_width_cm(value):
+    if value is None or value == "":
+        return None
+    try:
+        if isinstance(value, bool):
+            raise ValueError()
+        width = float(value)
+        if not math.isfinite(width) or not 0 < width <= 300:
+            raise ValueError()
+    except (ValueError, TypeError, OverflowError):
+        raise ValueError("A largura precisa estar entre 0 e 300 cm.") from None
+    return width
 
 
 def res_path(*p):
@@ -98,10 +117,12 @@ class App:
         self.print_lock = threading.Lock()
         self.print_catalog = PrintCatalog()
         self.upload_lock = threading.Lock()
+        self.upload_receive_lock = threading.Lock()
         self.login_attempts = {}
         self.archive_pending = {}
         self.invalid_journal_alerts = set()
         self.queued_sources = set()
+        self._admission_reservations = set()
         self.source_jobs = {}
         self.job_controls = {}
         self._watch_locks = []
@@ -379,13 +400,16 @@ class App:
         return total
 
     def receive_upload(self, handler, name, width_value):
-        with self.upload_lock:
-            raw_length = handler.headers.get("Content-Length", "0")
-            if not raw_length.isdigit():
-                raise ValueError("Content-Length invalido.")
-            length = int(raw_length)
-            if length <= 0:
-                raise ValueError("O arquivo enviado esta vazio.")
+        width = _parse_width_cm(width_value)
+        raw_length = handler.headers.get("Content-Length", "0")
+        if not raw_length.isdigit():
+            raise ValueError("Content-Length invalido.")
+        length = int(raw_length)
+        if length <= 0:
+            raise ValueError("O arquivo enviado esta vazio.")
+        # Recepção continua serializada para verificar disco entre envios; o
+        # observador só compartilha o lock curto de publicação, não o de rede.
+        with self._reserve_admission() as reservation, self.upload_receive_lock:
             if shutil.disk_usage(self.inbox).free < length + MIN_FREE_DISK_BYTES:
                 raise InsufficientStorageError("Espaco livre insuficiente; mantenha ao menos 128 MiB de reserva para o RIP.")
             folder = os.path.join(self.inbox, secrets.token_hex(12))
@@ -399,16 +423,19 @@ class App:
                     if image.width * image.height > MAX_INPUT_PIXELS:
                         raise ValueError(f"Imagem acima do limite de {MAX_INPUT_PIXELS:,} pixels.")
                     image.verify()
-                width = None
-                if width_value:
-                    width = float(width_value)
-                    if not math.isfinite(width) or width <= 0 or width > 300:
-                        raise ValueError("A largura precisa estar entre 0 e 300 cm.")
                 # Persista a medida ANTES de tornar a imagem visível à recuperação.
                 write_json_atomic(request_path, {"version": 1, "width_cm": width,
                                                 "sha256": file_sha256(temporary)})
-                os.replace(temporary, path)
-                return self.enqueue(path, width, move_to_done=True)
+                with self.upload_lock:
+                    try:
+                        os.replace(temporary, path)
+                        return self.enqueue(path, width, move_to_done=True, _reservation=reservation)
+                    except BaseException:
+                        # Não libere para recuperação uma imagem cujo pedido
+                        # falhou; o sidecar e o restante são limpos abaixo.
+                        try: os.remove(path)
+                        except OSError: pass
+                        raise
             except BaseException:
                 for candidate in (temporary, path, request_path):
                     try: os.remove(candidate)
@@ -469,19 +496,41 @@ class App:
         return result
 
     def enqueue_hot_file(self, name, width_value=""):
+        width = _parse_width_cm(width_value)
         safe_name = safe_filename(name)
         with self.settings_lock:
             folder = os.path.realpath(self.s.hot_folder)
             processing = os.path.join(folder, ".autorip_processing")
         source = os.path.join(folder, safe_name)
+        return self._enqueue_hot_source(source, processing, width)
+
+    def _enqueue_hot_source(self, source, processing, width=None):
         if not os.path.isfile(source) or os.path.islink(source):
             raise FileNotFoundError("Arquivo nao encontrado na hot folder.")
-        os.makedirs(processing, exist_ok=True)
-        claimed = move_unique(source, processing, safe_name)
-        width = None
-        if width_value not in (None, ""):
-            width = float(width_value)
-        return self.enqueue(claimed, width, move_to_done=True)
+        with self._reserve_admission() as reservation:
+            claimed = move_unique(source, processing, os.path.basename(source))
+            return self.enqueue(claimed, width, move_to_done=True, _reservation=reservation)
+
+    def _queue_used(self):
+        """Com self.lock adquirido: inclui entradas ainda não publicadas na fila."""
+        return len(self.queued_sources) + len(self._admission_reservations)
+
+    def _has_capacity(self):
+        with self.lock:
+            return self._queue_used() < MAX_PENDING_JOBS
+
+    @contextmanager
+    def _reserve_admission(self):
+        reservation = object()
+        with self.lock:
+            if self._queue_used() >= MAX_PENDING_JOBS:
+                raise QueueFullError("Fila cheia: aguarde um trabalho terminar antes de enviar mais artes.")
+            self._admission_reservations.add(reservation)
+        try:
+            yield reservation
+        finally:
+            with self.lock:
+                self._admission_reservations.discard(reservation)
 
     def _retained_jobs(self, history_limit):
         """Com self.lock adquirido: mantém ativos e os últimos N finalizados."""
@@ -501,7 +550,7 @@ class App:
             control["queued"] = True
             self.q.put(control["item"])
 
-    def enqueue(self, path, width_cm=None, move_to_done=True):
+    def enqueue(self, path, width_cm=None, move_to_done=True, *, _reservation=None):
         if width_cm is not None and (isinstance(width_cm, bool) or not isinstance(width_cm, (int, float)) or not math.isfinite(width_cm) or width_cm <= 0 or width_cm > 300):
             raise ValueError("A largura precisa estar entre 0 e 300 cm.")
         job = dict(id=secrets.token_hex(8), name=safe_filename(os.path.basename(path)), status="fila", progress=0.0, out="", error="")
@@ -511,8 +560,12 @@ class App:
         with self.lock:
             if source_key in self.queued_sources:
                 return self.source_jobs[source_key]
-            if len(self.queued_sources) >= MAX_PENDING_JOBS:
-                raise RuntimeError("Fila cheia: aguarde um trabalho terminar antes de enviar mais artes.")
+            if _reservation is not None:
+                if _reservation not in self._admission_reservations:
+                    raise RuntimeError("Reserva de admissao indisponivel.")
+                self._admission_reservations.remove(_reservation)
+            elif self._queue_used() >= MAX_PENDING_JOBS:
+                raise QueueFullError("Fila cheia: aguarde um trabalho terminar antes de enviar mais artes.")
             self.queued_sources.add(source_key)
             self.source_jobs[source_key] = job
             self.job_controls[job["id"]] = control
@@ -746,69 +799,82 @@ class App:
         threading.Thread(target=self._trello_loop, daemon=True).start()
         while True:
             try:
-                self._retry_archive_pending()
-                with self.settings_lock:
-                    settings = self.s
-                    auto = self.auto
-                    hot_folders = list(self._known_hot_folders)
-                current_hot = os.path.normcase(os.path.realpath(settings.hot_folder))
-                if current_hot not in hot_folders:
-                    hot_folders.append(current_hot)
-                processing_folders = [(folder, os.path.join(folder, ".autorip_processing"))
-                                      for folder in hot_folders if os.path.isdir(folder)]
-                current_processing = os.path.join(settings.hot_folder, ".autorip_processing")
-                os.makedirs(current_processing, exist_ok=True)
-                with self.lock:
-                    pending_archives = {_source_key(path) for path in self.archive_pending}
-                    queued_sources = set(self.queued_sources)
-                recovery_candidates = []
-                for hot_folder, processing_folder in processing_folders:
-                    if not os.path.isdir(processing_folder):
-                        continue
-                    for n in sorted(os.listdir(processing_folder)):
-                        p = os.path.join(processing_folder, n)
-                        if (not n.lower().endswith(EXTS) or os.path.islink(p) or not os.path.isfile(p)
-                                or _source_key(p) in queued_sources or _source_key(p) in pending_archives):
-                            continue
-                        has_marker = os.path.lexists(p + ".autorip.json")
-                        if not auto and not has_marker:
-                            continue
-                        recovery_candidates.append(p)
-                for p, _ in _stable_files(recovery_candidates, wait=0.5):
-                    if not self._recover_marked_source(p, settings) and auto:
-                        self.enqueue(p, move_to_done=True)
-                if auto:
-                    candidates = (os.path.join(settings.hot_folder, n)
-                                  for n in sorted(os.listdir(settings.hot_folder))
-                                  if n.lower().endswith(EXTS))
-                    for src, _ in _stable_files(candidates, wait=0.5):
-                        try:
-                            claimed = move_unique(src, current_processing, os.path.basename(src))
-                        except OSError:
-                            continue
-                        self.enqueue(claimed, move_to_done=True)
-                # Uploads manuais ficam em subpastas privadas; retomá-los também após reinício.
-                with self.upload_lock:
-                    manual_candidates = []
-                    for root, directories, files in os.walk(self.inbox, topdown=True, followlinks=False):
-                        directories[:] = [name for name in directories if not os.path.islink(os.path.join(root, name))]
-                        for name in sorted(files):
-                            if not name.lower().endswith(EXTS):
-                                continue
-                            path = os.path.join(root, name)
-                            with self.lock:
-                                if (_source_key(path) in self.queued_sources
-                                        or _source_key(path) in {_source_key(p) for p in self.archive_pending}):
-                                    continue
-                            manual_candidates.append(path)
-                    for path, _ in _stable_files(manual_candidates, wait=0.5):
-                        if not self._recover_marked_source(path, settings):
-                            self._enqueue_manual_recovery(path)
+                self._scan_inputs()
             except Exception as e:
                 self.log(f"Falha ao observar hot-folder: {type(e).__name__}: {e}")
             with self.settings_lock:
                 poll_seconds = self.s.poll_seconds
             time.sleep(max(0.5, poll_seconds))
+
+    def _scan_inputs(self):
+        self._retry_archive_pending()
+        with self.settings_lock:
+            settings = self.s
+            auto = self.auto
+            hot_folders = list(self._known_hot_folders)
+        current_hot = os.path.normcase(os.path.realpath(settings.hot_folder))
+        if current_hot not in hot_folders:
+            hot_folders.append(current_hot)
+        processing_folders = [(folder, os.path.join(folder, ".autorip_processing"))
+                              for folder in hot_folders if os.path.isdir(folder)]
+        current_processing = os.path.join(settings.hot_folder, ".autorip_processing")
+        os.makedirs(current_processing, exist_ok=True)
+        with self.lock:
+            pending_archives = {_source_key(path) for path in self.archive_pending}
+            queued_sources = set(self.queued_sources)
+            accepting = self._queue_used() < MAX_PENDING_JOBS
+        recovery_candidates = []
+        for hot_folder, processing_folder in processing_folders:
+            if not os.path.isdir(processing_folder):
+                continue
+            for n in sorted(os.listdir(processing_folder)):
+                p = os.path.join(processing_folder, n)
+                if (not n.lower().endswith(EXTS) or os.path.islink(p) or not os.path.isfile(p)
+                        or _source_key(p) in queued_sources or _source_key(p) in pending_archives):
+                    continue
+                has_marker = os.path.lexists(p + ".autorip.json")
+                if not has_marker and (not auto or not accepting):
+                    continue
+                recovery_candidates.append(p)
+        for p, _ in _stable_files(recovery_candidates, wait=0.5):
+            if not self._recover_marked_source(p, settings) and auto:
+                try:
+                    self.enqueue(p, move_to_done=True)
+                except QueueFullError:
+                    continue
+        if auto and self._has_capacity():
+            candidates = (os.path.join(settings.hot_folder, n)
+                          for n in sorted(os.listdir(settings.hot_folder))
+                          if n.lower().endswith(EXTS))
+            for src, _ in _stable_files(candidates, wait=0.5):
+                try:
+                    self._enqueue_hot_source(src, current_processing)
+                except QueueFullError:
+                    break
+                except OSError:
+                    continue
+        # Uploads manuais ficam em subpastas privadas; retomá-los também após reinício.
+        manual_candidates = []
+        for root, directories, files in os.walk(self.inbox, topdown=True, followlinks=False):
+            directories[:] = [name for name in directories if not os.path.islink(os.path.join(root, name))]
+            for name in sorted(files):
+                if not name.lower().endswith(EXTS):
+                    continue
+                path = os.path.join(root, name)
+                with self.lock:
+                    if (_source_key(path) in self.queued_sources
+                            or _source_key(path) in {_source_key(p) for p in self.archive_pending}):
+                        continue
+                if not self._has_capacity() and not os.path.lexists(path + ".autorip.json"):
+                    continue
+                manual_candidates.append(path)
+        for path, _ in _stable_files(manual_candidates, wait=0.5):
+            with self.upload_lock:
+                if not self._recover_marked_source(path, settings) and self._has_capacity():
+                    try:
+                        self._enqueue_manual_recovery(path)
+                    except QueueFullError:
+                        continue
 
     # ---- miniaturas ----
     def _thumb(self, jid, path, output_name=None, settings=None, size=220):
@@ -1230,7 +1296,8 @@ class H(BaseHTTPRequestHandler):
                                             brand="AutoRIP", has_logo=False, locked=True))
             with APP.lock:
                 jobs = [dict(job) for job in APP._retained_jobs(MAX_STATE_HISTORY)]
-                queue_used = len(APP.queued_sources)
+                queue_used = APP._queue_used()
+                queue_preparing = len(APP._admission_reservations)
                 logs = list(APP.log_lines[-60:])
             with APP.settings_lock:
                 auto = APP.auto
@@ -1255,7 +1322,8 @@ class H(BaseHTTPRequestHandler):
             return self._send(200, dict(version=__version__, auto=auto, has_pass=APP.has_pass(),
                                         jobs=jobs, log=logs, hot_folder=hot_folder, output_folder=output_folder,
                                         icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo,
-                                        queue_used=queue_used, queue_limit=MAX_PENDING_JOBS))
+                                        queue_used=queue_used, queue_limit=MAX_PENDING_JOBS,
+                                        queue_preparing=queue_preparing))
         if u.path == "/api/prints":
             return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/hot-files":
@@ -1399,6 +1467,8 @@ class H(BaseHTTPRequestHandler):
             if u.path == "/api/settings":
                 if not self._auth(): return self._send(401, {"error": "login"})
                 APP.apply_settings(self._json()); return self._send(200, self._settings_public())
+        except QueueFullError as e:
+            return self._send(429, {"error": str(e)})
         except FileNotFoundError as e:
             return self._send(404, {"error": str(e)})
         except InsufficientStorageError as e:
@@ -1424,7 +1494,8 @@ def _can_close_idle_browser(app):
         trello_active = (not settings.offline_mode and bool(settings.trello_key)
                          and bool(settings.trello_token) and bool(settings.trello_in_list))
     with app.lock:
-        pending = bool(app.queued_sources or app.archive_pending) or not app.q.empty()
+        pending = bool(app.queued_sources or app.archive_pending
+                       or getattr(app, "_admission_reservations", ())) or not app.q.empty()
     return not (automatic or trello_active or pending)
 
 

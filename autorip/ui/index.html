@@ -46,6 +46,7 @@ main{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;padding:24px 28px;max
 input[type=text],input[type=number],input[type=password]{font-family:monospace;font-size:15px;padding:7px 10px;border:3px solid var(--k);border-radius:10px;width:100%}
 /* ---- fila com gotas correndo ---- */
 #jobs{max-height:min(65vh,680px);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:6px}#jobs:focus-visible{outline:3px solid var(--v);outline-offset:3px}
+#queuePreparing{font-size:14px;color:#5d477f}#queuePreparing:not(:empty){margin-bottom:8px}
 .job{margin:10px 0;font-size:18px;overflow:hidden;padding:8px;border:2px solid transparent;border-radius:14px;transition:.15s}.job:hover,.job.selected{border-color:var(--v);background:rgba(124,77,255,.08)}.job-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:7px}.job-actions button{font-size:13px;padding:4px 9px;border-width:2px;box-shadow:3px 3px 0 var(--k)}.job-actions .danger{background:var(--m);color:#fff}.hot-file{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:2px dashed #d9c9f4}.hot-file:last-child{border-bottom:0}.hot-file .hot-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:15px monospace}.hot-file small{color:#6c5a8d;white-space:nowrap}.hot-file button{font-size:13px;padding:4px 8px;border-width:2px;box-shadow:3px 3px 0 var(--k)}.hot-empty{font-size:14px;color:#6c5a8d;padding:10px 0}
 .bar{height:34px;border:4px solid var(--k);border-radius:20px;background:#eee;position:relative;overflow:hidden;margin-top:4px}
 .fill{height:100%;background:linear-gradient(90deg,var(--c) 0 25%,var(--m) 25% 50%,var(--y) 50% 75%,var(--k) 75%);background-size:60px 100%;transition:width .4s;animation:stripes 1s linear infinite}
@@ -187,7 +188,7 @@ body.tab-hidden *{animation-play-state:paused!important}
    <div style="font-size:15px;margin-bottom:6px">Arquivos <b>.PRT</b> prontos, esperando o PrintExp. O mais antigo vai primeiro.</div><div id="pq"><div class="empty">Nada esperando impressão 🎉</div></div></div>
  </section>
  <section>
-  <div class="card h-m"><div class="hd"><h2><i>Fila de RIP</i></h2><span class="cnt" id="ripCount" title="Trabalhos pendentes, incluindo pausados">0</span></div><div style="font-size:14px;margin:-6px 0 10px;color:#5d477f">Selecione um trabalho para pausar, retomar ou cancelar com segurança.</div><div id="jobs" role="region" aria-label="Trabalhos da fila de RIP" tabindex="0"><em>Nenhum trabalho ainda…</em></div></div>
+  <div class="card h-m"><div class="hd"><h2><i>Fila de RIP</i></h2><span class="cnt" id="ripCount" title="Trabalhos pendentes, incluindo pausados e arquivos em preparação">0</span></div><div style="font-size:14px;margin:-6px 0 10px;color:#5d477f">Selecione um trabalho para pausar, retomar ou cancelar com segurança.</div><div id="queuePreparing" aria-live="polite"></div><div id="jobs" role="region" aria-label="Trabalhos da fila de RIP" tabindex="0"><em>Nenhum trabalho ainda…</em></div></div>
   <div class="card h-c" style="margin-top:24px"><h2><i>Agente de IA</i></h2><div style="font-size:16px">Pesquisa na internet como aprimorar o RIP. <b>Só sugere</b>, não muda nada sozinho.</div>
    <div class="row" style="justify-content:flex-start"><button class="c" onclick="askAgent()">🔎 Pesquisar melhorias</button></div><div id="agentOut" style="white-space:pre-wrap;font:14px/1.5 sans-serif;margin-top:10px"></div></div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Registro</i></h2><button class="sm" onclick="copyLog()">📋 Copiar</button></div><div class="logbox" id="log"></div></div>
@@ -238,11 +239,12 @@ async function privateThumbnail(img,path){
 async function poll(){if(polling)return;polling=true;try{const session=token;const {ok,d}=await api("/api/state");if(token!==session)return;if(!ok)throw new Error("estado indisponível");connection(true);$("sw").disabled=false;hasPass=d.has_pass;setBrand(d.brand,d.has_logo);$("ver").textContent="v"+d.version;
  if(d.locked){token="";jobsKey=printsKey="";thumbnailCache.clear();$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";$("sw").setAttribute("aria-checked","false");$("off").style.display="none";$("pin").textContent="Acesso restrito";$("pout").textContent="Acesso restrito";$("picc").textContent="Entre para consultar";
  $("sw").classList.remove("on");$("autoTxt").textContent="Entre para consultar o estado";
- $("jobs").textContent="Faça login para ver seus trabalhos";$("ripCount").textContent="—";renderLog([]);return}
+ $("jobs").textContent="Faça login para ver seus trabalhos";$("ripCount").textContent="—";$("queuePreparing").textContent="";renderLog([]);return}
  {const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending>0?" · "+d.pending+" aviso(s) na fila":d.pending<0?" · aviso local indisponível":"")}$("ver").textContent="v"+d.version;
  $("pin").textContent=d.hot_folder;$("pout").textContent=d.output_folder;$("picc").textContent=d.icc;
  $("sw").setAttribute("aria-checked",String(Boolean(d.auto)));$("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";
  $("ripCount").textContent=d.queue_limit?`${d.queue_used} / ${d.queue_limit}`:String(d.jobs.filter(j=>["fila","processando","pausando","pausado","cancelando"].includes(j.status)).length);
+ const preparing=Number(d.queue_preparing)||0,preparingText=preparing?`Preparando ${preparing} arquivo${preparing===1?"":"s"}…`:"";if($("queuePreparing").textContent!==preparingText)$("queuePreparing").textContent=preparingText;
  const key=JSON.stringify(d.jobs);if(key===jobsKey){renderLog(d.log);return}jobsKey=key;
  renderJobs(d.jobs);first=false;renderLog(d.log);}catch(e){connection(false)}finally{polling=false}}
 function renderJobs(items){

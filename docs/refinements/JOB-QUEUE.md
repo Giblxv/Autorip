@@ -1,5 +1,8 @@
 # Lotes longos: fila limitada e controles preservados
 
+Continuação: [reserva de vagas e entrada de arquivos](ADMISSION.md).
+Os resultados abaixo se referem à etapa de controle de trabalhos.
+
 Base: `008decb`, posterior à [estabilidade em lote](BATCH-FLOW.md).
 Esta etapa corrige capacidade, concorrência e navegação; não mede um novo fator
 de aceleração do renderizador nem acrescenta rodadas às campanhas anteriores.

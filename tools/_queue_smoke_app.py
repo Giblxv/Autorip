@@ -30,6 +30,7 @@ def main():
         Path(folder, 'autorip.json').write_text(json.dumps(dict(auto_mode=False, auto_update=False, offline_mode=True,
                                                             dpi_x=300, dpi_y=300, label_enabled=False)))
         app = IdleApp()
+        preparing = None
         app.tokens.add('queue-browser-token')
         for i in range(100):
             path = Path(app.processing_folder, f'arte-{i:03}.png')
@@ -47,6 +48,12 @@ def main():
                     if operation == 'tick':
                         with app.lock:
                             app.jobs[0]['progress'] = .37
+                    elif operation == 'prepare':
+                        preparing = app._reserve_admission()
+                        preparing.__enter__()
+                    elif operation == 'finish_prepare':
+                        preparing.__exit__(None, None, None)
+                        preparing = None
                     elif operation == 'step':
                         original = app.q.get
                         taken = False
@@ -68,6 +75,8 @@ def main():
                     print(json.dumps(dict(queued=app.q.qsize(), active=len(app.queued_sources),
                                           archived_cancelled=Path(app.s.error_folder, 'arte-000.png').is_file())), flush=True)
             finally:
+                if preparing is not None:
+                    preparing.__exit__(None, None, None)
                 http.shutdown()
                 worker.join(timeout=2)
 

@@ -28,6 +28,8 @@ const root=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),'autorip-queue-
   assert.equal(await page.locator('#intro').evaluate(e=>getComputedStyle(e).display),'none');
   assert.equal(await page.evaluate(()=>document.getAnimations().length),0);
   assert.equal(await page.locator('#ripCount').innerText(),'100 / 100');
+  const rejected=await page.request.post(ready.url+'/api/upload?name=full.png',{data:Buffer.from('full'),headers:{'X-Token':'queue-browser-token'}});
+  assert.equal(rejected.status(),429);assert((await rejected.json()).error.includes('Fila cheia'));
   const job=page.locator(`.job[data-job-id="${ready.first_id}"]`);
   await job.locator('span').first().click();
   await job.getByRole('button',{name:'Pausar arte-000.png',exact:true}).focus();
@@ -58,6 +60,13 @@ const root=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),'autorip-queue-
   const cancelled=await command('step');
   assert.equal(cancelled.active,99);assert(cancelled.archived_cancelled);
   await page.evaluate(()=>poll());await page.waitForFunction(()=>document.getElementById('ripCount').textContent==='99 / 100');
+  await page.evaluate(()=>window.beforePreparation=document.querySelector('#jobs .job'));
+  await command('prepare');await page.evaluate(()=>poll());
+  await page.waitForFunction(()=>document.getElementById('ripCount').textContent==='100 / 100'&&document.getElementById('queuePreparing').textContent==='Preparando 1 arquivo…');
+  assert(await page.evaluate(()=>beforePreparation===document.querySelector('#jobs .job')));
+  await page.locator('#jobs').locator('..').screenshot({path:root+'/preparing.png'});
+  await command('finish_prepare');await page.evaluate(()=>poll());
+  await page.waitForFunction(()=>document.getElementById('ripCount').textContent==='99 / 100'&&document.getElementById('queuePreparing').textContent==='');
   await page.screenshot({path:root+'/desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
@@ -75,7 +84,8 @@ const root=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),'autorip-queue-
    idleDomPreserved:true,scrollPreserved:true,selectionPreserved:true,keyboardFocusPreserved:true,
    keyboardPauseResume:true,resumeQueuedItems:100,cancelPreservesArtwork:true,slotReleased:true,
    mobileGeometry:geometry,noOverflow390:true,noOverflow320:true,reducedMotionIntroHidden:true,
-   reducedMotionAnimations:0,normalMotionIntroDismissed:true,completionCacheAfter600Jobs:cacheSize,pageErrors:errors};
+   reducedMotionAnimations:0,normalMotionIntroDismissed:true,completionCacheAfter600Jobs:cacheSize,
+   fullUploadStatus:429,preparingSlotCounted:true,preparingHintShown:true,preparingDoesNotRebuildJobs:true,pageErrors:errors};
   fs.writeFileSync(root+'/browser-results.json',JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify(report,null,2));
  }finally{if(browser)await browser.close();if(service.exitCode===null&&service.signalCode===null){const exited=new Promise(resolve=>service.once('exit',resolve));service.stdin.end(JSON.stringify({operation:'stop'})+'\n');await exited}lines.close()}
