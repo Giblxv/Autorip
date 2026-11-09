@@ -1,0 +1,173 @@
+COMO USAR O AUTORIP MOBILE
+===========================
+
+O AutoRIP Mobile é um cliente Android para acessar o painel do AutoRIP pelo telefone.
+
+IMPORTANTE:
+- O APK não executa o RIP sozinho.
+- O processamento continua sendo feito pelo computador onde o AutoRIP está instalado.
+- O computador servidor precisa permanecer ligado e conectado à mesma rede do telefone.
+- O APK desta release é uma versão DEBUG para validação inicial e não é assinado para publicação em loja.
+
+1. BAIXAR E INSTALAR
+--------------------
+
+1. Baixe o arquivo app-debug.apk na release do GitHub.
+2. No telefone, abra o arquivo APK.
+3. Se o Android solicitar, autorize a instalação de aplicativos desta fonte.
+4. Conclua a instalação e abra o aplicativo AutoRIP.
+
+Release:
+https://github.com/Giblxv/Autorip/releases/tag/mobile-v0.1.0
+
+APK direto:
+https://github.com/Giblxv/Autorip/releases/download/mobile-v0.1.0/app-debug.apk
+
+2. PREPARAR O COMPUTADOR SERVIDOR
+---------------------------------
+
+Por padrão, o AutoRIP aceita apenas conexões do próprio computador. Para permitir que o telefone acesse o painel pela rede local, o servidor precisa ser iniciado com estas variáveis:
+
+AUTORIP_BIND_HOST=0.0.0.0
+AUTORIP_ALLOWED_HOSTS=IP_DO_SERVIDOR,127.0.0.1,localhost
+AUTORIP_PUBLIC_HOST=IP_DO_SERVIDOR
+
+Exemplo no Linux:
+
+AUTORIP_BIND_HOST=0.0.0.0 \
+AUTORIP_ALLOWED_HOSTS=192.168.1.50,127.0.0.1,localhost \
+AUTORIP_PUBLIC_HOST=192.168.1.50 \
+python autorip_gui.py --web
+
+Troque 192.168.1.50 pelo endereço IP real do computador que executa o AutoRIP.
+
+No Windows, abra o Prompt de Comando na pasta do AutoRIP e execute:
+
+set AUTORIP_BIND_HOST=0.0.0.0
+set AUTORIP_ALLOWED_HOSTS=192.168.1.50,127.0.0.1,localhost
+set AUTORIP_PUBLIC_HOST=192.168.1.50
+AutoRIP.exe --web
+
+Se o programa for iniciado pelo atalho ou instalador, configure essas variáveis no ambiente do usuário ou crie um arquivo .bat para iniciar o programa.
+
+3. DESCOBRIR O IP DO SERVIDOR
+-----------------------------
+
+No computador servidor:
+
+Windows:
+- Execute ipconfig no Prompt de Comando.
+- Procure o endereço IPv4 da rede Wi-Fi ou Ethernet.
+
+Linux:
+- Execute ip addr ou hostname -I.
+- Procure o endereço da rede local, normalmente algo como 192.168.1.50.
+
+O telefone e o computador precisam estar na mesma rede Wi-Fi ou LAN.
+
+4. CONECTAR PELO APLICATIVO
+----------------------------
+
+1. Abra o AutoRIP Mobile.
+2. Informe o endereço do servidor, incluindo a porta.
+3. Exemplo:
+
+http://192.168.1.50:8765
+
+4. Toque em Conectar.
+5. Quando o painel abrir, faça login com a senha do AutoRIP.
+
+O aplicativo pode guardar até cinco endereços recentes no telefone. A senha não é guardada pelo aplicativo.
+
+5. USAR O PAINEL
+----------------
+
+Depois da conexão, o painel móvel permite usar as funções disponíveis no servidor, incluindo:
+
+- Acompanhar a fila de RIP.
+- Enviar artes compatíveis pelo painel manual.
+- Ver o progresso dos trabalhos.
+- Consultar a fila de impressão.
+- Ativar ou desativar o modo automático, conforme a permissão da conta.
+- Consultar o registro de eventos.
+- Alterar configurações autorizadas.
+
+O motor de RIP, os arquivos PRT, o ICC, os canais, o branco, o meio-tom, o mirror e a geometria continuam sendo processados no servidor. O APK não modifica esses parâmetros por conta própria.
+
+6. SEGURANÇA
+------------
+
+- Não exponha a porta HTTP diretamente à internet.
+- Use o APK em rede privada, VPN ou túnel seguro.
+- Para acesso externo, configure HTTPS e autenticação adequada.
+- Use uma senha forte no AutoRIP.
+- Restrinja AUTORIP_ALLOWED_HOSTS aos endereços necessários.
+- Configure o firewall para permitir a porta somente na rede privada.
+- Se não precisar do acesso pelo telefone, não defina AUTORIP_BIND_HOST; o padrão local é mais seguro.
+
+7. PROBLEMAS COMUNS
+-------------------
+
+O aplicativo não conecta:
+- Confirme que o AutoRIP está em execução.
+- Confira o IP do computador servidor.
+- Confira a porta, normalmente 8765.
+- Confirme que telefone e computador estão na mesma rede.
+- Verifique o firewall do computador.
+- Confirme AUTORIP_BIND_HOST=0.0.0.0.
+- Confirme que o IP do servidor está em AUTORIP_ALLOWED_HOSTS.
+
+Aparece erro 403:
+- O host enviado pelo telefone não está autorizado.
+- Adicione o IP usado pelo telefone/servidor à configuração permitida.
+- Reinicie o AutoRIP depois de alterar as variáveis.
+
+O painel pede login:
+- Isso é esperado. Use a senha configurada no AutoRIP.
+- O APK não armazena a senha.
+
+O APK não instala:
+- Confirme que o Android permite instalação desta fonte.
+- Verifique se há espaço livre.
+- Desinstale uma versão anterior com assinatura diferente, se necessário.
+- Baixe novamente o APK da release oficial.
+
+8. ATUALIZAÇÕES
+---------------
+
+O APK atualiza quando uma nova versão móvel for publicada na release do GitHub. O aplicativo não altera automaticamente o motor RIP do servidor.
+
+Para atualizar:
+1. Baixe o novo APK da release.
+2. Instale por cima da versão anterior, quando o Android permitir.
+3. Se o Android rejeitar a atualização por assinatura diferente, desinstale a versão anterior e instale a nova. Isso pode apagar dados locais do aplicativo, mas não apaga os arquivos do AutoRIP no computador servidor.
+
+9. COMPILAÇÃO PARA DESENVOLVEDORES
+----------------------------------
+
+Na pasta mobile do repositório:
+
+npm install
+npx cap sync android
+cd android
+./gradlew assembleDebug
+
+O APK será criado em:
+
+mobile/android/app/build/outputs/apk/debug/app-debug.apk
+
+O projeto possui workflow no GitHub para gerar releases móveis com tags mobile-v*.
+
+10. SUPORTE E LIMITAÇÕES
+------------------------
+
+Esta versão é uma prévia técnica. Antes de usar em produção, valide:
+- Conexão na rede real da gráfica.
+- Login e permissões.
+- Upload de artes.
+- Acompanhamento de jobs.
+- Acesso às filas.
+- Firewall e isolamento da rede.
+- Comportamento do servidor durante perda de conexão do telefone.
+
+Nunca altere parâmetros de produção de PRT, canais, branco, ICC, meio-tom, mirror ou geometria sem validação física na impressora DTF/DTF UV.
