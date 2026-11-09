@@ -83,6 +83,50 @@ class Rip:
         except Exception as exc:
             raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc
 
+    def _load_source(self, path):
+        """Carrega RGBA independente e libera os buffers de origem antes do render."""
+        with Image.open(path) as opened:
+            try:
+                # EXIF transpose decodifica os pixels; valide o cabecalho antes disso.
+                if opened.width * opened.height > MAX_INPUT_PIXELS:
+                    raise ValueError(f"Imagem excede o limite de {MAX_INPUT_PIXELS:,} pixels; reduza a arte antes do RIP.")
+                if opened.width <= 0 or opened.height <= 0:
+                    raise ValueError("A imagem precisa ter largura e altura maiores que zero.")
+                orientation = opened.getexif().get(274, 1)
+                # Sem rotação/reflexão, use a imagem aberta até a conversão RGBA.
+                source = ImageOps.exif_transpose(opened) if orientation in (2, 3, 4, 5, 6, 7, 8) else opened
+                try:
+                    source.load()
+                    has_alpha = source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info
+                    source_dpi = source.info.get("dpi", (DEFAULT_SOURCE_DPI, DEFAULT_SOURCE_DPI))
+                    try:
+                        raw_dpi_x, raw_dpi_y = source_dpi[0], source_dpi[1]
+                    except (IndexError, TypeError):
+                        raw_dpi_x = raw_dpi_y = DEFAULT_SOURCE_DPI
+                    source_dpi_x, source_dpi_y = _safe_source_dpi(raw_dpi_x), _safe_source_dpi(raw_dpi_y)
+                    if orientation in (5, 6, 7, 8):
+                        source_dpi_x, source_dpi_y = source_dpi_y, source_dpi_x
+                    im = self._source_rgba(source)
+                finally:
+                    # A conversão possui seu próprio buffer; não retenha a cópia EXIF
+                    # durante as tiras, nem em um traceback de falha de ICC.
+                    if source is not opened:
+                        source.close()
+            finally:
+                # O context manager do Pillow fecha o arquivo, não o raster carregado.
+                opened.close()
+        return im, has_alpha, source_dpi_x, source_dpi_y
+
+    @staticmethod
+    def _prepare_resampling(im, n_dots, art_rows):
+        # Pillow repete esta conversão da imagem inteira em cada resize RGBA.
+        # Mantenha o atalho 1:1: converter e voltar pode quantizar cores com alfa.
+        if (n_dots, art_rows) == im.size:
+            return im
+        prepared = im.convert("RGBa")
+        im.close()
+        return prepared
+
     # ---------- cor ----------
     def _to_cmyk(self, rgb: Image.Image) -> np.ndarray:
         if self.transform is not None:
@@ -157,25 +201,7 @@ class Rip:
         out_path = os.path.realpath(out_path)
         out_dir = os.path.dirname(out_path)
         os.makedirs(out_dir, exist_ok=True)
-        with Image.open(png_path) as opened:
-            # EXIF transpose decodifica os pixels; valide o cabecalho antes disso.
-            if opened.width * opened.height > MAX_INPUT_PIXELS:
-                raise ValueError(f"Imagem excede o limite de {MAX_INPUT_PIXELS:,} pixels; reduza a arte antes do RIP.")
-            if opened.width <= 0 or opened.height <= 0:
-                raise ValueError("A imagem precisa ter largura e altura maiores que zero.")
-            orientation = opened.getexif().get(274, 1)
-            source = ImageOps.exif_transpose(opened)
-            has_alpha = source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info
-            source_dpi = source.info.get("dpi", (DEFAULT_SOURCE_DPI, DEFAULT_SOURCE_DPI))
-            try:
-                raw_dpi_x, raw_dpi_y = source_dpi[0], source_dpi[1]
-            except (IndexError, TypeError):
-                raw_dpi_x = raw_dpi_y = DEFAULT_SOURCE_DPI
-            source_dpi_x, source_dpi_y = _safe_source_dpi(raw_dpi_x), _safe_source_dpi(raw_dpi_y)
-            if orientation in (5, 6, 7, 8):
-                source_dpi_x, source_dpi_y = source_dpi_y, source_dpi_x
-            source.load()
-            im = self._source_rgba(source)
+        im, has_alpha, source_dpi_x, source_dpi_y = self._load_source(png_path)
         w_cm = width_cm if width_cm is not None else (im.width / source_dpi_x * 2.54)
         if not np.isfinite(w_cm) or w_cm <= 0:
             raise ValueError("A largura de impressão precisa ser um número positivo.")
@@ -205,6 +231,7 @@ class Rip:
         if available_rows < 1:
             raise ValueError("A largura/DPI exigem mais memória do que o limite seguro de processamento por tira.")
         strip_rows = max(1, min(STRIP, int(available_rows)))
+        im = self._prepare_resampling(im, n_dots, art_rows)
         fd, tmp_path = tempfile.mkstemp(prefix=f".{os.path.basename(out_path)}.", suffix=".part", dir=out_dir)
         os.close(fd)
         wr = None
@@ -292,6 +319,8 @@ class Rip:
             sy = im.height / art_rows
             box = (0, (r0 - top) * sy, im.width, (r1 - top) * sy)
             strip = im.resize((n_dots, r1 - r0), Image.LANCZOS, box=box)
+            if strip.mode == "RGBa":
+                strip = strip.convert("RGBA")
             if s.mirror:
                 strip = strip.transpose(Image.FLIP_LEFT_RIGHT)
             arr = np.asarray(strip)
