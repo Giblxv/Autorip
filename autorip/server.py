@@ -40,6 +40,11 @@ class JobCancelled(Exception):
     """Cancelamento cooperativo sem publicar um PRT parcial."""
 
 
+def _source_key(path):
+    """Identidade de fila comum ao caminho original, aliases e casing Windows."""
+    return os.path.normcase(os.path.realpath(path))
+
+
 def res_path(*p):
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     return os.path.join(base, "autorip", *p)
@@ -237,6 +242,11 @@ class App:
             return None
 
     def _recover_marked_source(self, source, settings):
+        # A estabilidade e o snapshot do watcher podem anteceder um enqueue.
+        # Reconsulte a fila viva antes de tocar no journal de um job ativo/pausado.
+        with self.lock:
+            if _source_key(source) in self.queued_sources:
+                return True
         marker = read_archive_marker(source)
         if marker is None:
             if os.path.lexists(source + ".autorip.json"):
@@ -477,22 +487,24 @@ class App:
         job = dict(id=secrets.token_hex(8), name=safe_filename(os.path.basename(path)), status="fila", progress=0.0, out="", error="")
         control = {"pause": threading.Event(), "cancel": threading.Event(),
                    "item": (job, path, width_cm, move_to_done)}
+        source_key = _source_key(path)
         with self.lock:
-            if path in self.queued_sources:
-                return self.source_jobs[path]
+            if source_key in self.queued_sources:
+                return self.source_jobs[source_key]
             if self.q.qsize() >= MAX_PENDING_JOBS:
                 raise RuntimeError("Fila cheia: aguarde um trabalho terminar antes de enviar mais artes.")
-            self.queued_sources.add(path)
-            self.source_jobs[path] = job
+            self.queued_sources.add(source_key)
+            self.source_jobs[source_key] = job
             self.job_controls[job["id"]] = control
             self.jobs.append(job); self.jobs[:] = self.jobs[-50:]
             self.q.put(control["item"])
         return job
 
     def _release_source(self, path):
+        source_key = _source_key(path)
         with self.lock:
-            self.queued_sources.discard(path)
-            job = self.source_jobs.pop(path, None)
+            self.queued_sources.discard(source_key)
+            job = self.source_jobs.pop(source_key, None)
             if job:
                 self.job_controls.pop(job.get("id"), None)
 
@@ -700,7 +712,7 @@ class App:
                 current_processing = os.path.join(settings.hot_folder, ".autorip_processing")
                 os.makedirs(current_processing, exist_ok=True)
                 with self.lock:
-                    pending_archives = set(self.archive_pending)
+                    pending_archives = {_source_key(path) for path in self.archive_pending}
                     queued_sources = set(self.queued_sources)
                 for hot_folder, processing_folder in processing_folders:
                     if not os.path.isdir(processing_folder):
@@ -708,7 +720,8 @@ class App:
                     for n in sorted(os.listdir(processing_folder)):
                         p = os.path.join(processing_folder, n)
                         if (not n.lower().endswith(EXTS) or os.path.islink(p) or not os.path.isfile(p)
-                                or p in queued_sources or p in pending_archives or not _stable(p, wait=0.5)):
+                                or _source_key(p) in queued_sources or _source_key(p) in pending_archives
+                                or not _stable(p, wait=0.5)):
                             continue
                         has_marker = os.path.lexists(p + ".autorip.json")
                         if not auto and not has_marker:
@@ -742,7 +755,8 @@ class App:
                                 continue
                             path = os.path.join(root, name)
                             with self.lock:
-                                if path in self.queued_sources or path in self.archive_pending:
+                                if (_source_key(path) in self.queued_sources
+                                        or _source_key(path) in {_source_key(p) for p in self.archive_pending}):
                                     continue
                             if os.path.islink(path) or not os.path.isfile(path) or not _stable(path, wait=0.5):
                                 continue

@@ -82,7 +82,17 @@ paralelo: antes de submeter/consumir tiras e após atualizar o progresso.
 Os testes cobrem pausa e cancelamento depois de uma tira e na última atualização,
 verificando que nenhum PRT parcial é publicado e que o temporário é removido.
 
-Validação local após a integração: **272 testes aprovados em 42,27 s**,
+A validação automática no Windows encontrou também uma disputa entre a fila
+e a recuperação da hot-folder: os caminhos do histórico estavam normalizados
+para maiúsculas/minúsculas, mas as chaves da fila não. O observador podia tratar
+um trabalho ativo como abandonado. As chaves de entrada/liberação agora usam
+o mesmo caminho canônico e `normcase`, e a recuperação consulta a fila viva
+antes de ler o journal, mesmo se o snapshot anterior estiver desatualizado.
+Um teste sem threads força o caso com caminhos equivalentes e, no Windows,
+casing diferente, verificando deduplicação, bloqueio da recuperação e liberação.
+Essa correção não altera os três módulos do motor medidos na campanha.
+
+Validação local após a integração e correção da fila: **273 testes aprovados em 41,28 s**,
 auditoria dos 15 PRTs e smoke do launcher v0.8.14 com login, upload, saída
 720 × 2400 dpi e encerramento. O build Windows também executa o smoke contra
 o executável empacotado, conforme o workflow existente.
