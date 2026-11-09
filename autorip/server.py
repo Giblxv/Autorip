@@ -7,6 +7,7 @@ from . import __version__
 from .config import Settings
 from .engine import Rip, MAX_INPUT_PIXELS
 from .prt import read_header
+from .prints import PrintCatalog
 from .watcher import EXTS, _signature, _stable
 from .paths import (ProcessLock, safe_filename, move_unique, next_available_path,
                     read_archive_marker, remove_archive_marker, write_archive_marker,
@@ -78,6 +79,7 @@ class App:
         self.lock = threading.RLock()
         self.settings_lock = threading.RLock()
         self.print_lock = threading.Lock()
+        self.print_catalog = PrintCatalog()
         self.upload_lock = threading.Lock()
         self.login_attempts = {}
         self.archive_pending = {}
@@ -711,28 +713,13 @@ class App:
 
     # ---- fila de impressao (arquivos .PRT prontos, aguardando o PrintExp) ----
     def list_prints(self):
-        from .prt import read_header
-        out = []
         with self.settings_lock:
             settings = self.s
-        folder = settings.output_folder
-        for n in os.listdir(folder) if os.path.isdir(folder) else []:
-            if not n.lower().endswith(".prt"): continue
-            f = os.path.join(folder, n)
-            try:
-                if os.path.islink(f): continue
-                st = os.stat(f); h = read_header(f)
-                w = h["n_dots"] / h["dpi_x"] * 2.54
-                rows = h["n_rows"] - int((settings.margin_top_in + settings.margin_bottom_in) * h["dpi_y"])
-                metadata = self._read_output_metadata(f)
-                width_cm, height_cm = metadata if metadata else (w, max(rows, 0) / h["dpi_y"] * 2.54)
-                out.append(dict(name=n, mb=round(st.st_size / 1048576, 1), mtime=int(st.st_mtime),
-                                width_cm=round(width_cm, 2), height_cm=round(height_cm, 2),
-                                thumb="/api/thumb?" + urlencode({"name": os.path.splitext(n)[0]})))
-            except Exception:
-                continue
-        out.sort(key=lambda x: x["mtime"])                       # mais antigo primeiro (FIFO)
-        return out
+            folder = settings.output_folder
+            margins = (settings.margin_top_in, settings.margin_bottom_in)
+        return self.print_catalog.list_prints(
+            folder, margins, os.path.join(self.home, "thumbs", "by_name"),
+            self._read_output_metadata)
 
     def _print_file(self, name):
         name = safe_filename(name)

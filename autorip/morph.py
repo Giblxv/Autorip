@@ -41,7 +41,8 @@ def erode(mask, mm, dpi_x, dpi_y):
 def close_holes(mask, mm, dpi_x, dpi_y):
     """Dilata e erode com disco físico, preservando objetos junto às bordas."""
     mask, radius, _ = _parameters(mask, mm, dpi_x, dpi_y)
-    if not radius or not mask.any():
+    # Fechar uma máscara totalmente preenchida com exterior vazio a preserva.
+    if not radius or not mask.any() or mask.all():
         return mask
     ry = math.ceil(radius * dpi_y) + 1
     rx = math.ceil(radius * dpi_x) + 1

@@ -66,7 +66,7 @@ def test_miniatura_url_encodeia_caracteres_especiais_do_nome(app):
     with open(path + ".meta.json", "w", encoding="utf-8") as target:
         target.write('{"width_cm":' + "9" * 1000 + ',"height_cm":2}')
     item = next(entry for entry in app.list_prints() if entry["name"] == name)
-    assert item["thumb"] == "/api/thumb?name=arte%23%25%26%3D"
+    assert item["thumb"] == "/api/thumb?name=arte%23%25%26%3D&v=missing"
 
 
 @pytest.mark.parametrize("orientation", [1, 6, 8])

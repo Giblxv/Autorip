@@ -114,7 +114,8 @@ class PrtWriter:
         out = np.empty((rows, self.n_channels, self.pb), dtype=np.uint8)
         for index, plane in enumerate(arrays):
             out[:, index, :] = pack2(plane, self.pb)
-        self.f.write(out.tobytes())
+        # BufferedWriter aceita o buffer contíguo diretamente; não duplique o bloco.
+        self.f.write(memoryview(out))
         self.written += rows
 
     def close(self):

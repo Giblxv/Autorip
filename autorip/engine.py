@@ -79,30 +79,33 @@ class Rip:
             c = rgb.convert("CMYK")
         a = np.asarray(c, dtype=np.float32) / 255.0          # (h,w,4) 1 = tinta cheia
         lim = [self.s.ink_limit.get(k, 100) / 100.0 for k in "CMYK"]
-        return np.clip(a * np.array(lim, dtype=np.float32), 0, 1)
+        a *= np.asarray(lim, dtype=np.float32)
+        return np.clip(a, 0, 1, out=a)
 
-    def _halftone(self, v: np.ndarray, y0: int) -> np.ndarray:
+    def _thresholds(self, height, width, y0):
+        ny, nx = self.noise.shape
+        return self.noise[np.ix_((np.arange(height) + y0) % ny, np.arange(width) % nx)]
+
+    def _halftone(self, v: np.ndarray, y0: int, thresholds=None) -> np.ndarray:
         """v = volume de tinta (0..1, 1 = tudo gota grande) -> niveis {0,1,3}.
         Modelo medido nos .PRT reais (nivel 2 nunca usado): a gota pequena tem r~0,40 do volume da grande.
         v<=r : so gotas pequenas, cobertura v/r.  v>r : cobertura 100%, grandes na fracao (v-r)/(1-r).
         Conferido: branco 50% -> 16,7% de gotas grandes (real: 16,5%); 100% -> tudo nivel 3."""
         r = self.s.small_drop_ratio
-        h, w = v.shape
-        ny, nx = self.noise.shape
-        t = self.noise[np.ix_((np.arange(h) + y0) % ny, np.arange(w) % nx)]
+        t = self._thresholds(*v.shape, y0) if thresholds is None else thresholds
         small = (v / r) > t
         large = ((v - r) / (1.0 - r)) > t
-        return np.where(large, 3, np.where(small, 1, 0)).astype(np.uint8)
+        # Escala uint8 evita dois buffers int64 da seleção aninhada.
+        return np.where(large, np.uint8(3), small.astype(np.uint8))
 
     # ---------- branco ----------
-    def _white_levels(self, alpha: np.ndarray, y0: int = 0) -> np.ndarray:
+    def _white_levels(self, alpha: np.ndarray, y0: int = 0, thresholds=None) -> np.ndarray:
         s = self.s
         a = alpha
         if s.white_density == 0 or not a.any():
             return np.zeros(a.shape, dtype=np.uint8)
         # fecha furos de meio-tom / areas claras: cobertura = alpha >= limiar
         original_mask = a >= s.white_alpha_threshold
-        mask = original_mask
         mask = morph.close_holes(original_mask, s.white_fill_holes_mm, s.dpi_x, s.dpi_y)
         mask = morph.erode(mask, s.white_choke_mm, s.dpi_x, s.dpi_y)
         # niveis: borda (alpha parcial) = 1, miolo = 3
@@ -112,7 +115,7 @@ class Rip:
         # sem esta atribuicao, a mascara fechava, mas a densidade continuava zero.
         dens[mask & ~original_mask] = s.white_density
         dens = np.where(mask, dens, 0.0)
-        return self._halftone(dens, y0)
+        return self._halftone(dens, y0, thresholds)
 
     # ---------- etiqueta ----------
     def _make_labels(self, name, w_cm, h_cm, n_dots, top, art_rows, bot):
@@ -235,14 +238,20 @@ class Rip:
             arr = np.asarray(strip)
             alpha = arr[..., 3].astype(np.float32) / 255.0
             rgb = Image.fromarray(arr[..., :3], "RGB")
-            cmyk = self._to_cmyk(rgb) * alpha[..., None]          # tinta so onde ha arte
+            cmyk = self._to_cmyk(rgb)
+            cmyk *= alpha[..., None]  # tinta somente onde há arte, sem duplicar CMYK
             o = r0 - a0
+            thresholds = self._thresholds(h, n_dots, a0)
+            color_thresholds = thresholds[o:o + (r1 - r0)]
             idx = {"C": 0, "M": 1, "Y": 2, "K": 3}            # ordem do array CMYK do Pillow
             for pl, name in enumerate(s.channel_order):          # plano -> tinta
-                planes[pl][o:o + (r1 - r0)] = self._halftone(cmyk[..., idx[name]], r0)
+                planes[pl][o:o + (r1 - r0)] = self._halftone(cmyk[..., idx[name]], r0, color_thresholds)
+            # EDT usa buffers grandes: libere a cor e sua tela antes da morfologia.
+            del color_thresholds, thresholds, cmyk, rgb, arr, strip
             if s.white_enabled:
                 full_alpha = np.zeros((h, n_dots), np.float32)
                 full_alpha[o:o + (r1 - r0)] = alpha
+                del alpha
                 lvl = self._white_levels(full_alpha, a0)
                 for pidx in s.white_planes:
                     planes[pidx] = lvl

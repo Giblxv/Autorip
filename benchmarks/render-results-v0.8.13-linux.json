@@ -1,0 +1,46 @@
+{
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "numpy": "2.5.4",
+  "repeat": 7,
+  "dpi": [
+    720,
+    2400
+  ],
+  "results": {
+    "halftone_512x1700": {
+      "baseline_seconds": 0.01099,
+      "new_seconds": 0.007913,
+      "speedup": 1.39,
+      "reduction_percent": 28.0
+    },
+    "white_640x1700": {
+      "baseline_seconds": 0.143316,
+      "new_seconds": 0.136608,
+      "speedup": 1.05,
+      "reduction_percent": 4.7
+    },
+    "white_full_640x1700": {
+      "baseline_seconds": 0.153399,
+      "new_seconds": 0.051782,
+      "speedup": 2.96,
+      "reduction_percent": 66.2
+    },
+    "rip_5x3.75cm": {
+      "baseline_seconds": 1.552554,
+      "new_seconds": 1.457828,
+      "speedup": 1.06,
+      "reduction_percent": 6.1
+    }
+  },
+  "halftone_peak_mib": {
+    "baseline": 21.58,
+    "new": 14.11
+  },
+  "render_peak_mib": {
+    "baseline": 56.72,
+    "new": 40.12
+  },
+  "unchanged_with_white": true,
+  "unchanged_without_white": true
+}
