@@ -1,5 +1,8 @@
 # Estabilidade em lote: menos espera, mesmos PRTs
 
+Continuação: [controles e capacidade para lotes longos](JOB-QUEUE.md).
+Os tempos abaixo permanecem como registro desta medição do fluxo em lote.
+
 Base: `104725c`, posterior às [duas campanhas do motor](RIP-WIDE-CAMPAIGN.md).
 Esta etapa mede o fluxo de arquivos em lote separadamente das 41 rodadas
 anteriores. Não altera `engine.py`, `prt.py` ou `morph.py`, nem acrescenta novas

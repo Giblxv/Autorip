@@ -45,6 +45,7 @@ main{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;padding:24px 28px;max
 #drop input[type=file]{display:none}.row{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;font-size:18px}
 input[type=text],input[type=number],input[type=password]{font-family:monospace;font-size:15px;padding:7px 10px;border:3px solid var(--k);border-radius:10px;width:100%}
 /* ---- fila com gotas correndo ---- */
+#jobs{max-height:min(65vh,680px);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:6px}#jobs:focus-visible{outline:3px solid var(--v);outline-offset:3px}
 .job{margin:10px 0;font-size:18px;overflow:hidden;padding:8px;border:2px solid transparent;border-radius:14px;transition:.15s}.job:hover,.job.selected{border-color:var(--v);background:rgba(124,77,255,.08)}.job-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:7px}.job-actions button{font-size:13px;padding:4px 9px;border-width:2px;box-shadow:3px 3px 0 var(--k)}.job-actions .danger{background:var(--m);color:#fff}.hot-file{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:2px dashed #d9c9f4}.hot-file:last-child{border-bottom:0}.hot-file .hot-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:15px monospace}.hot-file small{color:#6c5a8d;white-space:nowrap}.hot-file button{font-size:13px;padding:4px 8px;border-width:2px;box-shadow:3px 3px 0 var(--k)}.hot-empty{font-size:14px;color:#6c5a8d;padding:10px 0}
 .bar{height:34px;border:4px solid var(--k);border-radius:20px;background:#eee;position:relative;overflow:hidden;margin-top:4px}
 .fill{height:100%;background:linear-gradient(90deg,var(--c) 0 25%,var(--m) 25% 50%,var(--y) 50% 75%,var(--k) 75%);background-size:60px 100%;transition:width .4s;animation:stripes 1s linear infinite}
@@ -95,7 +96,7 @@ button:disabled{opacity:.6;cursor:wait}
 .grid input{max-width:100%;min-width:0}
 @media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:560px){.grid{grid-template-columns:minmax(0,1fr)}dialog{padding:18px 14px}.card{padding:16px}.row{flex-wrap:wrap}#connection{padding:10px 14px}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){#intro{display:none}*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 /* ---- tema psicodélico: somente apresentação; filas, PRT, ICC e controles permanecem iguais ---- */
 :root{--c:#5cf2ff;--m:#ff4fd8;--y:#faff6b;--k:#160d2e;--paper:#fff8ff;--v:#7c4dff;--l:#b7ff5a;--o:#ff8a4d}
 html{background:#100723}
@@ -160,7 +161,6 @@ button,.btn{animation:none}
 .job.selected{outline:3px solid rgba(124,77,255,.5);outline-offset:3px;animation:psySelected 1.8s ease-in-out infinite}
 #fim.go{animation:iris 2.4s ease-in-out,psyFinish 2.4s ease-in-out}
 body.tab-hidden *{animation-play-state:paused!important}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
 @media (max-width:900px){body::before{width:260px;height:260px;left:-150px}body::after{width:300px;height:300px;right:-170px}.card::before{animation-duration:12s}}
 @media (hover:none){button:hover{animation:none!important;filter:none!important}}
 </style></head><body>
@@ -187,7 +187,7 @@ body.tab-hidden *{animation-play-state:paused!important}
    <div style="font-size:15px;margin-bottom:6px">Arquivos <b>.PRT</b> prontos, esperando o PrintExp. O mais antigo vai primeiro.</div><div id="pq"><div class="empty">Nada esperando impressão 🎉</div></div></div>
  </section>
  <section>
-  <div class="card h-m"><h2><i>Fila de RIP</i></h2><div style="font-size:14px;margin:-6px 0 10px;color:#5d477f">Selecione um trabalho para pausar, retomar ou cancelar com segurança.</div><div id="jobs"><em>Nenhum trabalho ainda…</em></div></div>
+  <div class="card h-m"><div class="hd"><h2><i>Fila de RIP</i></h2><span class="cnt" id="ripCount" title="Trabalhos pendentes, incluindo pausados">0</span></div><div style="font-size:14px;margin:-6px 0 10px;color:#5d477f">Selecione um trabalho para pausar, retomar ou cancelar com segurança.</div><div id="jobs" role="region" aria-label="Trabalhos da fila de RIP" tabindex="0"><em>Nenhum trabalho ainda…</em></div></div>
   <div class="card h-c" style="margin-top:24px"><h2><i>Agente de IA</i></h2><div style="font-size:16px">Pesquisa na internet como aprimorar o RIP. <b>Só sugere</b>, não muda nada sozinho.</div>
    <div class="row" style="justify-content:flex-start"><button class="c" onclick="askAgent()">🔎 Pesquisar melhorias</button></div><div id="agentOut" style="white-space:pre-wrap;font:14px/1.5 sans-serif;margin-top:10px"></div></div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Registro</i></h2><button class="sm" onclick="copyLog()">📋 Copiar</button></div><div class="logbox" id="log"></div></div>
@@ -238,14 +238,21 @@ async function privateThumbnail(img,path){
 async function poll(){if(polling)return;polling=true;try{const session=token;const {ok,d}=await api("/api/state");if(token!==session)return;if(!ok)throw new Error("estado indisponível");connection(true);$("sw").disabled=false;hasPass=d.has_pass;setBrand(d.brand,d.has_logo);$("ver").textContent="v"+d.version;
  if(d.locked){token="";jobsKey=printsKey="";thumbnailCache.clear();$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";$("sw").setAttribute("aria-checked","false");$("off").style.display="none";$("pin").textContent="Acesso restrito";$("pout").textContent="Acesso restrito";$("picc").textContent="Entre para consultar";
  $("sw").classList.remove("on");$("autoTxt").textContent="Entre para consultar o estado";
- $("jobs").textContent="Faça login para ver seus trabalhos";renderLog([]);return}
+ $("jobs").textContent="Faça login para ver seus trabalhos";$("ripCount").textContent="—";renderLog([]);return}
  {const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending>0?" · "+d.pending+" aviso(s) na fila":d.pending<0?" · aviso local indisponível":"")}$("ver").textContent="v"+d.version;
  $("pin").textContent=d.hot_folder;$("pout").textContent=d.output_folder;$("picc").textContent=d.icc;
  $("sw").setAttribute("aria-checked",String(Boolean(d.auto)));$("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";
+ $("ripCount").textContent=d.queue_limit?`${d.queue_used} / ${d.queue_limit}`:String(d.jobs.filter(j=>["fila","processando","pausando","pausado","cancelando"].includes(j.status)).length);
  const key=JSON.stringify(d.jobs);if(key===jobsKey){renderLog(d.log);return}jobsKey=key;
- const jobs=$("jobs");jobs.replaceChildren();
- if(!d.jobs.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";jobs.appendChild(empty)}
-	 d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
+ renderJobs(d.jobs);first=false;renderLog(d.log);}catch(e){connection(false)}finally{polling=false}}
+function renderJobs(items){
+ const jobs=$("jobs"),scroll=jobs.scrollTop,selected=jobs.querySelector(".job.selected")?.dataset.jobId;
+ const focused=jobs.contains(document.activeElement)?document.activeElement.closest(".job-actions button"):null;
+ const focusedJob=focused?.closest(".job")?.dataset.jobId,focusedAction=focused?.dataset.action;
+ const fragment=document.createDocumentFragment();let focusTarget=null,focusFallback=null;
+ const ids=new Set(items.map(j=>j.id));lastDone=new Set([...lastDone].filter(id=>ids.has(id)));
+ if(!items.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";fragment.appendChild(empty)}
+ items.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;if(j.id===selected)e.classList.add("selected");e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
   if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
   const name=document.createElement("span");name.textContent=String(j.name||"");e.appendChild(name);
   const status=document.createElement("span");status.className="st "+(["fila","processando","pronto","erro"].includes(j.status)?j.status:"");status.textContent=String(j.status||"");e.appendChild(status);
@@ -253,12 +260,14 @@ async function poll(){if(polling)return;polling=true;try{const session=token;con
   const drop=document.createElement("div");drop.className="drop";drop.style.left=`calc(${p}% - 14px)`;drop.textContent=["💧","🎨","💧","🖨️"][p%4];bar.appendChild(drop);e.appendChild(bar);
   if(j.error){const error=document.createElement("small");error.style.color="var(--m)";error.textContent=String(j.error);e.appendChild(error)}
   if(["fila","processando","pausando","pausado","cancelando"].includes(j.status)){const actions=document.createElement("div");actions.className="job-actions";
-   if(j.status==="pausado"){const resume=document.createElement("button");resume.className="c";resume.textContent="▶ Retomar";resume.onclick=()=>controlJob(j.id,"resume");actions.appendChild(resume)}
-   else if(["fila","processando"].includes(j.status)){const pause=document.createElement("button");pause.className="y";pause.textContent="Ⅱ Pausar";pause.onclick=()=>controlJob(j.id,"pause");actions.appendChild(pause)}
-   if(!["cancelando","pausando"].includes(j.status)){const cancel=document.createElement("button");cancel.className="danger";cancel.textContent="✕ Cancelar";cancel.onclick=()=>controlJob(j.id,"cancel");actions.appendChild(cancel)}
+   const addAction=(action,text,style)=>{const b=document.createElement("button");b.className=style;b.textContent=text;b.dataset.action=action;b.setAttribute("aria-label",({pause:"Pausar",resume:"Retomar",cancel:"Cancelar"})[action]+" "+j.name);b.onclick=()=>controlJob(j.id,action);actions.appendChild(b);if(j.id===focusedJob){if(!focusFallback)focusFallback=b;if(action===focusedAction)focusTarget=b}};
+   if(j.status==="pausado")addAction("resume","▶ Retomar","c");
+   else if(["fila","processando"].includes(j.status))addAction("pause","Ⅱ Pausar","y");
+   if(!["cancelando","pausando"].includes(j.status))addAction("cancel","✕ Cancelar","danger");
    e.appendChild(actions)}
-  jobs.appendChild(e);if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
- first=false;renderLog(d.log);}catch(e){connection(false)}finally{polling=false}}
+  fragment.appendChild(e);if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
+ jobs.replaceChildren(fragment);jobs.scrollTop=scroll;if(focusedJob)(focusTarget||focusFallback||jobs).focus({preventScroll:true});
+}
 let lastLog="";
 function tagOf(m){const r=[[/^OK/,"ok","PRONTO"],[/^ERRO|falhou/i,"erro","ERRO"],[/^RIP/,"rip","RIP"],[/^Impresso/,"","IMPRESSO"],[/^Integra|^Trello|^Fila offline|^Agente/,"rede","REDE"],[/^Modo auto/,"rip","AUTO"],[/^Configura/,"","CONFIG"],[/^Removido/,"erro","FILA"]];
  for(const [re,c,t] of r)if(re.test(m))return[c,t,m.replace(/^(OK|RIP|ERRO):?\s*/,"")];return["","INFO",m]}

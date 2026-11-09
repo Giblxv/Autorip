@@ -23,6 +23,8 @@ MIN_FREE_DISK_BYTES = 128 * 1024 * 1024
 MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_JSON_BYTES = 2 * 1024 * 1024
 MAX_PENDING_JOBS = 100
+MAX_JOB_HISTORY = 50
+MAX_STATE_HISTORY = 12
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128
 SECRET_FIELDS = ("trello_key", "trello_token", "notion_token", "jira_token", "anthropic_key")
@@ -481,23 +483,42 @@ class App:
             width = float(width_value)
         return self.enqueue(claimed, width, move_to_done=True)
 
+    def _retained_jobs(self, history_limit):
+        """Com self.lock adquirido: mantém ativos e os últimos N finalizados."""
+        kept = []
+        finished = 0
+        for job in reversed(self.jobs):
+            if job.get("id") not in self.job_controls:
+                if finished >= history_limit:
+                    continue
+                finished += 1
+            kept.append(job)
+        return kept[::-1]
+
+    def _schedule_job(self, control):
+        """Com self.lock adquirido: no máximo uma referência pendente por job."""
+        if not control["queued"]:
+            control["queued"] = True
+            self.q.put(control["item"])
+
     def enqueue(self, path, width_cm=None, move_to_done=True):
         if width_cm is not None and (isinstance(width_cm, bool) or not isinstance(width_cm, (int, float)) or not math.isfinite(width_cm) or width_cm <= 0 or width_cm > 300):
             raise ValueError("A largura precisa estar entre 0 e 300 cm.")
         job = dict(id=secrets.token_hex(8), name=safe_filename(os.path.basename(path)), status="fila", progress=0.0, out="", error="")
-        control = {"pause": threading.Event(), "cancel": threading.Event(),
+        control = {"pause": threading.Event(), "cancel": threading.Event(), "queued": False,
                    "item": (job, path, width_cm, move_to_done)}
         source_key = _source_key(path)
         with self.lock:
             if source_key in self.queued_sources:
                 return self.source_jobs[source_key]
-            if self.q.qsize() >= MAX_PENDING_JOBS:
+            if len(self.queued_sources) >= MAX_PENDING_JOBS:
                 raise RuntimeError("Fila cheia: aguarde um trabalho terminar antes de enviar mais artes.")
             self.queued_sources.add(source_key)
             self.source_jobs[source_key] = job
             self.job_controls[job["id"]] = control
-            self.jobs.append(job); self.jobs[:] = self.jobs[-50:]
-            self.q.put(control["item"])
+            self.jobs.append(job)
+            self.jobs[:] = self._retained_jobs(MAX_JOB_HISTORY)
+            self._schedule_job(control)
         return job
 
     def _release_source(self, path):
@@ -507,6 +528,12 @@ class App:
             job = self.source_jobs.pop(source_key, None)
             if job:
                 self.job_controls.pop(job.get("id"), None)
+                # Uma arte pausada antiga pode terminar depois das mais novas.
+                # O histórico deve refletir a conclusão, não apenas o enqueue.
+                if job in self.jobs:
+                    self.jobs.remove(job)
+                    self.jobs.append(job)
+            self.jobs[:] = self._retained_jobs(MAX_JOB_HISTORY)
 
     def control_job(self, job_id, action):
         if action not in ("pause", "resume", "cancel"):
@@ -516,6 +543,10 @@ class App:
             control = self.job_controls.get(job_id)
             if job is None or control is None:
                 raise ValueError("Trabalho nao encontrado ou ja finalizado.")
+            if control["cancel"].is_set():
+                if action == "cancel":
+                    return dict(job)
+                raise ValueError("O cancelamento deste trabalho ja foi solicitado.")
             status = job.get("status")
             if action == "pause":
                 if status not in ("fila", "processando"):
@@ -529,13 +560,16 @@ class App:
                     raise ValueError("Somente trabalhos pausados podem ser retomados.")
                 control["pause"].clear()
                 job["status"] = "fila"
-                self.q.put(control["item"])
+                self._schedule_job(control)
                 self.log(f"Fila: retomando {job['name']} desde o inicio seguro")
                 return dict(job)
             if status in ("pronto", "erro", "cancelado"):
                 raise ValueError("O trabalho ja terminou.")
             control["cancel"].set()
             job["status"] = "cancelando"
+            # Pausados podem já ter saído de q. Acorde o worker para arquivar
+            # a entrada e liberar a capacidade, sem I/O no handler HTTP.
+            self._schedule_job(control)
             self.log(f"Fila: cancelamento solicitado para {job['name']}")
             return dict(job)
 
@@ -552,21 +586,29 @@ class App:
     def _worker(self):
         while True:
             job, path, width_cm, move = self.q.get()
+            with self.lock:
+                control = self.job_controls.get(job["id"])
+                if control is None or not control["queued"]:
+                    continue
+                control["queued"] = False
+                if control["cancel"].is_set():
+                    action = "cancel"
+                elif control["pause"].is_set():
+                    action = "pause"
+                    job["status"] = "pausado"
+                else:
+                    action = "run"
+                    job["status"] = "processando"
             with self.settings_lock:
                 settings, rip = self.s, self.rip
                 self._active_output_key = self._output_lock_key(settings.output_folder)
-            control = self.job_controls.get(job["id"])
-            if control and control["cancel"].is_set():
+            if action == "cancel":
                 self._cancel_job(job, path, move, settings, "Cancelado antes do processamento.")
                 continue
-            if control and control["pause"].is_set():
-                with self.lock:
-                    job["status"] = "pausado"
+            if action == "pause":
                 self.log(f"PAUSADO {job['name']}")
                 self._finish_output_use()
                 continue
-            with self.lock:
-                job["status"] = "processando"
             self.log(f"RIP: {job['name']}")
             out = None
             # A entrada pode desaparecer depois de entrar na fila; essa falha nao
@@ -607,9 +649,14 @@ class App:
             except JobPaused:
                 remove_archive_marker(path)
                 with self.lock:
-                    job["status"] = "pausado"
-                    job["error"] = "Pausado com segurança; retoma desde o início do RIP."
-                self.log(f"PAUSADO {job['name']}")
+                    cancelling = control["cancel"].is_set()
+                    if cancelling:
+                        job["status"] = "cancelando"
+                    else:
+                        job["status"] = "pausado"
+                        job["error"] = "Pausado com segurança; retoma desde o início do RIP."
+                if not cancelling:
+                    self.log(f"PAUSADO {job['name']}")
                 self._finish_output_use()
                 continue
             except JobCancelled:
@@ -1182,7 +1229,8 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, dict(version=__version__, has_pass=APP.has_pass(),
                                             brand="AutoRIP", has_logo=False, locked=True))
             with APP.lock:
-                jobs = [dict(job) for job in APP.jobs[-12:]]
+                jobs = [dict(job) for job in APP._retained_jobs(MAX_STATE_HISTORY)]
+                queue_used = len(APP.queued_sources)
                 logs = list(APP.log_lines[-60:])
             with APP.settings_lock:
                 auto = APP.auto
@@ -1206,7 +1254,8 @@ class H(BaseHTTPRequestHandler):
                 pending = -1
             return self._send(200, dict(version=__version__, auto=auto, has_pass=APP.has_pass(),
                                         jobs=jobs, log=logs, hot_folder=hot_folder, output_folder=output_folder,
-                                        icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo))
+                                        icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo,
+                                        queue_used=queue_used, queue_limit=MAX_PENDING_JOBS))
         if u.path == "/api/prints":
             return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/hot-files":
