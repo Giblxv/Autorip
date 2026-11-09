@@ -1,0 +1,18 @@
+{
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "numpy": "2.3.5",
+  "scipy": "1.17.0",
+  "pillow": "13.0.0",
+  "cpu_count": 5,
+  "cpu_max": "400000 100000",
+  "source_commit": "a9e4406542925bf3583c7223cf2d660169080699",
+  "engine_sha256": "54e117b3b8ab10a58fab4831396a1fa41464173d8374c7b1d1ec0d7fa8052d71",
+  "local_pytest": {
+    "passed": 456,
+    "seconds": 52.54
+  },
+  "launcher_smoke": "0.8.14 passed: login, upload, PRT, shutdown",
+  "extra_campaign_rounds": 15,
+  "extra_campaign_accepted": 0
+}

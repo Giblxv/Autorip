@@ -102,10 +102,18 @@ def main():
     commit = subprocess.check_output(['git','rev-parse',args.baseline_ref],cwd=ROOT,text=True).strip()
     baseline_text = subprocess.check_output(['git','show',commit+':autorip/engine.py'],cwd=ROOT,text=True)
     candidate = ROOT / 'autorip/engine.py'
+    shared = {}
+    for name in ('morph', 'prt'):
+        path = ROOT / 'autorip' / (name + '.py')
+        reference = subprocess.check_output(['git','show',commit+':autorip/'+name+'.py'],cwd=ROOT,text=True)
+        if path.read_text() != reference:
+            parser.error('Este benchmark de preparação exige morph.py/prt.py idênticos à base')
+        shared[name] = hashlib.sha256(reference.encode()).hexdigest()
     report = dict(baseline_ref=commit,python=platform.python_version(),platform=platform.platform(),
                   pillow=Image.__version__,numpy=np.__version__,repeat=args.repeat,cpu_count=os.cpu_count(),
                   source_sha256=dict(baseline=hashlib.sha256(baseline_text.encode()).hexdigest(),
                                      candidate=hashlib.sha256(candidate.read_bytes()).hexdigest()),
+                  shared_modules_sha256=shared,
                   icc_sha256=hashlib.sha256(args.icc.read_bytes()).hexdigest() if args.icc else None,
                   rss_metric='VmHWM in fresh Linux workers; ru_maxrss on other Unix; unavailable on Windows',
                   scenarios={})

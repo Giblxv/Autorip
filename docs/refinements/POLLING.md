@@ -92,3 +92,5 @@ O modo de base registra reprovações esperadas no JSON e encerra normalmente;
 o modo atual retorna erro se alguma prova falhar. Os seletores opcionais de
 Python, Chromium e Playwright seguem os outros smokes de UI. Não há nova
 dependência de produção ou migração de configurações.
+
+Continuação: [RIP com preparação reutilizada, menos memória e nova campanha de 15 rodadas](SOURCE-PREPARATION.md).

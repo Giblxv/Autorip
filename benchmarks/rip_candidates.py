@@ -76,6 +76,8 @@ def full_halftone(b):
 
 
 def source_copy(b):
+    if 'else opened' in b['engine']:
+        return None  # A preparação já evita a cópia sem orientação.
     return change(b,'engine','''            source = ImageOps.exif_transpose(opened)''','''            source = (ImageOps.exif_transpose(opened)
                       if orientation in (2, 3, 4, 5, 6, 7, 8) else opened)''')
 
