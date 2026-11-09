@@ -45,7 +45,8 @@ main{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;padding:24px 28px;max
 #drop input[type=file]{display:none}.row{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;font-size:18px}
 input[type=text],input[type=number],input[type=password]{font-family:monospace;font-size:15px;padding:7px 10px;border:3px solid var(--k);border-radius:10px;width:100%}
 /* ---- fila com gotas correndo ---- */
-.job{margin:10px 0;font-size:18px;overflow:hidden}.bar{height:34px;border:4px solid var(--k);border-radius:20px;background:#eee;position:relative;overflow:hidden;margin-top:4px}
+.job{margin:10px 0;font-size:18px;overflow:hidden;padding:8px;border:2px solid transparent;border-radius:14px;transition:.15s}.job:hover,.job.selected{border-color:var(--v);background:rgba(124,77,255,.08)}.job-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:7px}.job-actions button{font-size:13px;padding:4px 9px;border-width:2px;box-shadow:3px 3px 0 var(--k)}.job-actions .danger{background:var(--m);color:#fff}.hot-file{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:2px dashed #d9c9f4}.hot-file:last-child{border-bottom:0}.hot-file .hot-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:15px monospace}.hot-file small{color:#6c5a8d;white-space:nowrap}.hot-file button{font-size:13px;padding:4px 8px;border-width:2px;box-shadow:3px 3px 0 var(--k)}.hot-empty{font-size:14px;color:#6c5a8d;padding:10px 0}
+.bar{height:34px;border:4px solid var(--k);border-radius:20px;background:#eee;position:relative;overflow:hidden;margin-top:4px}
 .fill{height:100%;background:linear-gradient(90deg,var(--c) 0 25%,var(--m) 25% 50%,var(--y) 50% 75%,var(--k) 75%);background-size:60px 100%;transition:width .4s;animation:stripes 1s linear infinite}
 @keyframes stripes{to{background-position:60px 0}}
 .drop{position:absolute;top:-4px;font-size:26px;transition:left .4s;animation:run .35s infinite alternate}
@@ -85,7 +86,6 @@ button:hover{animation:none;filter:brightness(.96)}
 button:focus-visible,input:focus-visible{outline:3px solid #00689d;outline-offset:4px}
 button:disabled{opacity:.6;cursor:wait}
 .logo span,.fill,.drop{animation:none}.drop{display:none}
-#intro,#fim{display:none}
 .sw{flex:none;padding:0;box-shadow:none;width:110px;border-width:5px}
 #connection{padding:10px 28px;font-size:14px;background:#e4f2eb;color:#195b3a}
 #connection.stale{background:#fff0d6;color:#704500}
@@ -96,6 +96,73 @@ button:disabled{opacity:.6;cursor:wait}
 @media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:560px){.grid{grid-template-columns:minmax(0,1fr)}dialog{padding:18px 14px}.card{padding:16px}.row{flex-wrap:wrap}#connection{padding:10px 14px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+/* ---- tema psicodélico: somente apresentação; filas, PRT, ICC e controles permanecem iguais ---- */
+:root{--c:#5cf2ff;--m:#ff4fd8;--y:#faff6b;--k:#160d2e;--paper:#fff8ff;--v:#7c4dff;--l:#b7ff5a;--o:#ff8a4d}
+html{background:#100723}
+body{position:relative;isolation:isolate;overflow-x:hidden;color:#fff;background-color:#100723;background-image:radial-gradient(circle at 12% 18%,rgba(124,77,255,.32) 0 1px,transparent 2px),radial-gradient(circle at 80% 70%,rgba(255,79,216,.28) 0 1px,transparent 2px),linear-gradient(135deg,#100723 0%,#22104b 48%,#0b1f3c 100%);background-size:37px 37px,53px 53px,100% 100%;font-family:"Trebuchet MS","Segoe UI",sans-serif;letter-spacing:.25px}
+body::before,body::after{content:"";position:fixed;z-index:-1;pointer-events:none;border-radius:50%;filter:blur(18px);mix-blend-mode:screen;opacity:.55}
+body::before{width:360px;height:360px;left:-120px;top:180px;background:radial-gradient(circle,#ff4fd8,transparent 68%);animation:psyFloat 14s ease-in-out infinite alternate}
+body::after{width:420px;height:420px;right:-160px;bottom:60px;background:radial-gradient(circle,#5cf2ff,transparent 68%);animation:psyFloat 18s ease-in-out infinite alternate-reverse}
+@keyframes psyFloat{from{transform:translate3d(0,0,0) scale(.9)}to{transform:translate3d(80px,-45px,0) scale(1.12)}}
+#intro{background:radial-gradient(circle at center,#7c4dff 0,#24104e 33%,#100723 73%)}
+#intro .ring{border-width:18px;filter:drop-shadow(0 0 14px currentColor)}
+#intro .r1{border-color:var(--c)}#intro .r2{border-color:var(--m)}#intro .r3{border-color:var(--y)}#intro .r4{border-color:var(--l)}
+#intro h1{font-family:"Trebuchet MS",sans-serif;font-weight:900;letter-spacing:-.08em;text-shadow:7px 7px 0 var(--m),-4px -4px 0 var(--c)}
+header{position:relative;z-index:2;background:rgba(15,8,32,.92);border-bottom:8px solid transparent;border-image:linear-gradient(90deg,var(--c),var(--v) 25%,var(--m) 50%,var(--y) 75%,var(--l)) 1;box-shadow:0 8px 30px rgba(0,0,0,.3);backdrop-filter:blur(10px)}
+.logo span{animation-duration:2.4s;filter:drop-shadow(0 0 7px currentColor)}
+.logo span:nth-child(1){color:var(--c)}.logo span:nth-child(2){color:var(--m)}.logo span:nth-child(3){color:var(--y)}.logo span:nth-child(n+4){color:var(--l)}
+header small{color:#d9d1ff}
+main{position:relative;z-index:1}
+button,.btn{border:3px solid #090512;border-radius:16px;background:linear-gradient(135deg,var(--y),#fff59b);color:#170c2d;box-shadow:5px 5px 0 #090512,0 0 16px rgba(250,255,107,.28);font-family:"Trebuchet MS",sans-serif;font-weight:700}
+button:hover{animation:psyBoing .55s,psyGlow 1.1s ease-in-out infinite alternate}
+button.c{background:linear-gradient(135deg,var(--c),#b5faff);box-shadow:5px 5px 0 #090512,0 0 18px rgba(92,242,255,.35)}
+button.m{background:linear-gradient(135deg,var(--m),#ff9eea);color:#160d2e;box-shadow:5px 5px 0 #090512,0 0 18px rgba(255,79,216,.35)}
+button.k{background:linear-gradient(135deg,#28154d,#120822);color:#fff;border-color:#fff;box-shadow:5px 5px 0 var(--m),0 0 14px rgba(255,79,216,.3)}
+@keyframes psyBoing{0%,100%{transform:scale(1) rotate(0)}30%{transform:scale(1.08,.94) rotate(-1deg)}60%{transform:scale(.96,1.06) rotate(1deg)}}
+@keyframes psyGlow{from{filter:brightness(1)}to{filter:brightness(1.16)}}
+.card{position:relative;overflow:hidden;background:linear-gradient(145deg,rgba(255,248,255,.98),rgba(233,222,255,.94));border:3px solid #0b0616;border-radius:24px;box-shadow:8px 8px 0 #090512,0 0 25px rgba(124,77,255,.2);color:#1b1033}
+.card::before{content:"";position:absolute;right:-32px;top:-35px;width:120px;height:90px;border-radius:50%;background:radial-gradient(circle,var(--c),transparent 70%);opacity:.18;transform:rotate(-18deg)}
+.card h2{font-family:"Trebuchet MS",sans-serif;font-weight:900;letter-spacing:-.06em}.card h2 i{border:2px solid #170c2d;box-shadow:3px 3px 0 #170c2d;transform:rotate(-1deg);display:inline-block}
+.h-c i{background:var(--c);color:#100723}.h-m i{background:var(--m);color:#100723}.h-y i{background:var(--y);color:#100723}.h-k i{background:var(--v);color:#fff}
+.h-c{box-shadow:8px 8px 0 #0a5965,0 0 24px rgba(92,242,255,.18)}.h-m{box-shadow:8px 8px 0 #74145e,0 0 24px rgba(255,79,216,.18)}.h-y{box-shadow:8px 8px 0 #8e8f17,0 0 24px rgba(250,255,107,.16)}
+.auto{color:#241343}.sw{border-color:#160d2e;background:#dcd5ee;box-shadow:0 0 0 3px rgba(124,77,255,.2)}.sw.on{background:var(--m);box-shadow:0 0 17px rgba(255,79,216,.55)}
+.paths{color:#443862}.paths b{color:#1a0e31}
+#drop{border:4px dashed var(--c);background:linear-gradient(135deg,rgba(92,242,255,.18),rgba(255,79,216,.12));box-shadow:inset 0 0 25px rgba(92,242,255,.11);color:#241343}
+#drop.over{background:linear-gradient(135deg,var(--y),var(--c));border-color:var(--m);box-shadow:0 0 25px rgba(255,79,216,.5)}
+input[type=text],input[type=number],input[type=password]{border:2px solid #7c4dff;background:#fff;color:#1a0e32;box-shadow:inset 0 0 0 2px #ece1ff}
+.bar{border-color:#160d2e;background:#ded7ef}.fill{background:linear-gradient(90deg,var(--c),var(--v),var(--m),var(--y),var(--l),var(--c));background-size:240px 100%;box-shadow:0 0 13px rgba(92,242,255,.55)}
+.st{background:#21123e}.st.pronto{background:var(--c);color:#100723}.st.erro{background:var(--m);color:#100723}.st.processando{background:var(--y);color:#100723}
+.cnt,.pq img,.pq .ph{border-color:#160d2e;background:#fff}.logbox{border-color:#160d2e;background:#fbf7ff}.ll{border-bottom-color:#d9c9f4}.ll time{color:#7a6998}.tag.ok{background:var(--c);color:#100723}.tag.erro{background:var(--m);color:#100723}.tag.rip{background:var(--y);color:#100723}.tag.rede{background:var(--v)}
+.empty{color:#6c5a8d}.pq{border-bottom-color:#d9c9f4}.pq .nx{background:var(--y);border-color:#160d2e}
+#fim{background:radial-gradient(circle at center,var(--m),var(--v) 35%,#100723 75%)}#fim h1{text-shadow:6px 6px 0 var(--c),-3px -3px 0 var(--y)}
+dialog{z-index:4;border:4px solid var(--c);border-radius:25px;background:linear-gradient(145deg,#24104d,#120822);box-shadow:10px 10px 0 var(--m),0 0 50px rgba(92,242,255,.28);color:#fff}dialog::backdrop{background:rgba(7,2,18,.78);backdrop-filter:blur(5px)}.grid label{color:#efe8ff}.grid h3{border-bottom-color:var(--m);color:var(--y)}.msg{color:var(--m)}
+/* ---- movimento psicodélico: cor, brilho e formas orgânicas sem esconder informação ---- */
+@keyframes psyHue{0%,100%{filter:hue-rotate(0deg) saturate(1)}50%{filter:hue-rotate(22deg) saturate(1.28)}}
+@keyframes psyBlob{0%,100%{transform:translate3d(0,0,0) rotate(-18deg) scale(1)}35%{transform:translate3d(-18px,12px,0) rotate(22deg) scale(1.16)}70%{transform:translate3d(14px,-10px,0) rotate(55deg) scale(.86)}}
+@keyframes psySurface{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@keyframes psyRingSpin{from{transform:scale(.05) rotate(0deg)}to{transform:scale(1) rotate(360deg)}}
+@keyframes psyBreathe{0%,100%{box-shadow:8px 8px 0 #090512,0 0 22px rgba(124,77,255,.18)}50%{box-shadow:8px 8px 0 #090512,0 0 34px rgba(255,79,216,.28)}}
+@keyframes psyProgress{to{background-position:240px 0}}
+@keyframes psyDrop{0%{transform:translateY(0) rotate(-12deg) scale(1)}50%{transform:translateY(-8px) rotate(18deg) scale(1.2)}100%{transform:translateY(1px) rotate(35deg) scale(.9)}}
+@keyframes psySelected{0%,100%{outline-color:rgba(124,77,255,.4)}50%{outline-color:rgba(255,79,216,.9)}}
+@keyframes psyFinish{0%,100%{opacity:1}50%{opacity:.82}}
+#intro .ring{animation:psyRingSpin 1.45s cubic-bezier(.2,.8,.25,1) forwards}
+.logo span{animation:bounce 1.6s ease-in-out infinite;filter:drop-shadow(0 0 7px currentColor)}
+#intro .r2{animation-delay:.08s}#intro .r3{animation-delay:.16s}#intro .r4{animation-delay:.24s}
+.card{animation:none}
+.card::before{animation:psyBlob 9s ease-in-out infinite;will-change:transform}
+.logo{animation:psyHue 5s ease-in-out infinite}
+#drop{background-size:180% 180%;animation:psySurface 9s ease-in-out infinite}
+button,.btn{animation:none}
+.logo span,.drop,.fill{will-change:transform}
+.fill{animation:stripes 1s linear infinite,psyProgress 5s linear infinite}
+.drop{animation:psyDrop .7s ease-in-out infinite alternate}
+.job.selected{outline:3px solid rgba(124,77,255,.5);outline-offset:3px;animation:psySelected 1.8s ease-in-out infinite}
+#fim.go{animation:iris 2.4s ease-in-out,psyFinish 2.4s ease-in-out}
+body.tab-hidden *{animation-play-state:paused!important}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+@media (max-width:900px){body::before{width:260px;height:260px;left:-150px}body::after{width:300px;height:300px;right:-170px}.card::before{animation-duration:12s}}
+@media (hover:none){button:hover{animation:none!important;filter:none!important}}
 </style></head><body>
 <div id="intro"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="ring r4"></div><h1>AutoRIP!</h1></div>
 <div id="fim"><h1>É ISSO AÍ,<br>PESSOAL!</h1></div>
@@ -112,11 +179,15 @@ button:disabled{opacity:.6;cursor:wait}
    <div id="drop">🖨️ Arraste a arte aqui (PNG, TIFF ou JPEG)<br><small style="font-size:15px">Prefira PNG com transparência real para o branco automático.</small><br><br><button class="c" onclick="document.getElementById('file').click()">Escolher arquivo</button><input id="file" type="file" multiple accept=".png,.tif,.tiff,.jpg,.jpeg">
     <div class="row"><label for="wcm">Largura (cm):</label> <input id="wcm" type="number" min="0.1" max="300" step="0.1" placeholder="auto" style="width:130px"></div></div>
   </div>
+  <div class="card h-k" style="margin-top:24px"><div class="hd"><h2><i>Hot folder</i></h2><button class="sm c" onclick="pollHotFiles()">↻ Atualizar</button></div>
+   <div style="font-size:15px;margin-bottom:8px">Artes salvas na pasta de entrada. Escolha uma para iniciar o RIP manualmente.</div>
+   <div id="hotFiles"><div class="empty">Faça login para listar os arquivos.</div></div>
+  </div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Fila de impressão</i></h2><span class="cnt" id="pqn">0</span></div>
    <div style="font-size:15px;margin-bottom:6px">Arquivos <b>.PRT</b> prontos, esperando o PrintExp. O mais antigo vai primeiro.</div><div id="pq"><div class="empty">Nada esperando impressão 🎉</div></div></div>
  </section>
  <section>
-  <div class="card h-m"><h2><i>Fila de RIP</i></h2><div id="jobs"><em>Nenhum trabalho ainda…</em></div></div>
+  <div class="card h-m"><h2><i>Fila de RIP</i></h2><div style="font-size:14px;margin:-6px 0 10px;color:#5d477f">Selecione um trabalho para pausar, retomar ou cancelar com segurança.</div><div id="jobs"><em>Nenhum trabalho ainda…</em></div></div>
   <div class="card h-c" style="margin-top:24px"><h2><i>Agente de IA</i></h2><div style="font-size:16px">Pesquisa na internet como aprimorar o RIP. <b>Só sugere</b>, não muda nada sozinho.</div>
    <div class="row" style="justify-content:flex-start"><button class="c" onclick="askAgent()">🔎 Pesquisar melhorias</button></div><div id="agentOut" style="white-space:pre-wrap;font:14px/1.5 sans-serif;margin-top:10px"></div></div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Registro</i></h2><button class="sm" onclick="copyLog()">📋 Copiar</button></div><div class="logbox" id="log"></div></div>
@@ -174,13 +245,18 @@ async function poll(){if(polling)return;polling=true;try{const session=token;con
  const key=JSON.stringify(d.jobs);if(key===jobsKey){renderLog(d.log);return}jobsKey=key;
  const jobs=$("jobs");jobs.replaceChildren();
  if(!d.jobs.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";jobs.appendChild(empty)}
- d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
+	 d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
   if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
   const name=document.createElement("span");name.textContent=String(j.name||"");e.appendChild(name);
   const status=document.createElement("span");status.className="st "+(["fila","processando","pronto","erro"].includes(j.status)?j.status:"");status.textContent=String(j.status||"");e.appendChild(status);
   const bar=document.createElement("div");bar.className="bar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-label","Progresso de "+j.name);bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax","100");bar.setAttribute("aria-valuenow",String(p));const fill=document.createElement("div");fill.className="fill";fill.style.width=p+"%";bar.appendChild(fill);
   const drop=document.createElement("div");drop.className="drop";drop.style.left=`calc(${p}% - 14px)`;drop.textContent=["💧","🎨","💧","🖨️"][p%4];bar.appendChild(drop);e.appendChild(bar);
   if(j.error){const error=document.createElement("small");error.style.color="var(--m)";error.textContent=String(j.error);e.appendChild(error)}
+  if(["fila","processando","pausando","pausado","cancelando"].includes(j.status)){const actions=document.createElement("div");actions.className="job-actions";
+   if(j.status==="pausado"){const resume=document.createElement("button");resume.className="c";resume.textContent="▶ Retomar";resume.onclick=()=>controlJob(j.id,"resume");actions.appendChild(resume)}
+   else if(["fila","processando"].includes(j.status)){const pause=document.createElement("button");pause.className="y";pause.textContent="Ⅱ Pausar";pause.onclick=()=>controlJob(j.id,"pause");actions.appendChild(pause)}
+   if(!["cancelando","pausando"].includes(j.status)){const cancel=document.createElement("button");cancel.className="danger";cancel.textContent="✕ Cancelar";cancel.onclick=()=>controlJob(j.id,"cancel");actions.appendChild(cancel)}
+   e.appendChild(actions)}
   jobs.appendChild(e);if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
  first=false;renderLog(d.log);}catch(e){connection(false)}finally{polling=false}}
 let lastLog="";
@@ -207,13 +283,17 @@ async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+
 function celebrate(){notify("Trabalho concluído. PRT disponível na fila de impressão.")}
 async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
 async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});if(!r.ok){token="";openCfg();return}poll()}
-async function upload(files){
+	async function upload(files){
  const width=$("wcm").value;
  if(width&&(!Number.isFinite(Number(width))||Number(width)<=0||Number(width)>300)){notify("Informe uma largura maior que zero e até 300 cm.");return}
  try{for(const f of files){const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(width)}`,{method:"POST",body:f});if(!r.ok){notify(`${f.name}: ${r.d.error||"falha no upload"}`);break}}}
  catch(e){notify("Falha de conexão ao enviar a arte. Confira a fila antes de tentar novamente.")}
  finally{poll();$("file").value=""}
 }
+async function controlJob(id,action){if(!token){openCfg();return}if(action==="cancel"&&!confirm("Cancelar este trabalho? A arte será preservada na pasta de erros para revisão."))return;const r=await api("/api/jobs/control",{method:"POST",body:JSON.stringify({id,action})});if(!r.ok)notify(r.d.error||"Não foi possível alterar o trabalho");poll()}
+function humanSize(bytes){const units=["B","KiB","MiB","GiB","TiB"];let value=Number(bytes)||0,index=0;while(value>=1024&&index<units.length-1){value/=1024;index++}return `${value.toFixed(index?1:0)} ${units[index]}`}
+async function enqueueHot(name){if(!token){openCfg();return}const r=await api("/api/hot-files/enqueue",{method:"POST",body:JSON.stringify({name,width:$("wcm").value||""})});if(!r.ok)notify(r.d.error||"O arquivo não está mais na hot folder");pollHotFiles();poll()}
+async function pollHotFiles(){try{if(!token){$("hotFiles").innerHTML='<div class="hot-empty">Faça login para listar os arquivos.</div>';return}const {ok,d}=await api("/api/hot-files");if(!ok)return;const box=$("hotFiles");box.innerHTML="";if(!d.length){box.innerHTML='<div class="hot-empty">Nenhuma arte disponível na hot folder.</div>';return}d.forEach(file=>{const row=document.createElement("div");row.className="hot-file";const name=document.createElement("span");name.className="hot-name";name.title=file.name;name.textContent=file.name;const size=document.createElement("small");size.textContent=humanSize(file.size);const button=document.createElement("button");button.className="c";button.textContent="RIP agora";button.onclick=()=>enqueueHot(file.name);row.append(name,size,button);box.appendChild(row)})}catch(e){}}
 $("file").onchange=e=>upload(e.target.files);
 const dz=$("drop");["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over")}));
 ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over")}));dz.addEventListener("drop",e=>upload(e.dataTransfer.files));
@@ -244,5 +324,6 @@ async function saveCfg(){if(!token){openCfg();return}const o={};for(const f of S
   else if(t==="p"){if(e.value)o[k]=e.value}else o[k]=e.value}
  o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=Number($("ink_"+c).value));
  const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok){await showCfg();poll()}}
-poll();pollPrints();setInterval(poll,1000);setInterval(pollPrints,3000);
+	document.addEventListener("visibilitychange",()=>document.body.classList.toggle("tab-hidden",document.hidden));
+	poll();pollPrints();pollHotFiles();setInterval(poll,1000);setInterval(pollPrints,3000);setInterval(pollHotFiles,3000);
 </script></body></html>

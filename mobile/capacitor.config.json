@@ -1,0 +1,8 @@
+{
+  "appId": "com.giblxv.autorip",
+  "appName": "AutoRIP",
+  "webDir": "public",
+  "android": {
+    "allowMixedContent": true
+  }
+}

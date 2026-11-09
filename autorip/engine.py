@@ -1,4 +1,5 @@
 """Motor do RIP: PNG -> (ICC) CMYK -> meio-tom estocastico 2 bits + branco automatico -> .PRT"""
+import math
 import os
 import io
 import shutil
@@ -17,6 +18,14 @@ RENDER_WORKERS_MAX = 4
 STRIP = 512  # reduz o pico de memoria em folhas largas
 MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
 _BYTES_PER_RENDER_PIXEL = 96  # planos, alpha, CMYK float e buffers temporários
+DEFAULT_SOURCE_DPI = 300.0
+def _safe_source_dpi(value, default=DEFAULT_SOURCE_DPI):
+    """Retorna um DPI finito e positivo; metadado ausente ou corrompido usa o padrão."""
+    try:
+        dpi = float(value)
+    except (TypeError, ValueError):
+        return default
+    return dpi if math.isfinite(dpi) and dpi > 0 else default
 
 
 def _blue_noise(h=256, w=256, sx=1.0, sy=None, seed=7):
@@ -141,7 +150,7 @@ class Rip:
         return [((top - h_rows) // 2, x0, lab), (top + art_rows + (bot - h_rows) // 2, x0, lab)]
 
     # ---------- job ----------
-    def process(self, png_path: str, out_path: str, width_cm: float = None, progress=None, before_publish=None):
+    def process(self, png_path: str, out_path: str, width_cm: float = None, progress=None, before_publish=None, control=None):
         s = self.s
         if self.icc_error:
             raise RuntimeError(self.icc_error)
@@ -157,8 +166,12 @@ class Rip:
             orientation = opened.getexif().get(274, 1)
             source = ImageOps.exif_transpose(opened)
             has_alpha = source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info
-            source_dpi = source.info.get("dpi", (300, 300))
-            source_dpi_x, source_dpi_y = source_dpi[0] or 300, source_dpi[1] or 300
+            source_dpi = source.info.get("dpi", (DEFAULT_SOURCE_DPI, DEFAULT_SOURCE_DPI))
+            try:
+                raw_dpi_x, raw_dpi_y = source_dpi[0], source_dpi[1]
+            except (IndexError, TypeError):
+                raw_dpi_x = raw_dpi_y = DEFAULT_SOURCE_DPI
+            source_dpi_x, source_dpi_y = _safe_source_dpi(raw_dpi_x), _safe_source_dpi(raw_dpi_y)
             if orientation in (5, 6, 7, 8):
                 source_dpi_x, source_dpi_y = source_dpi_y, source_dpi_x
             source.load()
@@ -200,6 +213,8 @@ class Rip:
             if workers == 1:
                 y = 0
                 while y < n_rows:
+                    if control:
+                        control()
                     y1 = min(n_rows, y + strip_rows)
                     a0, a1 = max(0, y - halo), min(n_rows, y1 + halo)       # com halo para morfologia
                     planes_full = self._render(im, a0, a1, top, art_rows, n_dots, labels)
@@ -211,6 +226,8 @@ class Rip:
                     y = y1
                     if progress:
                         progress(y / n_rows)
+                    if control:
+                        control()
             else:
                 from collections import deque
                 from concurrent.futures import ThreadPoolExecutor
@@ -218,6 +235,8 @@ class Rip:
                 pending = deque()
                 with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="autorip-render") as pool:
                     def submit():
+                        if control:
+                            control()
                         start = next(ranges, None)
                         if start is None:
                             return
@@ -228,6 +247,8 @@ class Rip:
                     for _ in range(workers):
                         submit()
                     while pending:
+                        if control:
+                            control()
                         start, end, a0, future = pending.popleft()
                         planes_full = future.result()
                         offset = start - a0
@@ -236,6 +257,8 @@ class Rip:
                         del block, planes_full, future
                         if progress:
                             progress(end / n_rows)
+                        if control:
+                            control()
                         submit()
             wr.close()
             result = dict(n_rows=n_rows, n_dots=n_dots, width_cm=w_cm,

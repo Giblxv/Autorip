@@ -15,8 +15,10 @@ from .paths import (ProcessLock, safe_filename, move_unique, next_available_path
 from . import integrations, agent, updater
 from PIL import Image, ImageDraw, ImageOps
 
-MAX_UPLOAD_BYTES = 200 * 1024 * 1024
-MAX_MANUAL_PENDING_BYTES = 1024 * 1024 * 1024
+# Uploads de arte nao possuem teto artificial; permanecem protegidos por
+# Content-Length valido, espaco livre em disco, validacao Pillow e limite de pixels.
+MAX_UPLOAD_BYTES = None
+MAX_MANUAL_PENDING_BYTES = None
 MIN_FREE_DISK_BYTES = 128 * 1024 * 1024
 MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_JSON_BYTES = 2 * 1024 * 1024
@@ -28,6 +30,14 @@ SECRET_FIELDS = ("trello_key", "trello_token", "notion_token", "jira_token", "an
 
 class InsufficientStorageError(Exception):
     pass
+
+
+class JobPaused(Exception):
+    """Interrupcao cooperativa segura no limite de uma tira de RIP."""
+
+
+class JobCancelled(Exception):
+    """Cancelamento cooperativo sem publicar um PRT parcial."""
 
 
 def res_path(*p):
@@ -86,6 +96,7 @@ class App:
         self.invalid_journal_alerts = set()
         self.queued_sources = set()
         self.source_jobs = {}
+        self.job_controls = {}
         self._watch_locks = []
         self._output_locks = []
         self._active_output_key = None
@@ -360,15 +371,9 @@ class App:
             raw_length = handler.headers.get("Content-Length", "0")
             if not raw_length.isdigit():
                 raise ValueError("Content-Length invalido.")
-            if len(raw_length) > 12:
-                raise OverflowError("Upload excede o limite permitido.")
             length = int(raw_length)
             if length <= 0:
                 raise ValueError("O arquivo enviado esta vazio.")
-            if length > MAX_UPLOAD_BYTES:
-                raise OverflowError("O arquivo excede o limite de 200 MiB.")
-            if self._manual_pending_bytes() + length > MAX_MANUAL_PENDING_BYTES:
-                raise OverflowError("A fila de uploads pendentes atingiu o limite agregado de 1 GiB.")
             if shutil.disk_usage(self.inbox).free < length + MIN_FREE_DISK_BYTES:
                 raise InsufficientStorageError("Espaco livre insuficiente; mantenha ao menos 128 MiB de reserva para o RIP.")
             folder = os.path.join(self.inbox, secrets.token_hex(12))
@@ -429,10 +434,49 @@ class App:
                 return None
         return self.enqueue(path, width, move_to_done=True)
 
+    def list_hot_files(self):
+        with self.settings_lock:
+            folder = os.path.realpath(self.s.hot_folder)
+        result = []
+        try:
+            names = sorted(os.listdir(folder), key=str.casefold)
+        except OSError:
+            return result
+        for name in names:
+            if name.startswith(".") or not name.lower().endswith(EXTS):
+                continue
+            path = os.path.join(folder, name)
+            try:
+                info = os.lstat(path)
+                if not stat.S_ISREG(info.st_mode) or os.path.islink(path):
+                    continue
+                result.append({"name": safe_filename(name), "size": info.st_size,
+                               "mtime": info.st_mtime})
+            except OSError:
+                continue
+        return result
+
+    def enqueue_hot_file(self, name, width_value=""):
+        safe_name = safe_filename(name)
+        with self.settings_lock:
+            folder = os.path.realpath(self.s.hot_folder)
+            processing = os.path.join(folder, ".autorip_processing")
+        source = os.path.join(folder, safe_name)
+        if not os.path.isfile(source) or os.path.islink(source):
+            raise FileNotFoundError("Arquivo nao encontrado na hot folder.")
+        os.makedirs(processing, exist_ok=True)
+        claimed = move_unique(source, processing, safe_name)
+        width = None
+        if width_value not in (None, ""):
+            width = float(width_value)
+        return self.enqueue(claimed, width, move_to_done=True)
+
     def enqueue(self, path, width_cm=None, move_to_done=True):
         if width_cm is not None and (isinstance(width_cm, bool) or not isinstance(width_cm, (int, float)) or not math.isfinite(width_cm) or width_cm <= 0 or width_cm > 300):
             raise ValueError("A largura precisa estar entre 0 e 300 cm.")
         job = dict(id=secrets.token_hex(8), name=safe_filename(os.path.basename(path)), status="fila", progress=0.0, out="", error="")
+        control = {"pause": threading.Event(), "cancel": threading.Event(),
+                   "item": (job, path, width_cm, move_to_done)}
         with self.lock:
             if path in self.queued_sources:
                 return self.source_jobs[path]
@@ -440,14 +484,58 @@ class App:
                 raise RuntimeError("Fila cheia: aguarde um trabalho terminar antes de enviar mais artes.")
             self.queued_sources.add(path)
             self.source_jobs[path] = job
+            self.job_controls[job["id"]] = control
             self.jobs.append(job); self.jobs[:] = self.jobs[-50:]
-            self.q.put((job, path, width_cm, move_to_done))
+            self.q.put(control["item"])
         return job
 
     def _release_source(self, path):
         with self.lock:
             self.queued_sources.discard(path)
-            self.source_jobs.pop(path, None)
+            job = self.source_jobs.pop(path, None)
+            if job:
+                self.job_controls.pop(job.get("id"), None)
+
+    def control_job(self, job_id, action):
+        if action not in ("pause", "resume", "cancel"):
+            raise ValueError("Acao de fila invalida.")
+        with self.lock:
+            job = next((item for item in self.jobs if item.get("id") == job_id), None)
+            control = self.job_controls.get(job_id)
+            if job is None or control is None:
+                raise ValueError("Trabalho nao encontrado ou ja finalizado.")
+            status = job.get("status")
+            if action == "pause":
+                if status not in ("fila", "processando"):
+                    raise ValueError("Somente trabalhos na fila ou em processamento podem ser pausados.")
+                control["pause"].set()
+                job["status"] = "pausando" if status == "processando" else "pausado"
+                self.log(f"Fila: pausa solicitada para {job['name']}")
+                return dict(job)
+            if action == "resume":
+                if status != "pausado":
+                    raise ValueError("Somente trabalhos pausados podem ser retomados.")
+                control["pause"].clear()
+                job["status"] = "fila"
+                self.q.put(control["item"])
+                self.log(f"Fila: retomando {job['name']} desde o inicio seguro")
+                return dict(job)
+            if status in ("pronto", "erro", "cancelado"):
+                raise ValueError("O trabalho ja terminou.")
+            control["cancel"].set()
+            job["status"] = "cancelando"
+            self.log(f"Fila: cancelamento solicitado para {job['name']}")
+            return dict(job)
+
+    def _cancel_job(self, job, path, move, settings, message):
+        remove_archive_marker(path)
+        if move and os.path.isfile(path) and not os.path.islink(path):
+            self._archive_input(path, settings.error_folder, job, "pasta de erros")
+        with self.lock:
+            job.update(status="cancelado", error=message, progress=job.get("progress", 0.0))
+        self.log(f"CANCELADO {job['name']}: {message}")
+        self._release_source(path)
+        self._finish_output_use()
 
     def _worker(self):
         while True:
@@ -455,6 +543,16 @@ class App:
             with self.settings_lock:
                 settings, rip = self.s, self.rip
                 self._active_output_key = self._output_lock_key(settings.output_folder)
+            control = self.job_controls.get(job["id"])
+            if control and control["cancel"].is_set():
+                self._cancel_job(job, path, move, settings, "Cancelado antes do processamento.")
+                continue
+            if control and control["pause"].is_set():
+                with self.lock:
+                    job["status"] = "pausado"
+                self.log(f"PAUSADO {job['name']}")
+                self._finish_output_use()
+                continue
             with self.lock:
                 job["status"] = "processando"
             self.log(f"RIP: {job['name']}")
@@ -486,8 +584,25 @@ class App:
                     marker["info"] = {key: preview[key] for key in
                                        ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
                     write_archive_marker(path, marker)
-                info = rip.process(path, out, width_cm, progress=prog, before_publish=before_publish)
+                def control_check():
+                    if control and control["cancel"].is_set():
+                        raise JobCancelled()
+                    if control and control["pause"].is_set():
+                        raise JobPaused()
+                info = rip.process(path, out, width_cm, progress=prog,
+                                   before_publish=before_publish, control=control_check)
                 out = info.pop("output_path")
+            except JobPaused:
+                remove_archive_marker(path)
+                with self.lock:
+                    job["status"] = "pausado"
+                    job["error"] = "Pausado com segurança; retoma desde o início do RIP."
+                self.log(f"PAUSADO {job['name']}")
+                self._finish_output_use()
+                continue
+            except JobCancelled:
+                self._cancel_job(job, path, move, settings, "Cancelado pelo operador.")
+                continue
             except Exception as e:
                 # Nao cria journal fantasma nem arquivamento pendente para uma
                 # entrada removida enquanto aguardava o worker.
@@ -906,6 +1021,22 @@ LAST_CLIENT_SEEN = 0.0
 DIRECT_CLOSING = False
 
 
+def _bind_host():
+    """Host de escuta; mantém loopback por padrão e só abre LAN por opt-in."""
+    value = os.environ.get("AUTORIP_BIND_HOST", "127.0.0.1").strip()
+    return value or "127.0.0.1"
+
+
+def _allowed_hosts(bind_host):
+    configured = os.environ.get("AUTORIP_ALLOWED_HOSTS", "").split(",")
+    values = {item.strip().lower().rstrip(".") for item in configured if item.strip()}
+    if not values:
+        values = {"127.0.0.1", "localhost"}
+    if bind_host not in ("0.0.0.0", "::"):
+        values.add(bind_host.lower().rstrip("."))
+    return values
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
@@ -930,10 +1061,10 @@ class H(BaseHTTPRequestHandler):
         return bool(incoming) and any(secrets.compare_digest(incoming, token) for token in tokens)
 
     def _host_allowed(self):
-        """Aceita apenas o Host do painel local e a porta real do servidor."""
+        """Aceita apenas hosts explicitamente autorizados e a porta real."""
         try:
             parsed = urlparse("//" + self.headers.get("Host", ""))
-            return (parsed.hostname in ("127.0.0.1", "localhost")
+            return (parsed.hostname and parsed.hostname.lower().rstrip(".") in _allowed_hosts(_bind_host())
                     and parsed.port == self.server.server_address[1]
                     and not parsed.username and not parsed.password
                     and not parsed.path and not parsed.query and not parsed.fragment)
@@ -1006,14 +1137,14 @@ class H(BaseHTTPRequestHandler):
             APP.tokens.add(token)
         return token
 
-    def _save_request_body(self, path, maximum):
+    def _save_request_body(self, path, maximum=None):
         raw_length = self.headers.get("Content-Length", "0")
         if not raw_length.isdigit():
             raise ValueError("Content-Length invalido.")
         length = int(raw_length)
         if length <= 0:
             raise ValueError("O arquivo enviado esta vazio.")
-        if length > maximum:
+        if maximum is not None and length > maximum:
             raise OverflowError(f"O arquivo excede o limite de {maximum // (1024 * 1024)} MiB.")
         remaining = length
         with open(path, "xb") as target:
@@ -1069,6 +1200,8 @@ class H(BaseHTTPRequestHandler):
                                         icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo))
         if u.path == "/api/prints":
             return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
+        if u.path == "/api/hot-files":
+            return self._send(200, APP.list_hot_files()) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/thumb":
             if not self._auth(): return self._send(401, {"error": "login"})
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
@@ -1114,6 +1247,22 @@ class H(BaseHTTPRequestHandler):
                 self._send(202, {"ok": True, "message": "AutoRIP sera encerrado."})
                 threading.Thread(target=shutdown_server, daemon=True).start()
                 return
+            if u.path == "/api/jobs/control":
+                if not self._auth(): return self._send(401, {"error": "login"})
+                data = self._json(max_bytes=8192)
+                job_id, action = data.get("id"), data.get("action")
+                if not isinstance(job_id, str) or not isinstance(action, str):
+                    raise ValueError("O controle precisa informar id e acao.")
+                return self._send(200, APP.control_job(job_id, action))
+            if u.path == "/api/hot-files/enqueue":
+                if not self._auth(): return self._send(401, {"error": "login"})
+                data = self._json(max_bytes=8192)
+                name, width = data.get("name"), data.get("width", "")
+                if not isinstance(name, str) or not name:
+                    raise ValueError("Informe o nome do arquivo da hot folder.")
+                if not isinstance(width, (str, int, float)) or isinstance(width, bool):
+                    raise ValueError("A largura precisa ser numerica.")
+                return self._send(202, APP.enqueue_hot_file(name, width))
             if u.path == "/api/upload":
                 if not self._auth(): return self._send(401, {"error": "login"})
                 q = parse_qs(u.query)
@@ -1192,6 +1341,8 @@ class H(BaseHTTPRequestHandler):
             if u.path == "/api/settings":
                 if not self._auth(): return self._send(401, {"error": "login"})
                 APP.apply_settings(self._json()); return self._send(200, self._settings_public())
+        except FileNotFoundError as e:
+            return self._send(404, {"error": str(e)})
         except InsufficientStorageError as e:
             return self._send(507, {"error": str(e)})
         except OverflowError as e:
@@ -1269,9 +1420,10 @@ def serve(port=8765, open_browser=True, status_callback=None):
             lock.release()
         home_lock.release()
         raise
+    bind_host = _bind_host()
     srv = None
     for p in range(port, port + 20):
-        try: srv = ThreadingHTTPServer(("127.0.0.1", p), H); break
+        try: srv = ThreadingHTTPServer((bind_host, p), H); break
         except OSError: continue
     if srv is None:
         for lock in APP._watch_locks: lock.release()
@@ -1280,7 +1432,8 @@ def serve(port=8765, open_browser=True, status_callback=None):
         raise OSError("nenhuma porta local disponivel para o painel AutoRIP")
     HTTP_SERVER = srv
     LAST_CLIENT_SEEN = time.monotonic()
-    url = f"http://127.0.0.1:{srv.server_address[1]}/"
+    display_host = os.environ.get("AUTORIP_PUBLIC_HOST", bind_host)
+    url = f"http://{display_host}:{srv.server_address[1]}/"
     print("AutoRIP em", url, flush=True)
     report("AutoRIP ativo — monitorando a pasta de entrada")
     if open_browser: threading.Timer(0.8, lambda: webbrowser.open(url)).start()

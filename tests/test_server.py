@@ -21,6 +21,20 @@ def _source_signature(path):
     return list(server_module._signature(path))
 
 
+def test_bind_host_preserva_loopback_por_padrao(monkeypatch):
+    monkeypatch.delenv("AUTORIP_BIND_HOST", raising=False)
+    monkeypatch.delenv("AUTORIP_ALLOWED_HOSTS", raising=False)
+    assert server_module._bind_host() == "127.0.0.1"
+    assert server_module._allowed_hosts("127.0.0.1") == {"127.0.0.1", "localhost"}
+
+
+def test_bind_host_lan_exige_lista_de_hosts(monkeypatch):
+    monkeypatch.setenv("AUTORIP_BIND_HOST", "0.0.0.0")
+    monkeypatch.setenv("AUTORIP_ALLOWED_HOSTS", "192.168.1.50, autorip.local")
+    assert server_module._bind_host() == "0.0.0.0"
+    assert server_module._allowed_hosts("0.0.0.0") == {"192.168.1.50", "autorip.local"}
+
+
 def test_main_headless_nao_abre_navegador(monkeypatch):
     called = []
     monkeypatch.setattr(server_module, "run_direct", lambda: called.append(True))
@@ -485,17 +499,6 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
 
     raw = sample_png.read_bytes()
     headers = {**origin, "Content-Type": "application/octet-stream", "X-Token": token}
-    pending = os.path.join(app.inbox, "pendente")
-    os.makedirs(pending)
-    with open(os.path.join(pending, "reserva.bin"), "wb") as target:
-        target.write(b"x")
-    with monkeypatch.context() as scoped:
-        scoped.setattr(server_module, "MAX_MANUAL_PENDING_BYTES", len(raw))
-        status, _, _ = request(panel, "/api/upload?name=quota.png", "POST", raw, headers)
-        assert status == 413
-        assert app._manual_pending_bytes() == 1
-    os.remove(os.path.join(pending, "reserva.bin"))
-    os.rmdir(pending)
     status, body, _ = request(panel, "/api/upload?name=%3Cscript%3E.png&width=3", "POST", raw, headers)
     assert status == 202
     identifier = json.loads(body)["id"]
@@ -509,6 +512,24 @@ def test_primeiro_acesso_exige_senha_forte_e_upload_validado(panel, app, sample_
     status, _, _ = request(panel, "/api/upload?name=evil.png", "POST", raw,
                            {"Origin": "http://evil.example", "Sec-Fetch-Site": "cross-site"})
     assert status == 403
+
+
+def test_hot_folder_lista_e_enfileira_arquivo_manual(panel, app, sample_png):
+    name = "arte-hot-folder.png"
+    target = os.path.join(app.s.hot_folder, name)
+    with open(target, "wb") as output:
+        output.write(sample_png.read_bytes())
+    headers = {"X-Token": "sessao-hot"}
+    app.tokens.add("sessao-hot")
+    status, body, _ = request(panel, "/api/hot-files", headers=headers)
+    files = json.loads(body)
+    assert status == 200 and files[0]["name"] == name
+    status, body, _ = request(panel, "/api/hot-files/enqueue", "POST",
+                              json.dumps({"name": name, "width": "3"}).encode(), headers)
+    assert status == 202
+    job = next(item for item in app.jobs if item["id"] == json.loads(body)["id"])
+    wait_for_job(job)
+    assert job["status"] == "pronto"
 
 
 def test_worker_sobrevive_a_arte_removida_antes_do_processamento(app, sample_png, tmp_path):
