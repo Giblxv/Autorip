@@ -1,0 +1,172 @@
+"""Compara lotes de RIP com perfis ICC embutidos, incluindo cache frio e RSS.
+
+python benchmarks/benchmark_source_icc.py --baseline-ref dd490f9 --icc /caminho/cmyk.icc --output /tmp/input-icc.json
+"""
+import argparse
+import hashlib
+import importlib.util
+import json
+import math
+import os
+from pathlib import Path
+import platform
+import statistics
+import subprocess
+import sys
+import tempfile
+import time
+
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+import numpy as np
+from PIL import Image,ImageCms
+from autorip.config import Settings
+
+
+def load(path,name):
+    spec=importlib.util.spec_from_file_location('autorip._input_icc_'+name,path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module
+
+
+def run(rip,case,root):
+    elapsed=0;outputs=[]
+    for index,source in enumerate(case['files']):
+        started=time.perf_counter()
+        info=rip.process(source,str(root/f'output-{index}.PRT'),width_cm=case['width_cm'])
+        elapsed+=time.perf_counter()-started
+        path=Path(info.pop('output_path'))
+        try:outputs.append(dict(sha256=hashlib.sha256(path.read_bytes()).hexdigest(),metadata=info))
+        finally:path.unlink()
+    return elapsed,outputs
+
+
+def peak_rss():
+    if sys.platform.startswith('linux'):
+        line=next(s for s in Path('/proc/self/status').read_text().splitlines() if s.startswith('VmHWM:'))
+        return int(line.split()[1])/1024
+    try:
+        import resource
+        value=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return value/(1024**2 if sys.platform=='darwin' else 1024)
+    except ImportError:return None
+
+
+def fixtures(root,icc):
+    profiles={name:ImageCms.ImageCmsProfile(ImageCms.createProfile(name)).tobytes() for name in ('sRGB','LAB')}
+    oversized=bytearray(profiles['LAB']);oversized.extend(b'\0'*(2*1024*1024+256-len(oversized)));oversized[:4]=len(oversized).to_bytes(4,'big')
+    profiles['large']=bytes(oversized)
+    if icc:profiles['CMYK']=Path(icc).read_bytes()
+    paths={}
+    for name,mode,size in [('rgb','RGBA',(320,240)),('lab','LAB',(320,240)),('plain','RGBA',(320,240)),
+                           ('large_lab','LAB',(2048,1536)),('large_flat_lab','LAB',(2048,1536)),
+                           ('oversized','LAB',(320,240))]+([('cmyk','CMYK',(320,240))] if icc else []):
+        files=[]
+        for index in range(2 if name.startswith('large') else 8):
+            width,height=size
+            y,x=np.indices((height,width),dtype=np.uint16)
+            pixels=np.empty((height,width,4),np.uint8)
+            pixels[...,0]=(x*3+y+index*17)%256;pixels[...,1]=(x+y*2+index*11)%256
+            pixels[...,2]=(x*5+y*3)%256;pixels[...,3]=np.linspace(0,255,width,dtype=np.uint8)[None,:]
+            if name=='large_flat_lab':pixels[:]=(150,180,200,255)
+            if mode=='LAB':image=Image.fromarray(pixels[...,:3].copy(),'LAB')
+            elif mode=='CMYK':image=Image.fromarray(pixels,'CMYK')
+            else:image=Image.fromarray(pixels,'RGBA')
+            profile=profiles['LAB'] if mode=='LAB' else profiles['CMYK'] if mode=='CMYK' else profiles['sRGB']
+            if name=='plain':profile=b''
+            if name=='oversized':profile=profiles['large']
+            path=root/f'{name}-{index}.tif';image.save(path,icc_profile=profile);image.close();files.append(str(path))
+        paths[name]=files
+    common=dict(label_enabled=False,margin_top_in=.05,margin_bottom_in=.05)
+    def case(name,files,cold=False):return dict(name=name,files=files,width_cm=1.27,settings=common,cold=cold)
+    cases=[case('rgb_repeated',paths['rgb']),case('lab_repeated',paths['lab'])]
+    if icc:cases.append(case('cmyk_repeated',paths['cmyk']))
+    kinds=['rgb','lab']+(['cmyk'] if icc else [])
+    mixed=[paths[kinds[index%len(kinds)]][index] for index in range(8)]
+    cases.extend([case('mixed_profiles',mixed),case('first_lab',paths['lab'][:1],cold=True),
+                  case('no_icc',paths['plain']),case('large_lab',paths['large_lab']),
+                  case('large_flat_lab',paths['large_flat_lab']),case('over_budget',paths['oversized'])])
+    return cases,{name:hashlib.sha256(data).hexdigest() for name,data in profiles.items()}
+
+
+def builds(module,case,root):
+    rip=module.Rip(Settings(**case['settings']))
+    original=ImageCms.ImageCmsTransform;count=0
+    def track(*args,**kwargs):
+        nonlocal count
+        count+=1;return original(*args,**kwargs)
+    ImageCms.ImageCmsTransform=track
+    try:
+        run(rip,case,root);cold=count
+        if case['cold']:return dict(first_batch=cold,next_batch=None)
+        count=0;run(rip,case,root);return dict(first_batch=cold,next_batch=count)
+    finally:ImageCms.ImageCmsTransform=original
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--baseline-ref',default='dd490f9');parser.add_argument('--repeat',type=int,default=7)
+    parser.add_argument('--icc',type=Path);parser.add_argument('--output',type=Path)
+    parser.add_argument('--rss-worker',type=Path);parser.add_argument('--case',type=Path)
+    args=parser.parse_args()
+    if args.rss_worker:
+        case=json.loads(args.case.read_text());module=load(args.rss_worker,'rss');rip=module.Rip(Settings(**case['settings']))
+        with tempfile.TemporaryDirectory(prefix='autorip-input-icc-rss-') as folder:
+            _,outputs=run(rip,case,Path(folder))
+            if not case['cold']:_,outputs=run(rip,case,Path(folder))
+            local=getattr(rip,'_source_transforms',None)
+            cache=getattr(local,'cache',{})
+            print(json.dumps(dict(peak_rss_mib=peak_rss(),outputs=outputs,cache_entries=len(cache),
+                                  cached_profile_bytes=getattr(local,'profile_bytes',0))))
+        return
+    if args.output is None or args.repeat<5:parser.error('Use --output e pelo menos cinco repetições')
+    commit=subprocess.check_output(['git','rev-parse',args.baseline_ref],cwd=ROOT,text=True).strip()
+    source=subprocess.check_output(['git','show',commit+':autorip/engine.py'],cwd=ROOT,text=True)
+    shared={}
+    for name in ('morph','prt'):
+        original=subprocess.check_output(['git','show',commit+':autorip/'+name+'.py'],cwd=ROOT,text=True)
+        if (ROOT/'autorip'/(name+'.py')).read_text()!=original:parser.error('morph.py/prt.py precisam ser idênticos à base')
+        shared[name]=hashlib.sha256(original.encode()).hexdigest()
+    candidate=ROOT/'autorip/engine.py'
+    report=dict(baseline_ref=commit,repeat=args.repeat,python=platform.python_version(),platform=platform.platform(),
+                pillow=Image.__version__,numpy=np.__version__,cpu_count=os.cpu_count(),
+                source_sha256=dict(baseline=hashlib.sha256(source.encode()).hexdigest(),candidate=hashlib.sha256(candidate.read_bytes()).hexdigest()),
+                shared_modules_sha256=shared,rss_metric='VmHWM of fresh Linux workers; ru_maxrss on other Unix; unavailable on Windows',scenarios={})
+    with tempfile.TemporaryDirectory(prefix='autorip-input-icc-') as folder:
+        root=Path(folder);baseline=root/'baseline.py';baseline.write_text(source)
+        cases,profiles=fixtures(root,str(args.icc.resolve()) if args.icc else None);report['profile_sha256']=profiles
+        modules=[load(baseline,'baseline'),load(candidate,'candidate')]
+        for case in cases:
+            rips=[module.Rip(Settings(**case['settings'])) for module in modules];oracle=None;samples=[[],[]]
+            for side in range(2):
+                _,outputs=run(rips[side],case,root)
+                if oracle is None:oracle=outputs
+                assert outputs==oracle,case['name']
+            for iteration in range(args.repeat):
+                for side in ((0,1) if iteration%2==0 else (1,0)):
+                    if case['cold']:rips[side]=modules[side].Rip(Settings(**case['settings']))
+                    elapsed,outputs=run(rips[side],case,root);assert outputs==oracle,case['name'];samples[side].append(elapsed)
+            old,new=map(statistics.median,samples);ratios=np.asarray(samples[0])/np.asarray(samples[1]);rng=np.random.default_rng(194)
+            bootstrap=np.median(ratios[rng.integers(0,args.repeat,(3000,args.repeat))],axis=1)
+            peaks={};counts={};case_path=root/'case.json';case_path.write_text(json.dumps(case))
+            for side,path in [('baseline',baseline),('candidate',candidate)]:
+                values=[];cache=None
+                for _ in range(2):
+                    result=json.loads(subprocess.check_output([sys.executable,str(Path(__file__).resolve()),'--rss-worker',str(path),'--case',str(case_path)],text=True))
+                    assert result['outputs']==oracle,case['name'];values.append(result['peak_rss_mib']);cache={k:result[k] for k in ['cache_entries','cached_profile_bytes']}
+                peaks[side]=dict(samples_mib=values,median_mib=statistics.median(values) if all(v is not None for v in values) else None,**cache)
+            for side,module in zip(['baseline','candidate'],modules):counts[side]=builds(module,case,root)
+            result=dict(files=len(case['files']),cold=case['cold'],baseline_seconds=old,candidate_seconds=new,speedup=old/new,raw_seconds=samples,
+                        paired_bootstrap_95=[float(v) for v in np.percentile(bootstrap,[2.5,97.5])],peak_rss=peaks,transform_builds=counts,outputs=oracle)
+            report['scenarios'][case['name']]=result;print(json.dumps({case['name']:result}),flush=True)
+        report['geomean_speedup']=math.exp(statistics.mean(math.log(r['speedup']) for r in report['scenarios'].values()))
+        paired=[math.exp(statistics.mean(math.log(r['raw_seconds'][0][i]/r['raw_seconds'][1][i])
+                    for r in report['scenarios'].values())) for i in range(args.repeat)]
+        rng=np.random.default_rng(194)
+        bootstrap=np.median(np.asarray(paired)[rng.integers(0,args.repeat,(3000,args.repeat))],axis=1)
+        report['paired_geomean_median']=statistics.median(paired)
+        report['paired_geomean_bootstrap_95']=[float(v) for v in np.percentile(bootstrap,[2.5,97.5])]
+    args.output.parent.mkdir(parents=True,exist_ok=True);args.output.write_text(json.dumps(report,indent=2)+'\n')
+
+
+if __name__=='__main__':main()

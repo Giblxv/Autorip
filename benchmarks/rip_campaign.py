@@ -21,7 +21,7 @@ import tracemalloc
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageCms
 from autorip.config import Settings
 from rip_candidates import CANDIDATES
 
@@ -54,7 +54,7 @@ def make_cases(folder,icc,suite="standard"):
     rgb=folder/'opaque.png';Image.fromarray(data[...,:3],'RGB').save(rgb)
     sparse=np.zeros_like(data);sparse[70:100,100:150]=data[70:100,100:150];sparse[70:100,100:150,3]=255
     sparse_path=folder/'sparse.png';Image.fromarray(sparse,'RGBA').save(sparse_path)
-    large=folder/'large.png';Image.fromarray(rng.integers(0,256,((2000,2400,4) if suite=='extended' else (1000,1200,4)),dtype=np.uint8),'RGBA').save(large)
+    large=folder/'large.png';Image.fromarray(rng.integers(0,256,((2000,2400,4) if suite in ('extended','input-icc') else (1000,1200,4)),dtype=np.uint8),'RGBA').save(large)
     oriented=folder/'oriented.jpg';exif=Image.Exif();exif[274]=6
     Image.fromarray(data[...,:3],'RGB').save(oriented,exif=exif,dpi=(100,200))
     tiff=folder/'input.tiff';Image.fromarray(data,'RGBA').save(tiff,dpi=(100,200))
@@ -71,7 +71,7 @@ def make_cases(folder,icc,suite="standard"):
             case('white_planes',source,timed=False,dpi_x=300,dpi_y=720,
                  channel_order=['M','Y','K','C'],white_planes=[4,7],white_density=.55),
             case('narrow',source,width=.013,timed=False,dpi_x=300,dpi_y=300)]
-    if suite == 'extended':
+    if suite in ('extended','input-icc'):
         for item in cases:
             item['timed'] = item['name'] in ('alpha','large_source')
         line=rng.integers(0,256,(1,400,3),dtype=np.uint8)
@@ -87,6 +87,22 @@ def make_cases(folder,icc,suite="standard"):
                       case('icc_two_cpu',rgb,icc_path=icc or '',cpu_limit=2),
                       case('icc_single_cpu',flat,width=1.7,icc_path=icc or '',cpu_limit=1,white_enabled=False),
                       case('wide_edges',source,width=3500/720*2.54,timed=False,dpi_y=300)])
+    if suite == 'input-icc':
+        if not icc:
+            raise ValueError('A suite input-icc exige um perfil CMYK válido via --icc')
+        srgb = ImageCms.createProfile('sRGB')
+        rgb_image = Image.fromarray(data[..., :3].copy(), 'RGB')
+        for name, mode, profile in [('source_rgb_icc', 'RGB', srgb),
+                                    ('source_lab_icc', 'LAB', ImageCms.createProfile('LAB')),
+                                    ('source_cmyk_icc', 'CMYK', ImageCms.getOpenProfile(icc))]:
+            colored = ImageCms.profileToProfile(rgb_image, srgb, profile, outputMode=mode)
+            wrapper = profile if isinstance(profile, ImageCms.ImageCmsProfile) else ImageCms.ImageCmsProfile(profile)
+            embedded = wrapper.tobytes()
+            path = folder / (name + '.tif')
+            colored.save(path, icc_profile=embedded)
+            colored.close()
+            cases.append(case(name, path, width=1.27))
+        rgb_image.close()
     return cases
 
 
@@ -182,14 +198,16 @@ def main():
     parser.add_argument('--rounds-without-gain',type=int,default=15)
     parser.add_argument('--repeats',type=int,default=7)
     parser.add_argument('--apply',action='store_true')
-    parser.add_argument('--suite',choices=['standard','extended'],default='standard')
+    parser.add_argument('--suite',choices=['standard','extended','input-icc'],default='standard')
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--baseline-ref',help='Commit/tag Git da base; leitura sem checkout')
     args=parser.parse_args()
-    if args.suite=='extended':
+    if args.suite in ('extended','input-icc'):
         from rip_wide_candidates import CANDIDATES as proposals
     else:
         proposals=CANDIDATES
+    if args.suite=='input-icc' and not args.icc:
+        parser.error('--suite input-icc exige --icc com um perfil CMYK válido')
     if args.repeats<5 or args.rounds_without_gain<15:parser.error('Minimos: 5 repeticoes e 15 rodadas sem ganho')
     work=args.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)
     previous_report = json.loads((work/'report.json').read_text()) if args.resume else None

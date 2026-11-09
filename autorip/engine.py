@@ -4,6 +4,8 @@ import os
 import io
 import shutil
 import tempfile
+import threading
+from collections import OrderedDict
 import numpy as np
 from PIL import Image, ImageCms, ImageDraw, ImageFont, ImageOps
 from scipy import ndimage as ndi
@@ -18,6 +20,8 @@ RENDER_WORKERS_MAX = 4
 STRIP = 512  # reduz o pico de memoria em folhas largas
 MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
 _BYTES_PER_RENDER_PIXEL = 96  # planos, alpha, CMYK float e buffers temporários
+MAX_SOURCE_TRANSFORMS = 8
+MAX_SOURCE_PROFILE_BYTES = 2 * 1024 * 1024
 DEFAULT_SOURCE_DPI = 300.0
 def _safe_source_dpi(value, default=DEFAULT_SOURCE_DPI):
     """Retorna um DPI finito e positivo; metadado ausente ou corrompido usa o padrão."""
@@ -47,6 +51,7 @@ class Rip:
         self.noise = _blue_noise(256, 256, sx=1.0, sy=s.dpi_y / s.dpi_x)
         self.transform = None
         self.icc_error = None
+        self._source_transforms = threading.local()
         if s.icc_path:
             try:
                 if not os.path.isfile(s.icc_path):
@@ -61,21 +66,51 @@ class Rip:
             except Exception as exc:
                 self.icc_error = f"Perfil ICC indisponivel ou invalido: {exc}"
 
+    @staticmethod
+    def _build_source_transform(embedded, mode, intent, flags):
+        profile = ImageCms.ImageCmsProfile(io.BytesIO(embedded))
+        return ImageCms.buildTransform(profile, ImageCms.createProfile("sRGB"), mode,
+                                       "RGB", renderingIntent=intent, flags=flags)
+
+    def _source_transform(self, embedded, mode):
+        flags = ImageCms.Flags.BLACKPOINTCOMPENSATION if self.s.black_point_comp else 0
+        intent = self.s.intent
+        if MAX_SOURCE_TRANSFORMS <= 0 or len(embedded) > MAX_SOURCE_PROFILE_BYTES:
+            return self._build_source_transform(embedded, mode, intent, flags)
+        # Cada thread possui suas transformações: mantém o cache de pixels do
+        # LittleCMS sem compartilhar estado mutável entre trabalhos simultâneos.
+        local = self._source_transforms
+        if not hasattr(local, "cache"):
+            local.cache = OrderedDict()
+            local.profile_bytes = 0
+        key = (bytes(embedded), mode, intent, flags)
+        cached = local.cache.get(key)
+        if cached is not None:
+            local.cache.move_to_end(key)
+            return cached
+        transform = self._build_source_transform(key[0], mode, intent, flags)
+        local.cache[key] = transform
+        local.profile_bytes += len(key[0])
+        while (len(local.cache) > MAX_SOURCE_TRANSFORMS
+               or local.profile_bytes > MAX_SOURCE_PROFILE_BYTES):
+            previous, _ = local.cache.popitem(last=False)
+            local.profile_bytes -= len(previous[0])
+        return transform
+
     def _source_rgba(self, source: Image.Image) -> Image.Image:
         embedded = source.info.get("icc_profile")
         if not embedded:
             return source.convert("RGBA")
         try:
-            profile = ImageCms.ImageCmsProfile(io.BytesIO(embedded))
+            mode = "RGB" if source.mode in ("RGBA", "P", "PA") else "L" if source.mode == "LA" else source.mode
+            transform = self._source_transform(embedded, mode)
             if source.mode in ("RGBA", "P", "PA"):
                 color = source.convert("RGB")
             elif source.mode == "LA":
                 color = source.getchannel("L")
             else:
                 color = source
-            flags = ImageCms.Flags.BLACKPOINTCOMPENSATION if self.s.black_point_comp else 0
-            rgb = ImageCms.profileToProfile(color, profile, ImageCms.createProfile("sRGB"),
-                                           outputMode="RGB", renderingIntent=self.s.intent, flags=flags)
+            rgb = ImageCms.applyTransform(color, transform)
             rgba = rgb.convert("RGBA")
             if source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info:
                 rgba.putalpha(source.convert("RGBA").getchannel("A"))

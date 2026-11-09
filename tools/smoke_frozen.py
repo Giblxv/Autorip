@@ -10,7 +10,7 @@ import tempfile
 import time
 from urllib.request import Request, urlopen
 
-from PIL import Image
+from PIL import Image, ImageCms
 
 
 def smoke(executable, expected_version):
@@ -59,31 +59,39 @@ def smoke(executable, expected_version):
                 if state.get("version") != expected_version:
                     raise RuntimeError(f"Versao do executavel inesperada: {state.get('version')}")
                 token = api("/api/setpass", {"new": "Smoke-test-only-123"})["token"]
-                image = io.BytesIO()
-                Image.new("RGBA", (72, 72), (20, 140, 210, 255)).save(image, format="PNG")
-                job = api("/api/upload?name=smoke.png&width=2.54", raw=image.getvalue())
-                deadline = time.monotonic() + 60
-                while time.monotonic() < deadline:
-                    state = api("/api/state")
-                    result = next((item for item in state["jobs"] if item["id"] == job["id"]), None)
-                    if result and result["status"] == "erro":
-                        raise RuntimeError(f"RIP do executavel falhou: {result.get('error')}")
-                    if result and result["status"] == "pronto":
-                        break
-                    time.sleep(.25)
-                else:
-                    raise TimeoutError("RIP nao terminou em 60 segundos")
+                artwork = Image.new("RGBA", (72, 72), (20, 140, 210, 255))
+                embedded = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+                # Um controle sem ICC e duas artes com o mesmo perfil exercitam
+                # a primeira compilação e a reutilização dentro do executável.
+                for name, profile in [("smoke", b""), ("icc-first", embedded), ("icc-reused", embedded)]:
+                    image = io.BytesIO()
+                    artwork.save(image, format="PNG", icc_profile=profile)
+                    job = api(f"/api/upload?name={name}.png&width=2.54", raw=image.getvalue())
+                    deadline = time.monotonic() + 60
+                    while time.monotonic() < deadline:
+                        state = api("/api/state")
+                        result = next((item for item in state["jobs"] if item["id"] == job["id"]), None)
+                        if result and result["status"] == "erro":
+                            raise RuntimeError(f"RIP do executavel falhou: {result.get('error')}")
+                        if result and result["status"] == "pronto":
+                            break
+                        time.sleep(.25)
+                    else:
+                        raise TimeoutError("RIP nao terminou em 60 segundos")
+                artwork.close()
                 prints = api("/api/prints")
-                if not prints or abs(prints[0]["width_cm"] - 2.54) > .01:
-                    raise RuntimeError("PRT nao apareceu na fila com a medida esperada")
+                if len(prints) != 3 or any(abs(item["width_cm"] - 2.54) > .01 for item in prints):
+                    raise RuntimeError("Os três PRTs nao apareceram na fila com a medida esperada")
                 files = list((home / "saida").glob("*.PRT"))
-                if len(files) != 1 or files[0].stat().st_size <= 48:
-                    raise RuntimeError("Executavel nao publicou um PRT completo")
+                if len(files) != 3 or any(path.stat().st_size <= 48 for path in files):
+                    raise RuntimeError("Executavel nao publicou três PRTs completos")
+                if len({path.read_bytes() for path in files}) != 1:
+                    raise RuntimeError("Os PRTs sem ICC e com o mesmo perfil sRGB divergiram")
                 api("/api/shutdown", {})
                 process.wait(timeout=20)
                 if process.returncode:
                     raise RuntimeError(f"Executavel encerrou com codigo {process.returncode}")
-                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, upload, PRT 2.54 cm e encerramento.")
+                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, três uploads, PRTs 2.54 cm idênticos sem ICC/com ICC repetido e encerramento.")
             except BaseException:
                 print(logs()[-5000:])
                 raise
