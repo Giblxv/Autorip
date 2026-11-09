@@ -10,7 +10,7 @@ from .prt import read_header
 from .watcher import EXTS, _signature, _stable
 from .paths import (ProcessLock, safe_filename, move_unique, next_available_path,
                     read_archive_marker, remove_archive_marker, write_archive_marker,
-                    file_sha256, find_marked_output, source_signature_matches)
+                    file_sha256, find_marked_output, source_signature_matches, write_json_atomic)
 from . import integrations, agent, updater
 from PIL import Image, ImageDraw, ImageOps
 
@@ -325,9 +325,12 @@ class App:
             return
         # Windows pode manter o arquivo recém-movido aberto por alguns milissegundos
         # devido ao antivírus/indexador. Nunca removemos conteúdo: somente tentamos
-        # rmdir em uma pasta que precisa estar vazia, com retry idempotente.
+        # rmdir em uma pasta vazia e limpeza do sidecar conhecido, com retry.
         for attempt in range(10):
             try:
+                if not os.path.lexists(source):
+                    try: os.remove(source + ".request.json")
+                    except FileNotFoundError: pass
                 os.rmdir(parent)
                 return
             except FileNotFoundError:
@@ -369,9 +372,11 @@ class App:
             folder = os.path.join(self.inbox, secrets.token_hex(12))
             os.makedirs(folder, mode=0o700, exist_ok=False)
             path = os.path.join(folder, safe_filename(name))
+            temporary = os.path.join(folder, ".upload.part")
+            request_path = path + ".request.json"
             try:
-                handler._save_request_body(path, MAX_UPLOAD_BYTES)
-                with Image.open(path) as image:
+                handler._save_request_body(temporary, MAX_UPLOAD_BYTES)
+                with Image.open(temporary) as image:
                     if image.width * image.height > MAX_INPUT_PIXELS:
                         raise ValueError(f"Imagem acima do limite de {MAX_INPUT_PIXELS:,} pixels.")
                     image.verify()
@@ -380,13 +385,47 @@ class App:
                     width = float(width_value)
                     if not math.isfinite(width) or width <= 0 or width > 300:
                         raise ValueError("A largura precisa estar entre 0 e 300 cm.")
+                # Persista a medida ANTES de tornar a imagem visível à recuperação.
+                write_json_atomic(request_path, {"version": 1, "width_cm": width,
+                                                "sha256": file_sha256(temporary)})
+                os.replace(temporary, path)
                 return self.enqueue(path, width, move_to_done=True)
             except BaseException:
-                try: os.remove(path)
-                except OSError: pass
+                for candidate in (temporary, path, request_path):
+                    try: os.remove(candidate)
+                    except OSError: pass
                 try: os.rmdir(folder)
                 except OSError: pass
                 raise
+
+    def _enqueue_manual_recovery(self, path):
+        request_path = path + ".request.json"
+        width = None  # Compatibilidade com uploads anteriores sem sidecar.
+        if os.path.lexists(request_path):
+            try:
+                if os.path.islink(request_path) or os.path.getsize(request_path) > 8192:
+                    raise ValueError("sidecar invalido")
+                with open(request_path, encoding="utf-8") as source:
+                    request = json.load(source)
+                if not isinstance(request, dict) or request.get("version") != 1:
+                    raise ValueError("versao invalida")
+                width = request["width_cm"]
+                if width is not None and (isinstance(width, bool) or not isinstance(width, (int, float))
+                                          or not math.isfinite(width) or not 0 < width <= 300):
+                    raise ValueError("largura invalida")
+                if request.get("sha256") != file_sha256(path):
+                    raise ValueError("identidade da imagem nao confere")
+            except (OSError, ValueError, KeyError, TypeError):
+                with self.lock:
+                    first_warning = request_path not in self.invalid_journal_alerts
+                    if len(self.invalid_journal_alerts) >= 256:
+                        self.invalid_journal_alerts.clear()
+                    self.invalid_journal_alerts.add(request_path)
+                if first_warning:
+                    self.log("ATENCAO: parametros de upload invalidos; arte preservada para revisao: "
+                             + os.path.basename(path))
+                return None
+        return self.enqueue(path, width, move_to_done=True)
 
     def enqueue(self, path, width_cm=None, move_to_done=True):
         if width_cm is not None and (isinstance(width_cm, bool) or not isinstance(width_cm, (int, float)) or not math.isfinite(width_cm) or width_cm <= 0 or width_cm > 300):
@@ -585,13 +624,13 @@ class App:
                             if not name.lower().endswith(EXTS):
                                 continue
                             path = os.path.join(root, name)
-                            if os.path.islink(path) or not os.path.isfile(path) or not _stable(path, wait=0.5):
-                                continue
                             with self.lock:
                                 if path in self.queued_sources or path in self.archive_pending:
                                     continue
+                            if os.path.islink(path) or not os.path.isfile(path) or not _stable(path, wait=0.5):
+                                continue
                             if not self._recover_marked_source(path, settings):
-                                self.enqueue(path, move_to_done=True)
+                                self._enqueue_manual_recovery(path)
             except Exception as e:
                 self.log(f"Falha ao observar hot-folder: {type(e).__name__}: {e}")
             with self.settings_lock:
@@ -894,7 +933,7 @@ class H(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
-        self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+        self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
         self.end_headers(); self.wfile.write(body)
 
     def _auth(self):
@@ -1308,9 +1347,10 @@ def run_direct():
         serve(open_browser=False)
         return
     root.title("AutoRIP — modo direto")
-    root.geometry("560x190")
-    root.minsize(460, 150)
+    root.geometry("600x240")
+    root.minsize(460, 220)
     root.configure(bg="#1a1a1a")
+    messages = queue.Queue()
     status = tk.StringVar(value="Iniciando AutoRIP local…")
     tk.Label(root, text="AutoRIP", fg="#00aeef", bg="#1a1a1a",
              font=("Segoe UI", 24, "bold")).pack(pady=(18, 4))
@@ -1322,18 +1362,40 @@ def run_direct():
         stop_event.set()
         shutdown_server()
         root.destroy()
+    def open_panel():
+        srv = HTTP_SERVER
+        if srv is not None:
+            webbrowser.open(f"http://127.0.0.1:{srv.server_address[1]}/")
+
+    tk.Button(root, text="Abrir painel e configurações", command=open_panel,
+              bg="#00aeef", fg="#1a1a1a", relief="flat", padx=18, pady=7).pack(pady=4)
     tk.Button(root, text="Encerrar", command=close_direct,
               bg="#ec008c", fg="white", relief="flat", padx=18, pady=7).pack(pady=12)
 
     def start_local():
         try:
-            started = serve(open_browser=False, status_callback=lambda message: root.after(0, status.set, message))
+            started = serve(open_browser=False, status_callback=messages.put)
             if started is False and not DIRECT_CLOSING:
-                root.after(0, status.set, "Não iniciado. Verifique se já existe outra instância aberta.")
+                messages.put("Não iniciado. Verifique se já existe outra instância aberta.")
         except Exception as exc:
-            try: root.after(0, status.set, f"Falha ao iniciar: {exc}")
-            except tk.TclError: pass
+            messages.put(f"Falha ao iniciar: {exc}")
 
+    def refresh_status():
+        if stop_event.is_set():
+            return
+        while True:
+            try: status.set(messages.get_nowait())
+            except queue.Empty: break
+        if HTTP_SERVER is not None:
+            with APP.lock:
+                active = sum(job["status"] == "processando" for job in APP.jobs)
+            with APP.settings_lock:
+                automatic, offline = APP.auto, APP.s.offline_mode
+            status.set(f"Pronto — Automático {'ligado' if automatic else 'desligado'} | "
+                       f"RIP: {active} | Na fila: {APP.q.qsize()} | {'Offline' if offline else 'Rede habilitada'}")
+        root.after(500, refresh_status)
+
+    root.after(100, refresh_status)
     threading.Thread(target=start_local, daemon=True).start()
     root.protocol("WM_DELETE_WINDOW", close_direct)
     root.mainloop()

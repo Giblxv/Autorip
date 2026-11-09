@@ -310,3 +310,30 @@ def test_etiqueta_nome_longo_nao_perde_final_com_dimensoes():
     for _, _, pixels in labels:
         assert np.any(pixels[:, int(pixels.shape[1] * 0.8):])
         assert pixels.shape[1] <= 2362
+
+
+def test_morfologia_nao_cria_emendas_entre_tiras(tmp_path, monkeypatch):
+    # Pixels de entrada e saída 1:1 isolam a morfologia da reamostragem.
+    image = Image.new("RGBA", (120, 900), (40, 100, 200, 255))
+    alpha = np.full((900, 120), 255, dtype=np.uint8)
+    alpha[490:540, 50:65] = 0
+    alpha[100:800, :12] = 0
+    image.putalpha(Image.fromarray(alpha))
+    path = tmp_path / "seams.png"
+    image.save(path)
+    settings = Settings(dpi_x=300, dpi_y=2400, label_enabled=False,
+                        margin_top_in=0, margin_bottom_in=0,
+                        white_fill_holes_mm=.31, white_choke_mm=.11)
+    rip = Rip(settings)
+    rgba = rip._source_rgba(image)
+    whole = rip._render(rgba, 0, 900, 0, 900, 120, [])[4]
+    fill = int(np.ceil(settings.white_fill_holes_mm / 25.4 * settings.dpi_y))
+    choke = int(np.ceil(settings.white_choke_mm / 25.4 * settings.dpi_y))
+    halo = 2 * fill + choke + 2
+    parts = []
+    for start in range(0, 900, 137):
+        end = min(start + 137, 900)
+        a0, a1 = max(0, start-halo), min(900, end+halo)
+        part = rip._render(rgba, a0, a1, 0, 900, 120, [])[4]
+        parts.append(part[start-a0:end-a0])
+    assert np.array_equal(np.concatenate(parts), whole)

@@ -1,0 +1,25 @@
+{
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "numpy": "2.5.4",
+  "repeat": 3,
+  "dpi": [
+    720,
+    2400
+  ],
+  "results": {
+    "white_640x1700": {
+      "baseline_seconds": 1.195413,
+      "new_seconds": 0.147859,
+      "speedup": 8.08,
+      "reduction_percent": 87.6
+    },
+    "rip_5x3.75cm": {
+      "baseline_seconds": 7.449521,
+      "new_seconds": 1.698098,
+      "speedup": 4.39,
+      "reduction_percent": 77.2
+    }
+  },
+  "unchanged_without_white": true
+}

@@ -1,0 +1,4 @@
+# O motor RIP padrão não importa estes módulos.
+rectpack==0.2.2       # encaixe opcional; também usado nos testes
+rembg>=2.0.7,<3       # exige modelo ONNX local explícito
+onnxruntime>=1.17,<2  # runtime do rembg; confirme suporte à versão do seu Python
