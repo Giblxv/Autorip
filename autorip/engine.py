@@ -13,8 +13,49 @@ from .paths import publish_unique_file
 MAX_INPUT_PIXELS = 80_000_000
 MAX_EMBEDDED_ICC_BYTES = 16 * 1024 * 1024
 MIN_FREE_DISK_BYTES = 128 * 1024 * 1024  # reserva para logs, journal e sistema
-STRIP = 512  # reduz o pico de memoria em folhas largas
-MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
+
+
+def _system_memory_bytes():
+    """Obtém a RAM física sem exigir dependência extra no executável Windows."""
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            class MemoryStatus(ctypes.Structure):
+                _fields_ = [("length", ctypes.c_uint32), ("memory_load", ctypes.c_uint32),
+                            ("total", ctypes.c_uint64), ("available", ctypes.c_uint64),
+                            ("pagefile_total", ctypes.c_uint64), ("pagefile_available", ctypes.c_uint64),
+                            ("virtual_total", ctypes.c_uint64), ("virtual_available", ctypes.c_uint64),
+                            ("extended", ctypes.c_uint64)]
+
+            status = MemoryStatus()
+            status.length = ctypes.sizeof(MemoryStatus)
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+                return int(status.total)
+        except (AttributeError, OSError, TypeError):
+            pass
+    try:
+        pages = os.sysconf("SC_PHYS_PAGES")
+        page_size = os.sysconf("SC_PAGE_SIZE")
+        return int(pages * page_size)
+    except (AttributeError, OSError, ValueError):
+        return 0
+
+
+def _performance_profile():
+    """Seleciona blocos maiores em PCs com memória abundante, reduzindo overhead de tiras."""
+    ram = _system_memory_bytes()
+    cores = os.cpu_count() or 1
+    if ram >= 24 * 1024**3 and cores >= 6:
+        return {"name": "alto", "strip": 1024, "memory": 1024 * 1024**2}
+    if ram >= 12 * 1024**3 and cores >= 4:
+        return {"name": "equilibrado", "strip": 768, "memory": 768 * 1024**2}
+    return {"name": "conservador", "strip": 512, "memory": 512 * 1024**2}
+
+
+PERFORMANCE_PROFILE = _performance_profile()
+STRIP = PERFORMANCE_PROFILE["strip"]
+MAX_STRIP_MEMORY_BYTES = PERFORMANCE_PROFILE["memory"]
 _BYTES_PER_RENDER_PIXEL = 48  # planos, alpha, CMYK float e buffers temporários
 
 

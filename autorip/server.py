@@ -5,7 +5,7 @@ from urllib.parse import urlparse, parse_qs, urlencode
 from dataclasses import asdict
 from . import __version__
 from .config import Settings
-from .engine import Rip, MAX_INPUT_PIXELS
+from .engine import Rip, MAX_INPUT_PIXELS, PERFORMANCE_PROFILE
 from .prt import read_header
 from .watcher import EXTS, _signature, _stable
 from .paths import (ProcessLock, safe_filename, move_unique, next_available_path,
@@ -88,6 +88,8 @@ class App:
         for d in (self.s.hot_folder, self.s.output_folder, self.s.printed_folder, self.s.done_folder, self.s.error_folder):
             os.makedirs(d, exist_ok=True)
         os.makedirs(self.processing_folder, exist_ok=True)
+        self.log(f"Perfil de desempenho: {PERFORMANCE_PROFILE['name']} "
+                 f"(tiras de ate {PERFORMANCE_PROFILE['strip']} linhas)")
         if self.rip.icc_error:
             self.log(self.rip.icc_error)
         elif not self.s.icc_path:
