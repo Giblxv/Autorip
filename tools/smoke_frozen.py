@@ -17,7 +17,7 @@ def smoke(executable, expected_version):
     with tempfile.TemporaryDirectory(prefix="autorip-smoke-") as folder:
         home = Path(folder)
         config = dict(auto_mode=False, offline_mode=True, auto_update=False,
-                      label_enabled=False, dpi_x=72, dpi_y=72,
+                      label_enabled=False, dpi_x=720, dpi_y=2400,
                       margin_top_in=0, margin_bottom_in=0, poll_seconds=.25)
         (home / "autorip.json").write_text(json.dumps(config), encoding="utf-8")
         env = dict(os.environ, AUTORIP_HOME=str(home), AUTORIP_NOBROWSER="1")

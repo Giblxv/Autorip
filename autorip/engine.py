@@ -13,6 +13,7 @@ from . import morph
 
 MAX_INPUT_PIXELS = 80_000_000
 MIN_FREE_DISK_BYTES = 128 * 1024 * 1024  # reserva para logs, journal e sistema
+RENDER_WORKERS_MAX = 4
 STRIP = 512  # reduz o pico de memoria em folhas largas
 MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
 _BYTES_PER_RENDER_PIXEL = 96  # planos, alpha, CMYK float e buffers temporários
@@ -44,6 +45,8 @@ class Rip:
                 srgb = ImageCms.createProfile("sRGB")
                 prof = ImageCms.getOpenProfile(s.icc_path)
                 flags = ImageCms.Flags.BLACKPOINTCOMPENSATION if s.black_point_comp else 0
+                # LittleCMS: transforme compartilhada por threads exige desativar cache de pixel.
+                flags |= ImageCms.Flags.NOCACHE
                 self.transform = ImageCms.buildTransform(
                     srgb, prof, "RGB", "CMYK", renderingIntent=ImageCms.Intent(s.intent), flags=flags)
             except Exception as exc:
@@ -180,7 +183,12 @@ class Rip:
         fill_rows = int(np.ceil(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         choke_rows = int(np.ceil(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
         halo = 2 * fill_rows + choke_rows + 2
-        available_rows = MAX_STRIP_MEMORY_BYTES // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
+        workers = (min(RENDER_WORKERS_MAX, os.cpu_count() or 1)
+                   if n_rows >= STRIP * 3 and n_dots * n_rows >= 1_000_000 else 1)
+        available_rows = MAX_STRIP_MEMORY_BYTES // workers // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
+        if workers > 1 and available_rows < 1:
+            workers = 1
+            available_rows = MAX_STRIP_MEMORY_BYTES // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
         if available_rows < 1:
             raise ValueError("A largura/DPI exigem mais memória do que o limite seguro de processamento por tira.")
         strip_rows = max(1, min(STRIP, int(available_rows)))
@@ -189,19 +197,46 @@ class Rip:
         wr = None
         try:
             wr = PrtWriter(tmp_path, s.dpi_x, s.dpi_y, n_rows, n_dots)
-            y = 0
-            while y < n_rows:
-                y1 = min(n_rows, y + strip_rows)
-                a0, a1 = max(0, y - halo), min(n_rows, y1 + halo)       # com halo para morfologia
-                planes_full = self._render(im, a0, a1, top, art_rows, n_dots, labels)
-                o = y - a0
-                blk = [p[o:o + (y1 - y)] for p in planes_full]
-                wr.write_block(blk)
-                # Libere a tira anterior antes de alocar a próxima e seus buffers EDT.
-                del blk, planes_full
-                y = y1
-                if progress:
-                    progress(y / n_rows)
+            if workers == 1:
+                y = 0
+                while y < n_rows:
+                    y1 = min(n_rows, y + strip_rows)
+                    a0, a1 = max(0, y - halo), min(n_rows, y1 + halo)       # com halo para morfologia
+                    planes_full = self._render(im, a0, a1, top, art_rows, n_dots, labels)
+                    o = y - a0
+                    blk = [p[o:o + (y1 - y)] for p in planes_full]
+                    wr.write_block(blk)
+                    # Libere a tira anterior antes de alocar a próxima e seus buffers EDT.
+                    del blk, planes_full
+                    y = y1
+                    if progress:
+                        progress(y / n_rows)
+            else:
+                from collections import deque
+                from concurrent.futures import ThreadPoolExecutor
+                ranges = iter(range(0, n_rows, strip_rows))
+                pending = deque()
+                with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="autorip-render") as pool:
+                    def submit():
+                        start = next(ranges, None)
+                        if start is None:
+                            return
+                        end = min(n_rows, start + strip_rows)
+                        a0, a1 = max(0, start - halo), min(n_rows, end + halo)
+                        future = pool.submit(self._render, im, a0, a1, top, art_rows, n_dots, labels)
+                        pending.append((start, end, a0, future))
+                    for _ in range(workers):
+                        submit()
+                    while pending:
+                        start, end, a0, future = pending.popleft()
+                        planes_full = future.result()
+                        offset = start - a0
+                        block = [plane[offset:offset + end - start] for plane in planes_full]
+                        wr.write_block(block)
+                        del block, planes_full, future
+                        if progress:
+                            progress(end / n_rows)
+                        submit()
             wr.close()
             result = dict(n_rows=n_rows, n_dots=n_dots, width_cm=w_cm,
                           height_cm=art_rows / s.dpi_y * 2.54, dpi_x=s.dpi_x,
@@ -227,7 +262,8 @@ class Rip:
     def _render(self, im, a0, a1, top, art_rows, n_dots, labels):
         s = self.s
         h = a1 - a0
-        planes = [np.zeros((h, n_dots), np.uint8) for _ in range(12)]
+        zero = np.zeros((h, n_dots), np.uint8)
+        planes = [zero] * 12
         r0, r1 = max(a0, top), min(a1, top + art_rows)
         if r1 > r0:
             sy = im.height / art_rows
@@ -236,29 +272,38 @@ class Rip:
             if s.mirror:
                 strip = strip.transpose(Image.FLIP_LEFT_RIGHT)
             arr = np.asarray(strip)
-            alpha = arr[..., 3].astype(np.float32) / 255.0
-            rgb = Image.fromarray(arr[..., :3], "RGB")
-            cmyk = self._to_cmyk(rgb)
-            cmyk *= alpha[..., None]  # tinta somente onde há arte, sem duplicar CMYK
-            o = r0 - a0
-            thresholds = self._thresholds(h, n_dots, a0)
-            color_thresholds = thresholds[o:o + (r1 - r0)]
-            idx = {"C": 0, "M": 1, "Y": 2, "K": 3}            # ordem do array CMYK do Pillow
-            for pl, name in enumerate(s.channel_order):          # plano -> tinta
-                planes[pl][o:o + (r1 - r0)] = self._halftone(cmyk[..., idx[name]], r0, color_thresholds)
-            # EDT usa buffers grandes: libere a cor e sua tela antes da morfologia.
-            del color_thresholds, thresholds, cmyk, rgb, arr, strip
-            if s.white_enabled:
-                full_alpha = np.zeros((h, n_dots), np.float32)
-                full_alpha[o:o + (r1 - r0)] = alpha
-                del alpha
-                lvl = self._white_levels(full_alpha, a0)
-                for pidx in s.white_planes:
-                    planes[pidx] = lvl
+            if arr[..., 3].any():
+                alpha = arr[..., 3].astype(np.float32) / 255.0
+                rgb = Image.fromarray(arr[..., :3], "RGB")
+                cmyk = self._to_cmyk(rgb)
+                cmyk *= alpha[..., None]  # tinta somente onde há arte, sem duplicar CMYK
+                o = r0 - a0
+                thresholds = self._thresholds(h, n_dots, a0)
+                color_thresholds = thresholds[o:o + (r1 - r0)]
+                idx = {"C": 0, "M": 1, "Y": 2, "K": 3}            # ordem do array CMYK do Pillow
+                for pl, name in enumerate(s.channel_order):          # plano -> tinta
+                    levels = self._halftone(cmyk[..., idx[name]], r0, color_thresholds)
+                    if o == 0 and levels.shape[0] == h:
+                        planes[pl] = levels
+                    else:
+                        planes[pl] = zero.copy()
+                        planes[pl][o:o + levels.shape[0]] = levels
+                # EDT usa buffers grandes: libere a cor e sua tela antes da morfologia.
+                del color_thresholds, thresholds, cmyk, rgb, arr, strip
+                if s.white_enabled:
+                    full_alpha = np.zeros((h, n_dots), np.float32)
+                    full_alpha[o:o + (r1 - r0)] = alpha
+                    del alpha
+                    lvl = self._white_levels(full_alpha, a0)
+                    for pidx in s.white_planes:
+                        planes[pidx] = lvl
         for (ly, lx, lab) in labels:                 # etiqueta em K (plano 0)
             ys, ye = max(ly, a0), min(ly + lab.shape[0], a1)
             if ye > ys:
                 seg = lab[ys - ly:ye - ly]
-                dst = planes[s.channel_order.index("K")][ys - a0:ye - a0, lx:lx + lab.shape[1]]
+                k_plane = s.channel_order.index("K")
+                if planes[k_plane] is zero:
+                    planes[k_plane] = zero.copy()
+                dst = planes[k_plane][ys - a0:ye - a0, lx:lx + lab.shape[1]]
                 dst[seg] = 3
         return planes
