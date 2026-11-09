@@ -39,7 +39,7 @@ def main():
             if i == 0:
                 Image.new('RGBA', (32, 32), (30, 140, 210, 255)).save(path)
             app.enqueue(str(path))
-        if '--thumbnail-fixtures' in sys.argv:
+        if '--thumbnail-fixtures' in sys.argv or '--polling-fixtures' in sys.argv:
             thumbs=Path(app.home)/'thumbs';by_name=thumbs/'by_name'
             by_name.mkdir(parents=True)
             encoded=server._encode_thumbnail(Image.new('RGB',(96,64),(30,140,210)))
@@ -47,11 +47,15 @@ def main():
                 key=f'preview-{i//2}'
                 (thumbs/(key+'.jpg')).write_bytes(encoded)
                 job['thumb']='/api/thumb?id='+key
-            for i in range(240):
+            for i in range(2 if '--polling-fixtures' in sys.argv else 240):
                 name=f'print-{i:03}'
                 writer=PrtWriter(Path(app.s.output_folder)/(name+'.PRT'),300,300,1,32)
                 writer.write_block([np.zeros((1,32),np.uint8)]*12);writer.close()
                 (by_name/(name+'.jpg')).write_bytes(encoded)
+        if '--polling-fixtures' in sys.argv:
+            app.tokens.add('queue-browser-token-new')
+            for i in range(2):
+                Image.new('RGB',(32,32),(30,140,210)).save(Path(app.s.hot_folder)/f'entrada-{i}.png')
         server.APP = app
         with ThreadingHTTPServer(('127.0.0.1', 0), server.H) as http:
             worker = threading.Thread(target=http.serve_forever, daemon=True)

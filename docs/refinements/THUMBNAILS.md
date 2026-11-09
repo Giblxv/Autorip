@@ -104,3 +104,5 @@ AUTORIP_PYTHON=.venv/bin/python AUTORIP_UI_BASELINE=57aea5b node tools/smoke_thu
 O ambiente gerado usa arquivos sintéticos, sem dados reais ou impressora.
 Os seletores opcionais de Python, Playwright e Chromium seguem o smoke de fila.
 Não acrescenta dependências ao programa empacotado, perfis ou migrações.
+
+Continuação: [consultas agrupadas e linhas estáveis durante uso prolongado](POLLING.md).
