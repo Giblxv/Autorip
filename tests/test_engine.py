@@ -10,6 +10,16 @@ from autorip.engine import Rip
 from autorip.prt import read_header, read_rows
 
 
+@pytest.mark.parametrize("value", [None, 0, -1, float("nan"), float("inf"), "not-a-number"])
+def test_dpi_de_entrada_invalido_usa_padrao_seguro(value):
+    assert engine._safe_source_dpi(value) == engine.DEFAULT_SOURCE_DPI
+
+
+def test_dpi_de_entrada_positivo_e_finito_e_preservado():
+    assert engine._safe_source_dpi(144) == 144
+    assert engine._safe_source_dpi("720") == 720
+
+
 def test_rip_png_emite_prt_com_transparencia_e_base_branca(sample_png, tmp_path):
     settings = Settings(dpi_x=300, dpi_y=300, margin_top_in=0.1,
                         margin_bottom_in=0.1, label_enabled=False)

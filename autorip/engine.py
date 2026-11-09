@@ -1,4 +1,5 @@
 """Motor do RIP: PNG -> (ICC) CMYK -> meio-tom estocastico 2 bits + branco automatico -> .PRT"""
+import math
 import os
 import io
 import shutil
@@ -15,6 +16,16 @@ MIN_FREE_DISK_BYTES = 128 * 1024 * 1024  # reserva para logs, journal e sistema
 STRIP = 512  # reduz o pico de memoria em folhas largas
 MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
 _BYTES_PER_RENDER_PIXEL = 48  # planos, alpha, CMYK float e buffers temporários
+DEFAULT_SOURCE_DPI = 300.0
+
+
+def _safe_source_dpi(value, default=DEFAULT_SOURCE_DPI):
+    """Retorna um DPI finito e positivo; metadado ausente ou corrompido usa o padrão."""
+    try:
+        dpi = float(value)
+    except (TypeError, ValueError):
+        return default
+    return dpi if math.isfinite(dpi) and dpi > 0 else default
 
 
 def _blue_noise(h=256, w=256, sx=1.0, sy=None, seed=7):
@@ -157,8 +168,12 @@ class Rip:
             orientation = opened.getexif().get(274, 1)
             source = ImageOps.exif_transpose(opened)
             has_alpha = source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info
-            source_dpi = source.info.get("dpi", (300, 300))
-            source_dpi_x, source_dpi_y = source_dpi[0] or 300, source_dpi[1] or 300
+            source_dpi = source.info.get("dpi", (DEFAULT_SOURCE_DPI, DEFAULT_SOURCE_DPI))
+            try:
+                raw_dpi_x, raw_dpi_y = source_dpi[0], source_dpi[1]
+            except (IndexError, TypeError):
+                raw_dpi_x = raw_dpi_y = DEFAULT_SOURCE_DPI
+            source_dpi_x, source_dpi_y = _safe_source_dpi(raw_dpi_x), _safe_source_dpi(raw_dpi_y)
             if orientation in (5, 6, 7, 8):
                 source_dpi_x, source_dpi_y = source_dpi_y, source_dpi_x
             source.load()
