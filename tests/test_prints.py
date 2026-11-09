@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 
 import pytest
@@ -22,18 +23,20 @@ def test_fila_preserva_colisoes_e_move_prt_com_seguranca(app, sample_png, tmp_pa
 
     assert first["status"] == second["status"] == "pronto"
     prints = app.list_prints()
-    assert {item["name"] for item in prints} == {"mesma.PRT", "mesma_001.PRT"}
+    names = {item["name"] for item in prints}
+    assert len(names) == 2
+    assert all(re.fullmatch(r"mesma_3\.00x2\.00cm_\d{8}-\d{6}(?:_\d{3})?\.PRT", name) for name in names)
     assert all(abs(item["width_cm"] - 3.0) < 0.05 for item in prints)
     assert abs(prints[0]["height_cm"] - 2.0) < 0.05
     assert os.path.exists(os.path.join(app.home, "thumbs", first["id"] + ".jpg"))
-    assert os.path.exists(os.path.join(app.home, "thumbs", "by_name", "mesma.jpg"))
-    assert os.path.exists(os.path.join(app.home, "thumbs", "by_name", "mesma_001.jpg"))
+    assert len(list((tmp_path / "autorip-home" / "thumbs" / "by_name").glob("mesma*.jpg"))) == 2
     app.s.margin_top_in = app.s.margin_bottom_in = 1.0
     assert app.list_prints()[0]["height_cm"] == 2.0  # usa sidecar do RIP, não margens atuais
 
-    app.mark_printed("mesma.PRT")
-    assert os.path.exists(os.path.join(app.s.printed_folder, "mesma.PRT"))
-    app.delete_print("mesma_001.PRT")
+    first_name, second_name = sorted(names)
+    app.mark_printed(first_name)
+    assert os.path.exists(os.path.join(app.s.printed_folder, first_name))
+    app.delete_print(second_name)
     assert app.list_prints() == []
 
     with pytest.raises(FileNotFoundError):

@@ -7,7 +7,7 @@ from .engine import Rip
 from .paths import (ProcessLock, archive_marker_path, move_unique, next_available_path,
                     read_archive_marker, remove_archive_marker, write_archive_marker,
                     file_sha256, find_marked_output, write_json_atomic,
-                    source_signature_matches)
+                    source_signature_matches, rip_output_name)
 from .prt import read_header
 
 EXTS = (".png", ".tif", ".tiff", ".jpg", ".jpeg")
@@ -215,6 +215,14 @@ def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None,
             continue
 
     n = 0
+    def priority(item):
+        try:
+            signature = _signature(item)
+            size = signature[2] if signature else 2**63 - 1
+        except OSError:
+            size = 2**63 - 1
+        return size, os.path.basename(item).casefold()
+    pending.sort(key=priority)
     for src in pending:
         try:
             signature = _signature(src)
@@ -242,7 +250,11 @@ def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None,
                 marker["output_sha256"] = file_sha256(temporary_path)
                 marker["info"] = {key: preview[key] for key in
                                    ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
+                named = rip_output_name(os.path.basename(src), preview["width_cm"], preview["height_cm"])
+                preferred = next_available_path(s.output_folder, named)
+                marker["output"] = os.path.basename(preferred)
                 write_archive_marker(src, marker)
+                return preferred
             info = rip.process(src, preferred, before_publish=before_publish)
             out = info.pop("output_path")
             metadata_written = False

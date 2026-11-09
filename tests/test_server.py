@@ -487,7 +487,8 @@ def test_hot_folder_retry_sidecar_apos_enqueue_no_mesmo_processo(app, sample_png
 
     assert os.path.isfile(archived)
     assert attempts["count"] >= 2
-    assert os.path.isfile(os.path.join(app.s.output_folder, "hot-retry.PRT.meta.json"))
+    assert len([name for name in os.listdir(app.s.output_folder)
+                if name.startswith("hot-retry_") and name.endswith(".PRT.meta.json")]) == 1
     assert len([name for name in os.listdir(app.s.output_folder) if name.endswith(".PRT")]) == 1
 
 

@@ -9,6 +9,7 @@ import shutil
 import stat
 import sys
 import tempfile
+import time
 
 _INVALID = re.compile(r'[\x00-\x1f<>:"/\\|?*]')
 _RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
@@ -34,6 +35,16 @@ def safe_filename(value, default="arte"):
     elif len(stem) + len(extension) > max_length:
         stem = stem[:max(1, max_length - len(extension))]
     return stem + extension
+
+
+def rip_output_name(source_name, width_cm, height_cm, timestamp=None):
+    """Monta o nome final preservando a base da arte e registrando tamanho/hora."""
+    safe_source = safe_filename(source_name)
+    stem = os.path.splitext(safe_source)[0]
+    stamp = time.localtime(time.time() if timestamp is None else timestamp)
+    dimensions = f"{float(width_cm):.2f}x{float(height_cm):.2f}cm"
+    clock = time.strftime("%Y%m%d-%H%M%S", stamp)
+    return safe_filename(f"{stem}_{dimensions}_{clock}.PRT")
 
 
 def _suffixed_name(safe, index):

@@ -9,7 +9,7 @@ from .config import Settings
 from .engine import Rip
 from .watcher import watch, run_once, _signature
 from .paths import (ProcessLock, next_available_path, manual_journal_path,
-                    file_sha256, find_marked_output, write_json_atomic)
+                    file_sha256, find_marked_output, write_json_atomic, rip_output_name)
 from .prt import read_header
 
 
@@ -147,7 +147,11 @@ def _process_manual_file(source, rip, s, width_cm=None, force=False):
         marker["output_sha256"] = file_sha256(temporary_path)
         marker["info"] = {key: preview[key] for key in
                            ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
+        preferred_name = rip_output_name(os.path.basename(source), preview["width_cm"], preview["height_cm"])
+        preferred = next_available_path(s.output_folder, preferred_name)
+        marker["output"] = os.path.basename(preferred)
         write_json_atomic(journal, marker)
+        return preferred
 
     try:
         info = rip.process(source, preferred, width_cm, progress=lambda p: print(f"\r{p*100:5.1f}%", end=""),

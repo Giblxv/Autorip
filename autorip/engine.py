@@ -278,7 +278,9 @@ class Rip:
                           height_cm=art_rows / s.dpi_y * 2.54, dpi_x=s.dpi_x,
                           dpi_y=s.dpi_y, has_alpha=has_alpha)
             if before_publish:
-                before_publish(tmp_path, dict(result))
+                preferred = before_publish(tmp_path, dict(result))
+                if preferred:
+                    out_path = os.path.realpath(preferred)
             out_path = publish_unique_file(tmp_path, out_path)
             try:
                 os.remove(tmp_path)

@@ -46,7 +46,7 @@ def test_cli_positional_recupera_journal_sem_duplicar(monkeypatch, tmp_path, sam
                 writer.close()
                 info = {"width_cm": 2.0, "height_cm": 1.0, "dpi_x": 300, "dpi_y": 300,
                         "n_rows": 1, "n_dots": 8, "has_alpha": True}
-                before_publish(temporary, info)
+                preferred = before_publish(temporary, info) or preferred
                 published = publish_unique_file(temporary, preferred)
                 if type(self).calls == 1:
                     raise RuntimeError("simulated crash after publish")
@@ -67,7 +67,7 @@ def test_cli_positional_recupera_journal_sem_duplicar(monkeypatch, tmp_path, sam
     cli.main()
     assert CrashOnceRip.calls == 1
     assert len(list(output.glob("*.PRT"))) == 1
-    assert (output / "amostra.PRT.meta.json").is_file()
+    assert len(list(output.glob("amostra_*.PRT.meta.json"))) == 1
 
     # Um sucesso já journalizado é ignorado na chamada repetida normal.
     cli.main()

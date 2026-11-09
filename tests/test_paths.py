@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from autorip import paths
-from autorip.paths import ProcessLock, move_unique, reserve_unique_path, safe_filename
+from autorip.paths import ProcessLock, move_unique, reserve_unique_path, rip_output_name, safe_filename
 
 
 def test_safe_filename_remove_traversal_e_caracteres_de_controle():
@@ -14,6 +14,12 @@ def test_safe_filename_remove_traversal_e_caracteres_de_controle():
     assert "\x00" not in safe_filename("arte\x00.png")
     assert len(safe_filename("a" * 300 + ".png")) <= 180
     assert len(safe_filename("a." + "x" * 10000)) <= 180
+
+
+def test_nome_prt_preserva_base_adiciona_tamanho_e_horario():
+    name = rip_output_name("/entrada/Minha arte final.png", 10.5, 21.25, 0)
+    assert name == "Minha arte final_10.50x21.25cm_19700101-000000.PRT"
+    assert rip_output_name("..\\CON.png", 1, 2, 0).startswith("_CON_1.00x2.00cm_")
 
 
 def test_reserva_e_move_geram_destinos_unicos(tmp_path):

@@ -11,7 +11,7 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-VERSION = "0.8.11"
+VERSION = "0.8.12"
 UBUNTU_URL = "https://releases.ubuntu.com/24.04/ubuntu-24.04.3-desktop-amd64.iso"
 UBUNTU_SUMS_URL = "https://releases.ubuntu.com/24.04/SHA256SUMS"
 RELEASE_BASE = f"https://github.com/Giblxv/Autorip/releases/download/v{VERSION}"

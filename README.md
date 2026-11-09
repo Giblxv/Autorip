@@ -1,10 +1,12 @@
-# AutoRIP 0.8.10 — automação de pré-impressão DTF / DTF UV
+# AutoRIP 0.8.12 — automação de pré-impressão DTF / DTF UV
 
 O AutoRIP organiza uma etapa de pré-impressão: importa artes raster, converte cores, prepara a base branca e gera arquivos `.PRT` para fluxo com PrintExp. Ele não substitui o software/driver do fabricante e **o formato PRT deste projeto foi inferido de uma referência, não de uma especificação oficial**. Antes de produção, valide em uma impressora de teste: abertura no PrintExp, ordem de canais, dimensão, escala, branco, orientação e densidade. Comece com material de baixo custo; o arquivo pode não ser compatível com todo equipamento.
 
 ## Fluxo de processamento
 
 `PNG / TIFF / JPEG → orientação EXIF → conversão ICC (se configurada) → meio-tom de 2 bits → CMYK + base branca → arquivo PRT`
+
+Os PRTs preservam o nome-base da arte e recebem as dimensões calculadas e o horário local do RIP, por exemplo `camiseta_10.50x21.25cm_20261109-215430.PRT`. Quando há várias artes aguardando, o AutoRIP prioriza os arquivos menores; trabalhos de mesmo tamanho mantêm desempate estável.
 
 O formato de saída configurado por padrão usa 12 canais, 720 × 2400 dpi, canais de cor K/C/M/Y e branco no plano 4. Esses parâmetros e o perfil precisam corresponder à impressora, tinta, filme e PrintExp utilizados. A conversão sem perfil ICC é genérica; para consistência de cor, configure um perfil apropriado. Um perfil inexistente ou inválido é informado e interrompe o RIP — não há fallback silencioso.
 
@@ -18,7 +20,7 @@ A base branca respeita o alfa/transparência e oferece controles de densidade, r
 2. Execute `build_windows.bat` para gerar o executável one-file `dist\AutoRIP\AutoRIP.exe` e, com o Inno Setup 6 instalado, o instalador único `Output\AutoRIP_Setup.exe`.
 3. Para preparar o pacote em um computador conectado e compilar depois sem internet, use `preparar_offline.bat` e, no computador de build, `build_windows_offline.bat`.
 
-Também existe o workflow **Build Windows** no GitHub Actions. Em uma tag `v*`, ele compila em Windows e publica uma release com `AutoRIP.exe`, `AutoRIP_Setup.exe` e `SHA256SUMS.txt`; a release atual está em [v0.8.10](https://github.com/Giblxv/Autorip/releases/tag/v0.8.10). O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
+Também existe o workflow **Build Windows** no GitHub Actions. Em uma tag `v*`, ele compila em Windows e publica uma release com `AutoRIP.exe`, `AutoRIP_Setup.exe` e `SHA256SUMS.txt`; a release atual está em [v0.8.12](https://github.com/Giblxv/Autorip/releases/tag/v0.8.12). O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
 
 As releases Windows também incluem `AutoRIP_Ubuntu_Media_Wizard.exe`, um assistente separado para baixar/verificar o Ubuntu Desktop, preparar o pacote Linux do servidor e abrir o Rufus oficial para gravação da mídia. A instalação do Ubuntu exige reinicialização e confirmação do disco de destino; o assistente não apaga discos silenciosamente.
 

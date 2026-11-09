@@ -11,7 +11,7 @@ from .watcher import EXTS, _signature, _stable
 from .paths import (ProcessLock, safe_filename, move_unique, next_available_path,
                     read_archive_marker, remove_archive_marker, write_archive_marker,
                     file_sha256, find_marked_output, source_signature_matches,
-                    write_json_atomic)
+                    write_json_atomic, rip_output_name)
 from . import integrations, agent, updater
 from PIL import Image, ImageDraw, ImageOps
 
@@ -58,7 +58,8 @@ class App:
         self.rip = Rip(self.s)
         self.auto = self.s.auto_mode
         self.jobs, self.log_lines, self.tokens = [], [], set()
-        self.q = queue.Queue()
+        self.q = queue.PriorityQueue()
+        self._queue_sequence = 0
         self.lock = threading.RLock()
         self.settings_lock = threading.RLock()
         self.print_lock = threading.Lock()
@@ -399,7 +400,14 @@ class App:
             self.queued_sources.add(path)
             self.source_jobs[path] = job
             self.jobs.append(job); self.jobs[:] = self.jobs[-50:]
-            self.q.put((job, path, width_cm, move_to_done))
+            try:
+                priority_bytes = os.path.getsize(path)
+            except OSError:
+                priority_bytes = 2**63 - 1
+            sequence = self._queue_sequence
+            self._queue_sequence += 1
+            job["priority_bytes"] = priority_bytes
+            self.q.put((priority_bytes, sequence, job, path, width_cm, move_to_done))
         return job
 
     def _release_source(self, path):
@@ -409,7 +417,7 @@ class App:
 
     def _worker(self):
         while True:
-            job, path, width_cm, move = self.q.get()
+            _priority_bytes, _sequence, job, path, width_cm, move = self.q.get()
             with self.settings_lock:
                 settings, rip = self.s, self.rip
                 self._active_output_key = self._output_lock_key(settings.output_folder)
@@ -438,12 +446,15 @@ class App:
                     with self.lock:
                         job["progress"] = round(p, 3)
                 def before_publish(temporary_path, preview):
-                    if not move:
-                        return
-                    marker["output_sha256"] = file_sha256(temporary_path)
-                    marker["info"] = {key: preview[key] for key in
-                                       ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
-                    write_archive_marker(path, marker)
+                    named = rip_output_name(job["name"], preview["width_cm"], preview["height_cm"])
+                    preferred = next_available_path(settings.output_folder, named)
+                    if move:
+                        marker["output_sha256"] = file_sha256(temporary_path)
+                        marker["info"] = {key: preview[key] for key in
+                                           ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
+                        marker["output"] = os.path.basename(preferred)
+                        write_archive_marker(path, marker)
+                    return preferred
                 info = rip.process(path, out, width_cm, progress=prog, before_publish=before_publish)
                 out = info.pop("output_path")
             except Exception as e:

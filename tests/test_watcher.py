@@ -27,15 +27,15 @@ def test_run_once_reivindica_arquiva_e_nao_sobrescreve(app_home, sample_png, tmp
     rip = Rip(settings)
 
     assert run_once(settings, rip, log=lambda _message: None) == 1
-    assert (output / "arte.PRT").is_file()
-    assert (output / "arte.PRT.meta.json").is_file()
+    assert len(list(output.glob("arte_*.PRT"))) == 1
+    assert len(list(output.glob("arte_*.PRT.meta.json"))) == 1
     assert (done / "arte.png").is_file()
     assert not source.exists()
 
     hot.mkdir(exist_ok=True)
     shutil.copyfile(sample_png, source)
     assert run_once(settings, rip, log=lambda _message: None) == 1
-    assert (output / "arte_001.PRT").is_file()
+    assert len(list(output.glob("arte_*.PRT"))) == 2
     assert (done / "arte_001.png").is_file()
 
 
@@ -198,7 +198,7 @@ def test_watcher_continua_se_arte_some_apos_listar_processamento(
 
     monkeypatch.setattr(watcher_module, "_signature", signature_with_race)
     assert run_once(settings, Rip(settings), log=lambda _message: None) == 1
-    assert (out / "b-valida.PRT").is_file()
+    assert len(list(out.glob("b-valida_*.PRT"))) == 1
     assert (done / "b-valida.png").is_file()
     assert not (out / "a-sumiu.PRT").exists()
 
@@ -227,4 +227,4 @@ def test_watcher_journal_ilegivel_bloqueia_rip_e_deduplica_alerta(tmp_path, samp
     marker.unlink()
     assert run_once(settings, Rip(settings), log=logs.append,
                     invalid_journal_alerts=alerts) == 1
-    assert (output / "pedido-antigo.PRT").is_file()
+    assert len(list(output.glob("pedido-antigo_*.PRT"))) == 1
