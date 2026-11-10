@@ -1,4 +1,4 @@
-# AutoRIP 0.8.14 — automação de pré-impressão DTF / DTF UV
+# AutoRIP 0.8.15 — automação de pré-impressão DTF / DTF UV
 
 O AutoRIP organiza uma etapa de pré-impressão: importa artes raster, converte cores, prepara a base branca e gera arquivos `.PRT` para fluxo com PrintExp. Ele não substitui o software/driver do fabricante e **o formato PRT deste projeto foi inferido de uma referência, não de uma especificação oficial**. Antes de produção, valide em uma impressora de teste: abertura no PrintExp, ordem de canais, dimensão, escala, branco, orientação e densidade. Comece com material de baixo custo; o arquivo pode não ser compatível com todo equipamento.
 
@@ -18,11 +18,11 @@ A base branca respeita o alfa/transparência e oferece controles de densidade, r
 2. Execute `build_windows.bat` para gerar o executável one-file `dist\AutoRIP\AutoRIP.exe` e, com o Inno Setup 6 instalado, o instalador único `Output\AutoRIP_Setup.exe`.
 3. Para preparar o pacote em um computador conectado e compilar depois sem internet, use `preparar_offline.bat` e, no computador de build, `build_windows_offline.bat`.
 
-Também existe o workflow **Build Windows** no GitHub Actions. Em uma tag `v*`, ele compila em Windows e publica uma release com `AutoRIP.exe`, `AutoRIP_Setup.exe` e `SHA256SUMS.txt`; a release atual está em [v0.8.14](https://github.com/Giblxv/Autorip/releases/tag/v0.8.14). O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
+Também existe o workflow **Build Windows** no GitHub Actions. Em uma tag `v*`, ele compila em Windows e publica uma release com `AutoRIP.exe`, `AutoRIP_Setup.exe` e `SHA256SUMS.txt`; a release atual está em [v0.8.15](https://github.com/Giblxv/Autorip/releases/tag/v0.8.15). O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
 
-O RIP, a conversão ICC, o meio-tom, as integrações e a geração do `.PRT` rodam localmente no computador usando a conexão de internet do próprio Windows quando necessário. O executável Windows inicia por padrão em uma pequena janela nativa de status, sem abrir navegador. Para isso, use o atalho **AutoRIP (modo direto)** ou execute `AutoRIP.exe --direct`; `--headless` continua aceito como alias. O painel web é apenas opcional para diagnóstico e só abre com `AutoRIP.exe --web`. A velocidade depende principalmente de CPU, memória, resolução, tamanho da arte e perfil ICC.
+O RIP, a conversão ICC, o meio-tom, as integrações e a geração do `.PRT` rodam localmente no computador usando a conexão de internet do próprio Windows quando necessário. O executável Windows inicia por padrão em uma pequena janela nativa de status, sem abrir navegador. Para isso, use o atalho **AutoRIP (modo direto)** ou execute `AutoRIP.exe --direct`; `--headless` continua aceito como alias. O painel web opcional oferece controles da fila, configurações e planejamento da folha; abra-o com `AutoRIP.exe --web`. A velocidade depende principalmente de CPU, memória, resolução, tamanho da arte e perfil ICC.
 
-O botão **⏻ Encerrar** do painel encerra o servidor local de forma segura. O painel também encerra automaticamente o servidor depois de aproximadamente 15 segundos sem receber o navegador; isso evita que fechar a aba deixe o processo permanente em segundo plano.
+O botão **⏻ Encerrar** do painel encerra o servidor local de forma segura. Quando não há produção ou integrações ativas, o painel também encerra automaticamente o servidor depois de aproximadamente 15 segundos sem receber o navegador; o processamento pendente e o modo automático mantêm o servidor ativo.
 
 O instalador é por usuário e não precisa de privilégios administrativos. A configuração inicial fica em `%APPDATA%\AutoRIP\autorip.json`; atualizações não sobrescrevem a configuração existente. Em executáveis Windows, a opção **Atualizar automaticamente pelo GitHub** vem ligada: o AutoRIP consulta no máximo uma vez por dia, aceita somente a release oficial, valida o SHA-256 e executa o instalador silencioso. Desative-a em Configurações se preferir atualizar manualmente; o modo offline nunca consulta a rede.
 
@@ -103,6 +103,8 @@ A remoção de fundo exige `model_path` apontando para um modelo ONNX local
 compatível; o AutoRIP não baixa modelos automaticamente.
 
 ## Histórico recente
+
+- **0.8.15:** planejamento de folha no painel com MaxRects offline, prévia e exportação SVG/JSON; RIP com paralelismo limitado e menos buffers de imagem; caches limitados de ICC/prévias; admissão em lote e controles de fila estáveis. [Notas da versão](docs/releases/v0.8.15.md).
 
 - **0.8.14:** fila manual com hot folder, pausa/retomada/cancelamento seguro entre tiras, upload sem quota artificial de bytes e interface psicodélica com animações pausáveis em segundo plano e ajustadas para touch.
 
