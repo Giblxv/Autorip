@@ -164,6 +164,17 @@ button,.btn{animation:none}
 body.tab-hidden *{animation-play-state:paused!important}
 @media (max-width:900px){body::before{width:260px;height:260px;left:-150px}body::after{width:300px;height:300px;right:-170px}.card::before{animation-duration:12s}}
 @media (hover:none){button:hover{animation:none!important;filter:none!important}}
+#sheetDlg{width:min(1060px,94vw);max-width:94vw;box-sizing:border-box;max-height:90vh;overflow:auto}
+.sheet-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.sheet-controls label{display:flex;flex-direction:column;gap:6px;min-width:0}.sheet-controls input{width:100%;box-sizing:border-box}
+.sheet-table{overflow:auto;max-height:30vh;margin:14px 0;border:1px solid #9a88b6;border-radius:10px}
+.sheet-table table{width:100%;min-width:460px;border-collapse:collapse;text-align:left}.sheet-table th,.sheet-table td{padding:9px;border-bottom:1px solid #9a88b6}
+.sheet-table th{font-size:13px}.sheet-table td:first-child{max-width:260px}.sheet-table label{display:flex;gap:8px;align-items:center}.sheet-name{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet-table input[type=number]{width:90px;box-sizing:border-box}.sheet-table input[type=checkbox]{flex:none}
+#sheetPreview{display:block;width:100%;height:420px;object-fit:contain;background:#eee;border-radius:10px;margin-top:16px}
+#sheetPreview[hidden]{display:none}.sheet-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.sheet-actions a{color:var(--c)}
+@media(max-width:560px){.sheet-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.sheet-table td,.sheet-table th{padding:6px}#sheetPreview{height:300px}}
+@media(max-width:560px){.sheet-table table{display:block;min-width:0}.sheet-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.sheet-table tbody{display:block}.sheet-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-bottom:1px solid #9a88b6;padding:5px}.sheet-table td{display:block;min-width:0;border:0}.sheet-table td:first-child{grid-column:1/-1}.sheet-table td:nth-child(2)::before{content:"Quantidade";display:block;font-size:12px;margin-bottom:4px}.sheet-table td:nth-child(3)::before{content:"Largura (cm)";display:block;font-size:12px;margin-bottom:4px}.sheet-table input[type=number]{width:100%}}
 </style></head><body>
 <div id="intro"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="ring r4"></div><h1>AutoRIP!</h1></div>
 <div id="fim"><h1>É ISSO AÍ,<br>PESSOAL!</h1></div>
@@ -182,6 +193,7 @@ body.tab-hidden *{animation-play-state:paused!important}
   </div>
   <div class="card h-k" style="margin-top:24px"><div class="hd"><h2><i>Hot folder</i></h2><button class="sm c" onclick="pollHotFiles(true)">↻ Atualizar</button></div>
    <div style="font-size:15px;margin-bottom:8px">Artes salvas na pasta de entrada. Escolha uma para iniciar o RIP manualmente.</div>
+   <div class="row" style="justify-content:flex-start"><button class="sm c" id="openSheet" onclick="openSheetPlanner()">Planejar folha</button></div>
    <div id="hotFiles"><div class="empty">Faça login para listar os arquivos.</div></div>
   </div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Fila de impressão</i></h2><span class="cnt" id="pqn">0</span></div>
@@ -199,6 +211,27 @@ body.tab-hidden *{animation-play-state:paused!important}
  <p class="msg" id="lmsg"></p><button class="k" onclick="doLogin()">Entrar</button> <button onclick="dlg.close()">Fechar</button></div>
  <div id="cfgBox" style="display:none"><div class="grid" id="grid"></div><p class="msg" id="cmsg"></p>
  <button class="c" onclick="saveCfg()">Salvar</button> <button onclick="dlg.close()">Fechar</button></div></dialog>
+<dialog id="sheetDlg" aria-labelledby="sheetTitle">
+ <h2 id="sheetTitle">Planejar folha</h2>
+ <p>Escolha artes da hot folder e organize até 100 peças. A largura em branco usa o tamanho da arte, limitado à folha; a altura mantém a proporção física.</p>
+ <form id="sheetForm">
+  <div class="sheet-controls">
+   <label>Largura da folha (cm)<input id="sheetWidth" type="number" min="0.001" max="58" step="any" value="58" required></label>
+   <label>Margem (cm)<input id="sheetMargin" type="number" min="0" step="any" value="0.2" required></label>
+   <label>Espaçamento (cm)<input id="sheetGap" type="number" min="0" step="any" value="0.2" required></label>
+  </div>
+  <label><input id="sheetRotate" type="checkbox"> Permitir rotação de 90°</label>
+  <div class="sheet-actions" style="margin-top:12px"><button id="sheetRefresh" type="button" class="sm">Atualizar artes</button><span id="sheetCount" role="status">0 peças selecionadas</span></div>
+  <div class="sheet-table" role="region" aria-label="Artes para planejamento" tabindex="0"><table><thead><tr><th scope="col">Arte</th><th scope="col">Quantidade</th><th scope="col">Largura (cm)</th></tr></thead><tbody id="sheetSources"></tbody></table></div>
+  <div class="sheet-actions"><button id="sheetCompute" type="submit" class="c">Calcular encaixe</button><button type="button" onclick="sheetDlg.close()">Fechar</button></div>
+ </form>
+ <p id="sheetMessage" role="status" aria-live="polite"></p>
+ <img id="sheetPreview" alt="Prévia do posicionamento das artes na folha" hidden>
+ <p id="sheetSummary" role="status"></p>
+ <div class="sheet-actions"><a id="sheetSvg" download="AutoRIP-folha.svg" hidden>Baixar prévia SVG</a><button id="sheetJson" type="button" class="sm" hidden>Exportar planejamento JSON</button></div>
+ <p style="font-size:13px">Prévia de planejamento por retângulos. As artes permanecem na pasta; esta etapa não compõe nem envia um PRT.</p>
+</dialog>
+<script src="/planner.js"></script>
 <script>
 const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new Set(),first=true;
 let jobsKey="",printsKey="",hotKey="",noticeTimer,appClosed=false,cfgRequest=0;
@@ -210,6 +243,7 @@ function createPoller(task){let running=null,revision=0;return function run(forc
  running=(async()=>{try{let current;do{current=revision;await task(()=>current!==revision)}while(current!==revision&&!appClosed)}finally{running=null}})();return running;
 }}
 function lockPanel(){token="";jobsKey=printsKey=hotKey="";lastDone.clear();first=true;printRows.clear();hotRows.clear();resetThumbnails();
+ resetSheetPlanner();
  $("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";$("hotFiles").textContent="Faça login para listar os arquivos.";
  $("jobs").textContent="Faça login para ver seus trabalhos";$("ripCount").textContent="—";$("queuePreparing").textContent="";
  $("sw").setAttribute("aria-checked","false");$("sw").classList.remove("on");$("autoTxt").textContent="Entre para consultar o estado";
@@ -401,6 +435,7 @@ async function saveCfg(){if(!token){openCfg();return}const o={};for(const f of S
   else if(t==="p"){if(e.value)o[k]=e.value}else o[k]=e.value}
  o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=Number($("ink_"+c).value));
  const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});if(r.stale)return;$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok){await showCfg();poll(true)}}
+	initSheetPlanner();
 	document.addEventListener("visibilitychange",()=>document.body.classList.toggle("tab-hidden",appClosed||document.hidden));
 	poll();pollPrints();pollHotFiles();pollTimers.push(setInterval(poll,1000),setInterval(pollPrints,3000),setInterval(pollHotFiles,3000));
 </script></body></html>

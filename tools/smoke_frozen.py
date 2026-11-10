@@ -68,6 +68,20 @@ def smoke(executable, expected_version):
                 artwork.putalpha(alpha)
                 alpha.close()
                 embedded = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+                # Exercite o algoritmo e os assets do planejador no pacote real.
+                hot = Path(api("/api/settings")["hot_folder"])
+                planned_source = hot / "planejamento.png"
+                artwork.save(planned_source, dpi=(300, 300))
+                planned_bytes = planned_source.read_bytes()
+                plan = api("/api/layout/plan", {"items": [{"name": planned_source.name,
+                           "width_cm": 3, "quantity": 2}], "allow_rotation": True})
+                if (len(plan["items"]) != 2 or not 0 < plan["utilization"] <= 1
+                        or "<svg" not in plan["svg"] or planned_source.read_bytes() != planned_bytes):
+                    raise RuntimeError("Planejador do executável não preservou as peças e a fonte")
+                with urlopen(base + "/planner.js", timeout=10) as response:
+                    if b"computeSheetPlan" not in response.read():
+                        raise RuntimeError("JavaScript do planejador ausente do pacote")
+                planned_source.unlink()
                 # Um controle sem ICC e duas artes com o mesmo perfil exercitam
                 # a primeira compilação e a reutilização dentro do executável.
                 jobs=[]
@@ -103,7 +117,7 @@ def smoke(executable, expected_version):
                 process.wait(timeout=20)
                 if process.returncode:
                     raise RuntimeError(f"Executavel encerrou com codigo {process.returncode}")
-                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, três uploads com alfa variável, PRTs 2.54 cm idênticos sem ICC/com ICC repetido, prévias idênticas com marca e encerramento.")
+                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, planejamento de duas peças e assets, três uploads com alfa variável, PRTs 2.54 cm idênticos sem ICC/com ICC repetido, prévias idênticas com marca e encerramento.")
             except BaseException:
                 print(logs()[-5000:])
                 raise

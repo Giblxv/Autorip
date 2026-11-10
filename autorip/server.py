@@ -6,6 +6,8 @@ from dataclasses import asdict
 from contextlib import contextmanager
 from . import __version__
 from .watermarks import WatermarkCache
+from .layout import LayoutItem, inspect_image, layout_to_svg, sheet_height
+from .nesting import nest_layout, utilization
 from .config import Settings
 from .engine import Rip, MAX_INPUT_PIXELS
 from .prt import read_header
@@ -137,6 +139,7 @@ class App:
         self.s.validate()
         self.rip = Rip(self.s)
         self._watermark_cache = WatermarkCache()
+        self._layout_lock = threading.Lock()
         self.auto = self.s.auto_mode
         self.jobs, self.log_lines, self.tokens = [], [], set()
         self.q = queue.Queue()
@@ -522,6 +525,64 @@ class App:
             except OSError:
                 continue
         return result
+
+    def plan_layout(self, data):
+        """Planeja uma fotografia da hot folder sem mover ou enfileirar as artes."""
+        if not isinstance(data, dict):
+            raise ValueError("Informe as opções e as artes da folha.")
+        width = data.get("sheet_width_cm", 58)
+        margin = data.get("margin_cm", .2)
+        gap = data.get("gap_cm", .2)
+        rotate = data.get("allow_rotation", False)
+        # Valide a geometria antes de consultar arquivos.
+        nest_layout([], width, margin, gap, rotate)
+        width, margin, gap = map(float, (width, margin, gap))
+        requested = data.get("items")
+        if not isinstance(requested, list) or not 1 <= len(requested) <= 100:
+            raise ValueError("Selecione de 1 a 100 peças por planejamento.")
+        checked, total = [], 0
+        for item in requested:
+            if not isinstance(item, dict):
+                raise ValueError("Cada arte precisa informar nome, largura e quantidade.")
+            name, quantity = item.get("name"), item.get("quantity", 1)
+            if (not isinstance(name, str) or not name or len(name) > 255
+                    or safe_filename(name) != name or name.startswith(".")
+                    or not name.lower().endswith(EXTS)):
+                raise ValueError("Selecione um arquivo de imagem da hot folder.")
+            if type(quantity) is not int or quantity < 1 or total + quantity > 100:
+                raise ValueError("O planejamento permite até 100 peças, contando as cópias.")
+            total += quantity
+            checked.append((name, _parse_width_cm(item.get("width_cm")), quantity))
+        with self.settings_lock:
+            folder = os.path.realpath(self.s.hot_folder)
+        items = []
+        for index, (name, requested_width, quantity) in enumerate(checked):
+            source = os.path.join(folder, name)
+            if (os.path.commonpath((folder, os.path.realpath(source))) != folder
+                    or os.path.islink(source) or _signature(source) is None):
+                raise FileNotFoundError("Uma arte não está mais na hot folder; atualize a lista.")
+            before = _signature(source)
+            try:
+                info = inspect_image(source)
+            except FileNotFoundError:
+                raise FileNotFoundError("Uma arte saiu da hot folder; atualize a lista.") from None
+            except (OSError, ValueError) as exc:
+                raise ValueError(f"Não foi possível ler as dimensões de {name}.") from exc
+            if before != _signature(source):
+                raise ValueError("Uma arte mudou durante a leitura; tente novamente.")
+            if info.width_px * info.height_px > MAX_INPUT_PIXELS:
+                raise ValueError("Uma arte excede o limite de pixels do RIP.")
+            w = requested_width if requested_width is not None else min(info.width_cm, width - 2 * margin)
+            h = w * info.height_cm / info.width_cm
+            for copy in range(quantity):
+                items.append(LayoutItem(f"{index}:{copy}", name, "", info.width_px,
+                                        info.height_px, w, h))
+        packed = nest_layout(items, width, margin, gap, rotate)
+        return {"items": [item.as_dict() for item in packed], "sheet_width_cm": width,
+                "sheet_height_cm": sheet_height(packed, margin, gap),
+                "margin_cm": margin, "gap_cm": gap,
+                "utilization": utilization(packed, width, margin, gap),
+                "svg": layout_to_svg(packed, width, margin, gap)}
 
     def enqueue_hot_file(self, name, width_value=""):
         width = _parse_width_cm(width_value)
@@ -1313,6 +1374,9 @@ class H(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
+        if u.path == "/planner.js":
+            with open(res_path("ui", "planner.js"), "rb") as source:
+                return self._send(200, source.read(), "application/javascript; charset=utf-8")
         if u.path == "/api/state":
             global LAST_CLIENT_SEEN
             LAST_CLIENT_SEEN = time.monotonic()
@@ -1390,6 +1454,15 @@ class H(BaseHTTPRequestHandler):
         if not self._origin_allowed():
             return self._send(403, {"error": "origem da requisicao nao autorizada"})
         try:
+            if u.path == "/api/layout/plan":
+                if not self._auth(): return self._send(401, {"error": "login"})
+                if not APP._layout_lock.acquire(blocking=False):
+                    return self._send(429, {"error": "Um planejamento está em andamento; aguarde."})
+                try:
+                    result = APP.plan_layout(self._json(max_bytes=65536))
+                finally:
+                    APP._layout_lock.release()
+                return self._send(200, result)
             if u.path == "/api/auto":
                 if not self._auth(): return self._send(401, {"error": "login"})
                 on = self._json().get("on")

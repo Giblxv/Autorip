@@ -1,9 +1,12 @@
-"""Encaixe opcional de retângulos com rectpack (Apache-2.0).
+"""Encaixe de LayoutItem offline e compatibilidade com a API rectpack anterior.
 
 Não compõe imagens nem gera PRT. Medidas e posições são em centímetros.
 """
 import math
+from itertools import chain
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
+from .layout import LayoutItem
+from .sheet_nesting import nest as nest_layout, check_layout, utilization
 
 
 class Placements(list):
@@ -18,7 +21,7 @@ def _positive(value, name):
     return Decimal(str(value))
 
 
-def nest(items, sheet_w_cm, sheet_h_cm, gap_cm=0.5, allow_rotate=True, max_sheets=50):
+def nest_sheets(items, sheet_w_cm, sheet_h_cm, gap_cm=0.5, allow_rotate=True, max_sheets=50):
     """Cada item é (nome, largura, altura, quantidade); retorna Placements."""
     sheet_w = _positive(sheet_w_cm, "Largura da folha")
     sheet_h = _positive(sheet_h_cm, "Altura da folha")
@@ -62,3 +65,19 @@ def nest(items, sheet_w_cm, sheet_h_cm, gap_cm=0.5, allow_rotate=True, max_sheet
                         altura_cm=ow if rotated else oh, girado=rotated))
     out.unplaced = [meta[rid][0] for rid in meta if rid not in placed]
     return out
+
+
+def nest(items, *args, **kwargs):
+    """LayoutItem usa MaxRects offline; tuplas preservam a API rectpack anterior.
+
+    Use nest_layout/nest_sheets para escolher a API explicitamente, inclusive
+    quando a coleção está vazia e os parâmetros são posicionais.
+    """
+    iterator = iter(items)
+    missing = object()
+    first = next(iterator, missing)
+    legacy_keys = {'sheet_w_cm', 'sheet_h_cm', 'allow_rotate', 'max_sheets'}
+    layout = (isinstance(first, LayoutItem) if first is not missing else
+              len(args) < 2 and not legacy_keys.intersection(kwargs))
+    values = () if first is missing else chain((first,), iterator)
+    return (nest_layout if layout else nest_sheets)(values, *args, **kwargs)

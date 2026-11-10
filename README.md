@@ -83,10 +83,24 @@ branco com disco físico por EDT, preserva a largura de uploads após reinício 
 melhora o painel. A alteração do branco modifica sua geometria nos cantos; faça
 uma prova física antes de usar essa versão em produção.
 
-Os módulos opcionais `autorip.nesting` e `autorip.bgremove` são bibliotecas auxiliares,
-ainda sem ligação ao painel ou à composição PRT. Instale `requirements-optional.txt`
-somente se precisar deles. A remoção de fundo exige `model_path` apontando para um
-modelo ONNX local compatível; o AutoRIP não baixa modelos automaticamente.
+## Planejamento de folha
+
+No painel, use **Hot folder → Planejar folha**. Selecione as artes, informe
+quantidades e larguras, ajuste a largura da folha (até 58 cm), margem e espaçamento
+e clique em **Calcular encaixe**. A rotação de 90° é opcional. A altura de cada arte
+mantém sua proporção física, considerando os DPI e a orientação lidos do cabeçalho.
+
+O planejador mostra posições, altura e aproveitamento da folha e exporta a prévia
+SVG e o planejamento JSON. Usa MaxRects offline, sem precisar instalar `rectpack`,
+e permite até 100 peças por cálculo, contando as cópias. O planejamento preserva
+as fontes e a fila: não compõe nem envia um PRT. [Detalhes e API](docs/refinements/NESTING.md).
+
+A API anterior de encaixe em folhas fixas continua disponível em `autorip.nesting`
+com `nest_sheets` e com as chamadas antigas a `nest`; ela ainda usa `rectpack`.
+`autorip.bgremove` é uma biblioteca auxiliar sem ligação ao painel ou à composição
+PRT. Instale `requirements-optional.txt` somente para essas funções opcionais.
+A remoção de fundo exige `model_path` apontando para um modelo ONNX local
+compatível; o AutoRIP não baixa modelos automaticamente.
 
 ## Histórico recente
 
