@@ -2,7 +2,7 @@
 
 Base de comparação: `feb3214`. Implementação: `7718ba1`.
 
-Continuação em validação: [conversão direta RGBA](DIRECT-RGBA-ICC.md). As medições
+Continuação: [conversão direta RGBA](DIRECT-RGBA-ICC.md). As medições
 abaixo continuam documentando esta etapa histórica e não devem ser somadas ou
 multiplicadas pelos resultados posteriores.
 

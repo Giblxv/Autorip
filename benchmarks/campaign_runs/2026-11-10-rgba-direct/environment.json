@@ -17,5 +17,15 @@
   },
   "icc_sha256": "a86396b8ca0b1799096359fec6ac79e39db454fed71ba6dd2eed24d53506d6a5",
   "calendar_activated": false,
-  "printer_connection_tested": false
+  "printer_connection_tested": false,
+  "campaign_validation": {
+    "rounds": 15,
+    "consecutive_without_gain": 15,
+    "accepted": 0,
+    "identical_prt_cases": 23,
+    "checkout_checked": true,
+    "final_bundle_sha256": "34d7a1a6cb0f01d3517a4b3a9ace81b5b19cd8890b09e381ca933df7b7ec10fb"
+  },
+  "prepared_release_version": "0.8.17",
+  "github_validation": "github-validation.json"
 }

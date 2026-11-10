@@ -9,6 +9,12 @@ A entrada RGBA com perfil ICC agora usa uma transformação nativa RGBA → RGBA
 Isso elimina dois rasters RGB e a extração/restauração manual do alfa. A imagem
 retornada continua independente da fonte; Pillow/LittleCMS preservam seu alfa.
 
+A [implementação pública do Pillow 13.0.0](https://github.com/python-pillow/Pillow/blob/13.0.0/src/_imagingcms.c)
+mapeia RGB e RGBA para o mesmo formato nativo de cor e copia os canais auxiliares
+depois da transformação. Isso explica a preservação do alfa nesse caminho.
+A aplicação continua usando a API pública `ImageCms.applyTransform` com os modos
+correspondentes à transformação compilada.
+
 RGB/paleta usam o contexto RGB e RGBA passa a ter um contexto próprio. O cache
 continua local à instância e à thread, com oito entradas e 2 MiB de payloads de
 perfil por cache. Um lote frio alternando RGB e RGBA com o mesmo perfil pode
@@ -111,7 +117,7 @@ a I/O, frequência ou alocador como fato confirmado.
 
 Assim, não se aceita outra hipótese com base apenas nessa aparente precisão e
 não se afirma aceleração universal. A redução de buffers/RSS, os pixels exatos
-e os testes funcionais são evidências separadas e sustentam a proposta de memória.
+e os testes funcionais são evidências separadas e sustentam a mudança de memória.
 
 O lote com oito perfis alternados mostrou **8 / 0 compilações** no primeiro/lote
 seguinte na base e **16 / 16** no candidato: os 16 contextos excedem o limite de
@@ -145,13 +151,64 @@ e alfa 0–255, em cache frio/quente, verificando que a fonte não muda. Os test
 cache foram adaptados para contextos RGB e RGBA distintos e verificam propriedade
 e liberação das transformações por thread; falhas de aplicação continuam explícitas.
 
+## Mais 15 hipóteses após a redução de buffers
+
+A campanha `rgba-direct` parte de `ac8166a` e estende a bateria source-alpha:
+**23 PRTs comparados e 14 cenários cronometrados**, acrescentando perfil não
+identidade com cores variadas e RGB plano/alfa variável. Após a otimização de
+memória, completou **15 rodadas consecutivas sem novo aceite**, com zero aceites.
+A execução não usou `--apply`; nenhuma dessas hipóteses alterou o checkout.
+
+Cinco repetições pareadas por hipótese, aquecimento, ordem alternada e confirmação
+independente antes de um aceite. O critério de tempo exige fator geométrico >1,015,
+limite pareado inferior >1,005 e nenhuma mediana mais de 6% lenta. A alternativa de
+memória exige redução ≥8% do maior pico **tracemalloc**, fator ≥0,99, o mesmo limite
+por caso e pico rastreado ≤512 MiB. Esse pico não inclui toda a RAM nativa e é
+separado do RSS acima. A limitação A/A também impede interpretar esses critérios
+como prova de ótimo global ou de inexistência de outra melhoria.
+
+A correção vem antes do cronômetro: fronteiras da retícula, empacotamento de 2 bits,
+strides/padding, morfologia física e bytes de todos os PRTs. Duas hipóteses foram
+recusadas por divergência antes da medição.
+
+| Rodada | Hipótese | Resultado |
+| --- | --- | --- |
+| 1 | Desativar cache nativo em RGBA, com controles de cores planas e variadas | Sem ganho aceito |
+| 2 | Transformar uma cópia RGBA in-place para comparar localidade e cópia | Sem ganho aceito |
+| 3 | Erosão exata de máscara cheia pelas distâncias às bordas | Sem ganho aceito |
+| 4 | Branco 100% opaco convertido diretamente para níveis 0/3 | Sem ganho aceito |
+| 5 | Normalização CMYK no próprio buffer float32 | Sem ganho aceito |
+| 6 | Eliminar cópia redundante da densidade float32 | Sem ganho aceito |
+| 7 | Aplicar máscara de densidade no próprio buffer | Sem ganho aceito |
+| 8 | Evitar multiplicação e alocação do alfa quando é opaco | Sem ganho aceito |
+| 9 | Tela exata float32 em largura e concorrência ampliadas | Sem ganho aceito |
+| 10 | Três trabalhadores em artes largas, preservando o plano de tiras | Sem ganho aceito |
+| 11 | Dois trabalhadores em artes largas, preservando o plano de tiras | Sem ganho aceito |
+| 12 | Reavaliar orçamento de buffers em 80 bytes por pixel | PRT largo com transparência divergente |
+| 13 | Reavaliar orçamento de buffers em 64 bytes por pixel | PRT largo com transparência divergente |
+| 14 | Comparar EDT transposta sob largura ampliada | Sem ganho aceito |
+| 15 | Duas ufuncs no lugar de clip | Sem ganho aceito |
+
+A [auditoria independente](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/verification.json)
+regenerou e conferiu os **23 PRTs**, a sequência de 15 recusas e a identidade de
+engine/prt/morph finais com o checkout. O código final continua igual a `ac8166a`
+nesses três módulos; nenhum ganho de tempo é atribuído à comparação final A/A
+interna da campanha. [Relatório completo](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/campaign.json).
+
 ## Reprodução
+
+- [Dados, snapshots e identificação das baterias](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/README.md).
+- [Primeira bateria](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/report.json) e [segunda bateria](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/confirmation.json).
+- [Controles de largura/cache](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/wide.json), [confirmação pequena](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/small-confirmation.json) e [A/A](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/aa-control.json).
+- [Validação GitHub da versão preparada](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/github-validation.json).
 
 ```bash
 taskset -c 0-3 python benchmarks/benchmark_source_icc.py --suite rgba-direct --baseline-ref b5b0228 --repeat 15 --paired-workers --icc /caminho/cmyk.icc --output /tmp/rgba-direct.json
 taskset -c 0-3 python benchmarks/benchmark_rgba_wide.py --baseline-ref b5b0228 --repeat 15 --output /tmp/rgba-wide.json
 taskset -c 0-3 python benchmarks/benchmark_rgba_wide.py --baseline-ref b5b0228 --repeat 15 --cases small_rgba small_no_icc --output /tmp/rgba-small-confirmation.json
 taskset -c 0-3 python benchmarks/benchmark_rgba_wide.py --baseline-ref ac8166a --repeat 15 --cases small_rgba small_no_icc --output /tmp/rgba-aa.json
+taskset -c 0-3 python benchmarks/rip_campaign.py --suite rgba-direct --baseline-ref ac8166a --repeats 5 --work-dir /tmp/rgba-campaign --icc /caminho/cmyk.icc
+python benchmarks/verify_rip_campaign.py --work-dir /tmp/rgba-campaign --icc /caminho/cmyk.icc --check-checkout
 python -m pytest -q
 ```
 
