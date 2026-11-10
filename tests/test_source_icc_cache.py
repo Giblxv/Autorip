@@ -89,7 +89,7 @@ def test_cache_frio_quente_preserva_pixels_e_prt(tmp_path,mode,intent,bpc):
         assert {k:v for k,v in info.items() if k!='output_path'} == {k:v for k,v in baseline.items() if k!='output_path'}
 
 
-def test_cache_compila_uma_vez_e_compartilha_rgb_rgba_sem_alterar_alpha(monkeypatch):
+def test_cache_separa_rgb_rgba_e_reutiliza_cada_formato_sem_alterar_alpha(monkeypatch):
     builds = count_builds(monkeypatch)
     rip = engine.Rip(Settings())
     rgb, rgba = image_with_profile(), image_with_profile('RGBA')
@@ -99,7 +99,8 @@ def test_cache_compila_uma_vez_e_compartilha_rgb_rgba_sem_alterar_alpha(monkeypa
         expected = original_rgba(image,rip.s)
         assert result.tobytes() == expected.tobytes()
         result.close();expected.close()
-    assert len(builds) == 1
+    assert len(builds) == 2
+    assert {args[1] for args in builds} == {'RGB', 'RGBA'}
     rgb.close();rgba.close()
 
 
@@ -163,7 +164,8 @@ def test_perfil_invalido_e_modo_incompativel_nao_reutilizam_transformacao_valida
     image.close();gray.close()
 
 
-def test_threads_nao_compartilham_transformacoes_e_liberam_cache_ao_sair(monkeypatch):
+@pytest.mark.parametrize('mode', ['LAB', 'RGBA'])
+def test_threads_nao_compartilham_transformacoes_e_liberam_cache_ao_sair(monkeypatch, mode):
     rip = engine.Rip(Settings())
     original_build=engine.Rip._build_source_transform
     original_apply=ImageCms.applyTransform
@@ -181,7 +183,7 @@ def test_threads_nao_compartilham_transformacoes_e_liberam_cache_ao_sair(monkeyp
     monkeypatch.setattr(engine.Rip,'_build_source_transform',staticmethod(build))
     monkeypatch.setattr(ImageCms,'applyTransform',apply)
     def work(index):
-        image=image_with_profile('LAB')
+        image=image_with_profile(mode)
         try:
             barrier.wait(timeout=10)
             values=[]

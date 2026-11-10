@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import platform
 import statistics
+import struct
 import subprocess
 import sys
 import tempfile
@@ -31,14 +32,17 @@ def load(path,name):
 
 
 def run(rip,case,root):
-    elapsed=0;outputs=[]
+    elapsed=0;cpu_elapsed=0;outputs=[]
     for index,source in enumerate(case['files']):
         started=time.perf_counter()
+        cpu_started=time.process_time()
         info=rip.process(source,str(root/f'output-{index}.PRT'),width_cm=case['width_cm'])
+        cpu_elapsed+=time.process_time()-cpu_started
         elapsed+=time.perf_counter()-started
         path=Path(info.pop('output_path'))
         try:outputs.append(dict(sha256=hashlib.sha256(path.read_bytes()).hexdigest(),metadata=info))
         finally:path.unlink()
+    rip._benchmark_cpu_seconds=cpu_elapsed
     return elapsed,outputs
 
 
@@ -53,10 +57,22 @@ def peak_rss():
     except ImportError:return None
 
 
-def alpha_fixtures(root, icc):
+def alpha_fixtures(root, icc, direct=False):
     """Grandes fontes com alfa, controles e transparência por paleta/chave."""
     profiles = {name: ImageCms.ImageCmsProfile(ImageCms.createProfile(name)).tobytes()
                 for name in ('sRGB', 'LAB')}
+    if direct:
+        gamma = bytearray(profiles['sRGB'])
+        for index in range(struct.unpack_from('>I', gamma, 128)[0]):
+            pos = 132 + index * 12
+            if gamma[pos:pos + 4] == b'rTRC':
+                offset = struct.unpack_from('>I', gamma, pos + 4)[0]
+                assert gamma[offset:offset + 4] == b'para'
+                struct.pack_into('>i', gamma, offset + 12, round(1.8 * 65536))
+                break
+        else:
+            raise AssertionError('Perfil sem TRC paramétrica')
+        profiles['gamma_rgb'] = bytes(gamma)
     paths = {}
     kinds = [('large_rgba', 'RGBA', 'TIFF', (4096, 3072)),
              ('large_rgb', 'RGB', 'TIFF', (4096, 3072)),
@@ -67,6 +83,8 @@ def alpha_fixtures(root, icc):
              ('palette', 'P', 'PNG', (1024, 768)),
              ('color_key', 'RGB', 'PNG', (1024, 768)),
              ('lab_control', 'LAB', 'TIFF', (2048, 1536))]
+    if direct:
+        kinds.append(('large_rgba_gamma', 'RGBA', 'TIFF', (4096, 3072)))
     for name, mode, fmt, size in kinds:
         files = []
         for index in range(4 if name == 'small_rgba' else 2):
@@ -84,6 +102,8 @@ def alpha_fixtures(root, icc):
             elif mode != 'RGBA':
                 image = image.convert(mode)
             options = dict(icc_profile=profiles['LAB' if mode == 'LAB' else 'sRGB'], dpi=(100, 200))
+            if name == 'large_rgba_gamma':
+                options['icc_profile'] = profiles['gamma_rgb']
             if name == 'no_icc':
                 options['icc_profile'] = b''
             if name == 'oriented_rgba':
@@ -101,6 +121,19 @@ def alpha_fixtures(root, icc):
              for name, files in paths.items()]
     cases.append(dict(name='first_rgba', files=paths['large_rgba'][:1], width_cm=1.27,
                       settings=common, cold=True))
+    if direct:
+        mixed = []
+        for index, source in enumerate(paths['small_rgba'][:2]):
+            path = root / f'small_rgb-{index}.tif'
+            with Image.open(source) as image:
+                rgb = image.convert('RGB')
+                try:
+                    rgb.save(path, icc_profile=profiles['sRGB'], dpi=(100, 200))
+                finally:
+                    rgb.close()
+            mixed.extend((source, str(path)))
+        cases.append(dict(name='mixed_rgb_rgba', files=mixed, width_cm=1.27,
+                          settings=common, cold=False))
     if icc:
         profiles['output_CMYK'] = Path(icc).read_bytes()
         cases.append(dict(name='rgba_output_icc', files=paths['png_rgba'], width_cm=1.27,
@@ -109,8 +142,8 @@ def alpha_fixtures(root, icc):
 
 
 def fixtures(root,icc,suite='profiles'):
-    if suite == 'alpha':
-        return alpha_fixtures(root, icc)
+    if suite in ('alpha', 'rgba-direct'):
+        return alpha_fixtures(root, icc, direct=suite == 'rgba-direct')
     profiles={name:ImageCms.ImageCmsProfile(ImageCms.createProfile(name)).tobytes() for name in ('sRGB','LAB')}
     oversized=bytearray(profiles['LAB']);oversized.extend(b'\0'*(2*1024*1024+256-len(oversized)));oversized[:4]=len(oversized).to_bytes(4,'big')
     profiles['large']=bytes(oversized)
@@ -165,7 +198,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline-ref',default='dd490f9');parser.add_argument('--repeat',type=int,default=7)
     parser.add_argument('--icc',type=Path);parser.add_argument('--output',type=Path)
-    parser.add_argument('--suite',choices=['profiles','alpha'],default='profiles')
+    parser.add_argument('--suite',choices=['profiles','alpha','rgba-direct'],default='profiles')
     parser.add_argument('--rss-worker',type=Path);parser.add_argument('--case',type=Path)
     args=parser.parse_args()
     if args.rss_worker:
@@ -190,13 +223,15 @@ def main():
     report=dict(baseline_ref=commit,suite=args.suite,repeat=args.repeat,python=platform.python_version(),platform=platform.platform(),
                 pillow=Image.__version__,numpy=np.__version__,cpu_count=os.cpu_count(),
                 source_sha256=dict(baseline=hashlib.sha256(source.encode()).hexdigest(),candidate=hashlib.sha256(candidate.read_bytes()).hexdigest()),
+                benchmark_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                cpu_metric='time.process_time summed around Rip.process, including threads; verification excluded',
                 shared_modules_sha256=shared,rss_metric='VmHWM of fresh Linux workers; ru_maxrss on other Unix; unavailable on Windows',scenarios={})
     with tempfile.TemporaryDirectory(prefix='autorip-input-icc-') as folder:
         root=Path(folder);baseline=root/'baseline.py';baseline.write_text(source)
         cases,profiles=fixtures(root,str(args.icc.resolve()) if args.icc else None,args.suite);report['profile_sha256']=profiles
         modules=[load(baseline,'baseline'),load(candidate,'candidate')]
         for case in cases:
-            rips=[module.Rip(Settings(**case['settings'])) for module in modules];oracle=None;samples=[[],[]]
+            rips=[module.Rip(Settings(**case['settings'])) for module in modules];oracle=None;samples=[[],[]];cpu_samples=[[],[]]
             for side in range(2):
                 _,outputs=run(rips[side],case,root)
                 if oracle is None:oracle=outputs
@@ -205,8 +240,12 @@ def main():
                 for side in ((0,1) if iteration%2==0 else (1,0)):
                     if case['cold']:rips[side]=modules[side].Rip(Settings(**case['settings']))
                     elapsed,outputs=run(rips[side],case,root);assert outputs==oracle,case['name'];samples[side].append(elapsed)
+                    cpu_samples[side].append(rips[side]._benchmark_cpu_seconds)
             old,new=map(statistics.median,samples);ratios=np.asarray(samples[0])/np.asarray(samples[1]);rng=np.random.default_rng(194)
             bootstrap=np.median(ratios[rng.integers(0,args.repeat,(3000,args.repeat))],axis=1)
+            cpu_old,cpu_new=map(statistics.median,cpu_samples)
+            cpu_ratios=np.asarray(cpu_samples[0])/np.asarray(cpu_samples[1])
+            cpu_bootstrap=np.median(cpu_ratios[rng.integers(0,args.repeat,(3000,args.repeat))],axis=1)
             peaks={};counts={};case_path=root/'case.json';case_path.write_text(json.dumps(case))
             for side,path in [('baseline',baseline),('candidate',candidate)]:
                 values=[];cache=None
@@ -216,9 +255,12 @@ def main():
                 peaks[side]=dict(samples_mib=values,median_mib=statistics.median(values) if all(v is not None for v in values) else None,**cache)
             for side,module in zip(['baseline','candidate'],modules):counts[side]=builds(module,case,root)
             result=dict(files=len(case['files']),cold=case['cold'],baseline_seconds=old,candidate_seconds=new,speedup=old/new,raw_seconds=samples,
+                        baseline_cpu_seconds=cpu_old,candidate_cpu_seconds=cpu_new,cpu_speedup=cpu_old/cpu_new,cpu_raw_seconds=cpu_samples,
+                        cpu_paired_bootstrap_95=[float(v) for v in np.percentile(cpu_bootstrap,[2.5,97.5])],
                         paired_bootstrap_95=[float(v) for v in np.percentile(bootstrap,[2.5,97.5])],peak_rss=peaks,transform_builds=counts,outputs=oracle)
             report['scenarios'][case['name']]=result;print(json.dumps({case['name']:result}),flush=True)
         report['geomean_speedup']=math.exp(statistics.mean(math.log(r['speedup']) for r in report['scenarios'].values()))
+        report['cpu_geomean_speedup']=math.exp(statistics.mean(math.log(r['cpu_speedup']) for r in report['scenarios'].values()))
         paired=[math.exp(statistics.mean(math.log(r['raw_seconds'][0][i]/r['raw_seconds'][1][i])
                     for r in report['scenarios'].values())) for i in range(args.repeat)]
         rng=np.random.default_rng(194)
