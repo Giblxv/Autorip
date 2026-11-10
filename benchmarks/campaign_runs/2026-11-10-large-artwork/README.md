@@ -30,6 +30,11 @@ reproduz reducing_gap do Pillow 11/12, mantendo 2.0 no Pillow 13 destas mediçõ
 O script posterior acrescenta os casos de impressão 25,4 cm e ICC real de saída.
 Não houve edição do código medido durante as baterias.
 
+`validation.json` identifica as suítes e smokes locais. O log da falha Windows
+de sincronização do teste de journal foi preservado; a correção espera arquivo
+arquivado e pasta removida no prazo original. Os dois testes de recuperação/
+cleanup passaram em cinco processos pytest novos após esse ajuste de teste.
+
 As fontes sintéticas de 30/90 MP são geradas pelo script; arquivos gigantes não
 estão versionados. Os caminhos absolutos dos JSONs identificam a execução original.
 Uma reprodução gera suas próprias fontes e manifest local:

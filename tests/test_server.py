@@ -265,7 +265,9 @@ def test_journal_recupera_upload_manual_pendente(app, sample_png):
 
     deadline = time.monotonic() + 10
     archived = os.path.join(app.s.done_folder, "manual.png")
-    while time.monotonic() < deadline and not os.path.exists(archived):
+    # O arquivo chega ao destino antes da limpeza da pasta no watcher.
+    while time.monotonic() < deadline and (
+            not os.path.isfile(archived) or os.path.exists(folder)):
         time.sleep(0.05)
 
     assert os.path.isfile(archived)

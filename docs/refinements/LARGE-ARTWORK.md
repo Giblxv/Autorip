@@ -44,6 +44,10 @@ redução em duas etapas e chave de transparência, comparadas pixel a pixel.
 A primeira execução Windows revelou que o decoder TIFF pode chamar EXIF no
 próprio buffer e retornar None; a instrumentação do teste foi corrigida para
 registrar apenas imagens, sem enfraquecer as verificações de fechamento.
+Um build posterior encontrou outra corrida no teste de recuperação de upload:
+o arquivo já estava arquivado, mas o watcher ainda não havia removido a pasta.
+O teste agora espera os dois resultados dentro do mesmo prazo de dez segundos,
+preservando ambas as asserções. O fluxo de recuperação de produção não mudou.
 
 O smoke local do aplicativo 0.8.19 passou com login, planejamento de duas peças
 e leitura de metadados de uma arte de 400 MP, assets, três uploads, ICC, alfa e

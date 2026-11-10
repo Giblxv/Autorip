@@ -32,5 +32,14 @@
     "log": "app-smoke.txt",
     "runtime": "Source Python launcher, not a Windows executable"
   },
-  "real_decoded_90mp_smoke": "large-input-smoke.json"
+  "real_decoded_90mp_smoke": "large-input-smoke.json",
+  "journal_test_wait_fix": {
+    "failed_run": "https://github.com/Giblxv/Autorip/actions/runs/42847710508",
+    "failure_log": "windows-prepackaging-failure.txt",
+    "scope": "Test now waits for archived file and removed manual folder within the original 10 seconds; production recovery unchanged",
+    "targeted_log": "journal-wait-validation.txt",
+    "targeted_rounds": 5,
+    "tests_per_round": 2,
+    "full_local_suite_scope": "923-test result precedes this test-only wait correction; production engine/server identical"
+  }
 }
