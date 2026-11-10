@@ -1,6 +1,7 @@
 """Compara lotes de RIP com perfis ICC embutidos, incluindo cache frio e RSS.
 
 python benchmarks/benchmark_source_icc.py --baseline-ref dd490f9 --icc /caminho/cmyk.icc --output /tmp/input-icc.json
+python benchmarks/benchmark_source_icc.py --suite alpha --baseline-ref feb3214 --icc /caminho/cmyk.icc --output /tmp/input-alpha.json
 """
 import argparse
 import hashlib
@@ -52,7 +53,64 @@ def peak_rss():
     except ImportError:return None
 
 
-def fixtures(root,icc):
+def alpha_fixtures(root, icc):
+    """Grandes fontes com alfa, controles e transparência por paleta/chave."""
+    profiles = {name: ImageCms.ImageCmsProfile(ImageCms.createProfile(name)).tobytes()
+                for name in ('sRGB', 'LAB')}
+    paths = {}
+    kinds = [('large_rgba', 'RGBA', 'TIFF', (4096, 3072)),
+             ('large_rgb', 'RGB', 'TIFF', (4096, 3072)),
+             ('png_rgba', 'RGBA', 'PNG', (2048, 1536)),
+             ('oriented_rgba', 'RGBA', 'TIFF', (2048, 1536)),
+             ('small_rgba', 'RGBA', 'PNG', (320, 240)),
+             ('no_icc', 'RGBA', 'TIFF', (4096, 3072)),
+             ('palette', 'P', 'PNG', (1024, 768)),
+             ('color_key', 'RGB', 'PNG', (1024, 768)),
+             ('lab_control', 'LAB', 'TIFF', (2048, 1536))]
+    for name, mode, fmt, size in kinds:
+        files = []
+        for index in range(4 if name == 'small_rgba' else 2):
+            width, height = size
+            y, x = np.indices((height, width), dtype=np.uint16)
+            pixels = np.empty((height, width, 4), np.uint8)
+            pixels[..., 0] = (x * 3 + y + index * 17) % 256
+            pixels[..., 1] = (x + y * 2 + index * 11) % 256
+            pixels[..., 2] = (x * 5 + y * 3) % 256
+            pixels[..., 3] = np.linspace(0, 255, width, dtype=np.uint8)[None, :]
+            image = Image.fromarray(pixels, 'RGBA')
+            if mode == 'LAB':
+                image = ImageCms.profileToProfile(image.convert('RGB'),
+                    ImageCms.createProfile('sRGB'), ImageCms.createProfile('LAB'), outputMode='LAB')
+            elif mode != 'RGBA':
+                image = image.convert(mode)
+            options = dict(icc_profile=profiles['LAB' if mode == 'LAB' else 'sRGB'], dpi=(100, 200))
+            if name == 'no_icc':
+                options['icc_profile'] = b''
+            if name == 'oriented_rgba':
+                exif = Image.Exif(); exif[274] = 6; options['exif'] = exif
+            if name == 'palette':
+                options['transparency'] = bytes(range(256))
+            if name == 'color_key':
+                options['transparency'] = (0, 0, 0)
+            path = root / f'{name}-{index}.{fmt.lower()}'
+            image.save(path, **options); image.close(); files.append(str(path))
+            del pixels, x, y
+        paths[name] = files
+    common = dict(label_enabled=False, margin_top_in=.05, margin_bottom_in=.05)
+    cases = [dict(name=name, files=files, width_cm=1.27, settings=common, cold=False)
+             for name, files in paths.items()]
+    cases.append(dict(name='first_rgba', files=paths['large_rgba'][:1], width_cm=1.27,
+                      settings=common, cold=True))
+    if icc:
+        profiles['output_CMYK'] = Path(icc).read_bytes()
+        cases.append(dict(name='rgba_output_icc', files=paths['png_rgba'], width_cm=1.27,
+                          settings=dict(common, icc_path=icc), cold=False))
+    return cases, {name: hashlib.sha256(data).hexdigest() for name, data in profiles.items()}
+
+
+def fixtures(root,icc,suite='profiles'):
+    if suite == 'alpha':
+        return alpha_fixtures(root, icc)
     profiles={name:ImageCms.ImageCmsProfile(ImageCms.createProfile(name)).tobytes() for name in ('sRGB','LAB')}
     oversized=bytearray(profiles['LAB']);oversized.extend(b'\0'*(2*1024*1024+256-len(oversized)));oversized[:4]=len(oversized).to_bytes(4,'big')
     profiles['large']=bytes(oversized)
@@ -107,6 +165,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--baseline-ref',default='dd490f9');parser.add_argument('--repeat',type=int,default=7)
     parser.add_argument('--icc',type=Path);parser.add_argument('--output',type=Path)
+    parser.add_argument('--suite',choices=['profiles','alpha'],default='profiles')
     parser.add_argument('--rss-worker',type=Path);parser.add_argument('--case',type=Path)
     args=parser.parse_args()
     if args.rss_worker:
@@ -128,13 +187,13 @@ def main():
         if (ROOT/'autorip'/(name+'.py')).read_text()!=original:parser.error('morph.py/prt.py precisam ser idênticos à base')
         shared[name]=hashlib.sha256(original.encode()).hexdigest()
     candidate=ROOT/'autorip/engine.py'
-    report=dict(baseline_ref=commit,repeat=args.repeat,python=platform.python_version(),platform=platform.platform(),
+    report=dict(baseline_ref=commit,suite=args.suite,repeat=args.repeat,python=platform.python_version(),platform=platform.platform(),
                 pillow=Image.__version__,numpy=np.__version__,cpu_count=os.cpu_count(),
                 source_sha256=dict(baseline=hashlib.sha256(source.encode()).hexdigest(),candidate=hashlib.sha256(candidate.read_bytes()).hexdigest()),
                 shared_modules_sha256=shared,rss_metric='VmHWM of fresh Linux workers; ru_maxrss on other Unix; unavailable on Windows',scenarios={})
     with tempfile.TemporaryDirectory(prefix='autorip-input-icc-') as folder:
         root=Path(folder);baseline=root/'baseline.py';baseline.write_text(source)
-        cases,profiles=fixtures(root,str(args.icc.resolve()) if args.icc else None);report['profile_sha256']=profiles
+        cases,profiles=fixtures(root,str(args.icc.resolve()) if args.icc else None,args.suite);report['profile_sha256']=profiles
         modules=[load(baseline,'baseline'),load(candidate,'candidate')]
         for case in cases:
             rips=[module.Rip(Settings(**case['settings'])) for module in modules];oracle=None;samples=[[],[]]

@@ -110,10 +110,37 @@ class Rip:
                 color = source.getchannel("L")
             else:
                 color = source
-            rgb = ImageCms.applyTransform(color, transform)
-            rgba = rgb.convert("RGBA")
-            if source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info:
-                rgba.putalpha(source.convert("RGBA").getchannel("A"))
+            try:
+                rgb = ImageCms.applyTransform(color, transform)
+            finally:
+                if color is not source:
+                    color.close()
+            try:
+                rgba = rgb.convert("RGBA")
+            finally:
+                rgb.close()
+            try:
+                if source.mode in ("RGBA", "LA", "PA"):
+                    # O alfa já existe: não copie o raster RGBA inteiro para lê-lo.
+                    alpha = source.getchannel("A")
+                    try:
+                        rgba.putalpha(alpha)
+                    finally:
+                        alpha.close()
+                elif "transparency" in source.info:
+                    # Paleta/chave de cor ainda precisam da expansão do Pillow.
+                    expanded = source.convert("RGBA")
+                    try:
+                        alpha = expanded.getchannel("A")
+                        try:
+                            rgba.putalpha(alpha)
+                        finally:
+                            alpha.close()
+                    finally:
+                        expanded.close()
+            except Exception:
+                rgba.close()
+                raise
             return rgba
         except Exception as exc:
             raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc

@@ -63,6 +63,10 @@ def smoke(executable, expected_version):
                     raise RuntimeError(f"Versao do executavel inesperada: {state.get('version')}")
                 token = api("/api/setpass", {"new": "Smoke-test-only-123"})["token"]
                 artwork = Image.new("RGBA", (72, 72), (20, 140, 210, 255))
+                alpha = Image.new("L", artwork.size)
+                alpha.putdata([x * 255 // 71 for _ in range(72) for x in range(72)])
+                artwork.putalpha(alpha)
+                alpha.close()
                 embedded = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
                 # Um controle sem ICC e duas artes com o mesmo perfil exercitam
                 # a primeira compilação e a reutilização dentro do executável.
@@ -99,7 +103,7 @@ def smoke(executable, expected_version):
                 process.wait(timeout=20)
                 if process.returncode:
                     raise RuntimeError(f"Executavel encerrou com codigo {process.returncode}")
-                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, três uploads, PRTs 2.54 cm idênticos sem ICC/com ICC repetido, prévias idênticas com marca e encerramento.")
+                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, três uploads com alfa variável, PRTs 2.54 cm idênticos sem ICC/com ICC repetido, prévias idênticas com marca e encerramento.")
             except BaseException:
                 print(logs()[-5000:])
                 raise
