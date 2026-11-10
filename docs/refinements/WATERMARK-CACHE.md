@@ -149,3 +149,5 @@ novamente, sem erros JavaScript; os detalhes e a CI constam na validação do PR
 - [Primeira bateria de RIP/prévia, contagens, RSS e hashes](../../benchmarks/campaign_runs/2026-11-09-watermarks/report.json).
 - [Confirmação independente](../../benchmarks/campaign_runs/2026-11-09-watermarks/confirmation.json).
 - [Ambiente e regressões locais](../../benchmarks/campaign_runs/2026-11-09-watermarks/environment.json).
+
+Continuação: [menos buffers na entrada do RIP com ICC e transparência](SOURCE-ALPHA.md).
