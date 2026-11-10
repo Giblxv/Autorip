@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "installer_assets"
 UI = ROOT / "autorip" / "ui"
 LINKS = {
-    "mobile-android": "https://github.com/Giblxv/AutoRIP/releases/download/mobile-v0.1.0/app-debug.apk",
+    "mobile-android": "https://github.com/Giblxv/AutoRIP/releases/tag/mobile-v0.2.0",
     "mobile-ios-guide": "https://github.com/Giblxv/AutoRIP/blob/main/docs/GUIA-APPS-MOVEIS.md",
 }
 
