@@ -104,7 +104,7 @@ def test_origens_fechadas_antes_do_render_ou_apos_falha(tmp_path, monkeypatch, o
     monkeypatch.setattr(engine.ImageOps, "exif_transpose", track_transpose)
     rip = engine.Rip(Settings(dpi_x=300, dpi_y=300, label_enabled=False))
     if fail:
-        monkeypatch.setattr(rip, "_source_rgba", lambda image: (_ for _ in ()).throw(ValueError("ICC simulado")))
+        monkeypatch.setattr(rip, "_source_rgba", lambda image, **kwargs: (_ for _ in ()).throw(ValueError("ICC simulado")))
         with pytest.raises(ValueError, match="ICC simulado"):
             rip._load_source(source)
     else:

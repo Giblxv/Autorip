@@ -49,7 +49,7 @@ def test_alpha_completo_e_transparencia_preservados(kind, intent, bpc):
 
 @pytest.mark.parametrize('kind,failure', [('RGBA', None), ('RGBA', 'apply')] +
     [(kind, failure) for kind in ('PA', 'palette')
-     for failure in (None, 'apply', 'rgba', 'alpha', 'putalpha')])
+     for failure in (None, 'apply', 'alpha', 'putalpha')])
 def test_temporarios_fechados_inclusive_com_traceback_retido(monkeypatch, kind, failure):
     source = profiled_image(kind)
     rip = Rip(Settings())
@@ -60,8 +60,6 @@ def test_temporarios_fechados_inclusive_com_traceback_retido(monkeypatch, kind, 
     channel, putalpha = Image.Image.getchannel, Image.Image.putalpha
 
     def convert_tracked(image, mode, *args, **kwargs):
-        if failure == 'rgba' and image is not source and mode == 'RGBA':
-            raise RuntimeError('falha simulada')
         result = convert(image, mode, *args, **kwargs)
         tracked.append(result)
         return result
@@ -117,7 +115,7 @@ def test_la_extrai_alpha_sem_expandir_raster(monkeypatch):
     source.info['icc_profile'] = b'profile-placeholder'
     rip = Rip(Settings())
     monkeypatch.setattr(rip, '_source_transform', lambda *args: object())
-    monkeypatch.setattr(ImageCms, 'applyTransform', lambda color, transform: color.convert('RGB'))
+    monkeypatch.setattr(ImageCms, 'applyTransform', lambda color, transform: color.convert('RGBA'))
     result = rip._source_rgba(source)
     try:
         assert result.getchannel('A').tobytes() == source.getchannel('A').tobytes()

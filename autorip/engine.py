@@ -69,9 +69,8 @@ class Rip:
     @staticmethod
     def _build_source_transform(embedded, mode, intent, flags):
         profile = ImageCms.ImageCmsProfile(io.BytesIO(embedded))
-        output_mode = "RGBA" if mode == "RGBA" else "RGB"
         return ImageCms.buildTransform(profile, ImageCms.createProfile("sRGB"), mode,
-                                       output_mode, renderingIntent=intent, flags=flags)
+                                       "RGBA", renderingIntent=intent, flags=flags)
 
     def _source_transform(self, embedded, mode):
         flags = ImageCms.Flags.BLACKPOINTCOMPENSATION if self.s.black_point_comp else 0
@@ -98,14 +97,20 @@ class Rip:
             local.profile_bytes -= len(previous[0])
         return transform
 
-    def _source_rgba(self, source: Image.Image) -> Image.Image:
+    def _source_rgba(self, source: Image.Image, *, in_place=False) -> Image.Image:
+        # Somente o carregador pode ceder um raster RGBA que acabou de decodificar.
+        # Imagens mapeadas/read-only continuam no caminho com buffer independente.
+        reuse = in_place and source.mode == "RGBA" and not source.readonly
         embedded = source.info.get("icc_profile")
         if not embedded:
-            return source.convert("RGBA")
+            return source if reuse else source.convert("RGBA")
         try:
             mode = "RGB" if source.mode in ("P", "PA") else "L" if source.mode == "LA" else source.mode
             transform = self._source_transform(embedded, mode)
             if source.mode == "RGBA":
+                if reuse:
+                    ImageCms.applyTransform(source, transform, inPlace=True)
+                    return source
                 # LittleCMS/Pillow preservam o alfa em RGBA -> RGBA. Não crie
                 # dois rasters RGB e outro canal A para restaurá-lo depois.
                 return ImageCms.applyTransform(source, transform)
@@ -116,14 +121,10 @@ class Rip:
             else:
                 color = source
             try:
-                rgb = ImageCms.applyTransform(color, transform)
+                rgba = ImageCms.applyTransform(color, transform)
             finally:
                 if color is not source:
                     color.close()
-            try:
-                rgba = rgb.convert("RGBA")
-            finally:
-                rgb.close()
             try:
                 if source.mode in ("RGBA", "LA", "PA"):
                     # O alfa já existe: não copie o raster RGBA inteiro para lê-lo.
@@ -143,6 +144,10 @@ class Rip:
                             alpha.close()
                     finally:
                         expanded.close()
+                else:
+                    # RGB/LAB podem ter padding no quarto byte; CMYK não tem
+                    # alfa. Nunca interprete esses bytes como transparência.
+                    rgba.putalpha(255)
             except Exception:
                 rgba.close()
                 raise
@@ -151,7 +156,8 @@ class Rip:
             raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc
 
     def _load_source(self, path):
-        """Carrega RGBA independente e libera os buffers de origem antes do render."""
+        """Entrega um RGBA privado, com arquivo fechado e demais rasters liberados."""
+        im = None
         with Image.open(path) as opened:
             try:
                 if opened.width <= 0 or opened.height <= 0:
@@ -160,6 +166,10 @@ class Rip:
                 # Sem rotação/reflexão, use a imagem aberta até a conversão RGBA.
                 source = ImageOps.exif_transpose(opened) if orientation in (2, 3, 4, 5, 6, 7, 8) else opened
                 try:
+                    if source is not opened:
+                        # A rotação possui um raster próprio; não retenha mais
+                        # uma imagem inteira durante a transformação de cor.
+                        opened.close()
                     source.load()
                     has_alpha = source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info
                     source_dpi = source.info.get("dpi", (DEFAULT_SOURCE_DPI, DEFAULT_SOURCE_DPI))
@@ -170,15 +180,15 @@ class Rip:
                     source_dpi_x, source_dpi_y = _safe_source_dpi(raw_dpi_x), _safe_source_dpi(raw_dpi_y)
                     if orientation in (5, 6, 7, 8):
                         source_dpi_x, source_dpi_y = source_dpi_y, source_dpi_x
-                    im = self._source_rgba(source)
+                    im = self._source_rgba(source, in_place=True)
                 finally:
-                    # A conversão possui seu próprio buffer; não retenha a cópia EXIF
-                    # durante as tiras, nem em um traceback de falha de ICC.
-                    if source is not opened:
+                    if source is not opened and source is not im:
                         source.close()
             finally:
-                # O context manager do Pillow fecha o arquivo, não o raster carregado.
-                opened.close()
+                # O context manager fecha o arquivo. Preserve apenas o raster
+                # privado cuja propriedade foi transferida ao chamador.
+                if opened is not im:
+                    opened.close()
         return im, has_alpha, source_dpi_x, source_dpi_y
 
     @staticmethod
@@ -266,112 +276,115 @@ class Rip:
         out_dir = os.path.dirname(out_path)
         os.makedirs(out_dir, exist_ok=True)
         im, has_alpha, source_dpi_x, source_dpi_y = self._load_source(png_path)
-        w_cm = width_cm if width_cm is not None else (im.width / source_dpi_x * 2.54)
-        if not np.isfinite(w_cm) or w_cm <= 0:
-            raise ValueError("A largura de impressão precisa ser um número positivo.")
-        n_dots = int(round(w_cm / 2.54 * s.dpi_x))
-        physical_ratio = (im.height / source_dpi_y) / (im.width / source_dpi_x)
-        art_rows = int(round(physical_ratio * w_cm / 2.54 * s.dpi_y))
-        if n_dots <= 0 or art_rows <= 0:
-            raise ValueError("A largura ou a resolucao escolhida gera uma arte sem pixels de saida; aumente as medidas.")
-        top = int(round(s.margin_top_in * s.dpi_y)); bot = int(round(s.margin_bottom_in * s.dpi_y))
-        n_rows = top + art_rows + bot
-        if n_rows <= 0 or n_rows >= 2**32 or n_dots >= 2**32:
-            raise ValueError("As dimensoes de saida excedem o limite representavel pelo formato PRT.")
-        labels = self._make_labels(os.path.basename(png_path), w_cm, art_rows / s.dpi_y * 2.54, n_dots, top, art_rows, bot) if s.label_enabled else []
-        estimated_bytes = HEADER_SIZE + n_rows * 12 * plane_bytes_for(n_dots)
-        free_bytes = shutil.disk_usage(out_dir).free
-        if estimated_bytes + MIN_FREE_DISK_BYTES > free_bytes:
-            raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB, alem de 128 MiB de reserva livre.")
-        fill_rows = int(np.ceil(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
-        choke_rows = int(np.ceil(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
-        halo = 2 * fill_rows + choke_rows + 2
-        workers = (min(RENDER_WORKERS_MAX, os.cpu_count() or 1)
-                   if n_rows >= STRIP * 3 and n_dots * n_rows >= 1_000_000 else 1)
-        available_rows = MAX_STRIP_MEMORY_BYTES // workers // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
-        if workers > 1 and available_rows < 1:
-            workers = 1
-            available_rows = MAX_STRIP_MEMORY_BYTES // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
-        if available_rows < 1:
-            raise ValueError("A largura/DPI exigem mais memória do que o limite seguro de processamento por tira.")
-        strip_rows = max(1, min(STRIP, int(available_rows)))
-        im = self._prepare_resampling(im, n_dots, art_rows)
-        fd, tmp_path = tempfile.mkstemp(prefix=f".{os.path.basename(out_path)}.", suffix=".part", dir=out_dir)
-        os.close(fd)
-        wr = None
         try:
-            wr = PrtWriter(tmp_path, s.dpi_x, s.dpi_y, n_rows, n_dots)
-            if workers == 1:
-                y = 0
-                while y < n_rows:
-                    if control:
-                        control()
-                    y1 = min(n_rows, y + strip_rows)
-                    a0, a1 = max(0, y - halo), min(n_rows, y1 + halo)       # com halo para morfologia
-                    planes_full = self._render(im, a0, a1, top, art_rows, n_dots, labels)
-                    o = y - a0
-                    blk = [p[o:o + (y1 - y)] for p in planes_full]
-                    wr.write_block(blk)
-                    # Libere a tira anterior antes de alocar a próxima e seus buffers EDT.
-                    del blk, planes_full
-                    y = y1
-                    if progress:
-                        progress(y / n_rows)
-                    if control:
-                        control()
-            else:
-                from collections import deque
-                from concurrent.futures import ThreadPoolExecutor
-                ranges = iter(range(0, n_rows, strip_rows))
-                pending = deque()
-                with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="autorip-render") as pool:
-                    def submit():
+            w_cm = width_cm if width_cm is not None else (im.width / source_dpi_x * 2.54)
+            if not np.isfinite(w_cm) or w_cm <= 0:
+                raise ValueError("A largura de impressão precisa ser um número positivo.")
+            n_dots = int(round(w_cm / 2.54 * s.dpi_x))
+            physical_ratio = (im.height / source_dpi_y) / (im.width / source_dpi_x)
+            art_rows = int(round(physical_ratio * w_cm / 2.54 * s.dpi_y))
+            if n_dots <= 0 or art_rows <= 0:
+                raise ValueError("A largura ou a resolucao escolhida gera uma arte sem pixels de saida; aumente as medidas.")
+            top = int(round(s.margin_top_in * s.dpi_y)); bot = int(round(s.margin_bottom_in * s.dpi_y))
+            n_rows = top + art_rows + bot
+            if n_rows <= 0 or n_rows >= 2**32 or n_dots >= 2**32:
+                raise ValueError("As dimensoes de saida excedem o limite representavel pelo formato PRT.")
+            labels = self._make_labels(os.path.basename(png_path), w_cm, art_rows / s.dpi_y * 2.54, n_dots, top, art_rows, bot) if s.label_enabled else []
+            estimated_bytes = HEADER_SIZE + n_rows * 12 * plane_bytes_for(n_dots)
+            free_bytes = shutil.disk_usage(out_dir).free
+            if estimated_bytes + MIN_FREE_DISK_BYTES > free_bytes:
+                raise ValueError(f"Espaco insuficiente: o PRT deve ocupar aproximadamente {estimated_bytes / 1024**3:.2f} GiB, alem de 128 MiB de reserva livre.")
+            fill_rows = int(np.ceil(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
+            choke_rows = int(np.ceil(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
+            halo = 2 * fill_rows + choke_rows + 2
+            workers = (min(RENDER_WORKERS_MAX, os.cpu_count() or 1)
+                       if n_rows >= STRIP * 3 and n_dots * n_rows >= 1_000_000 else 1)
+            available_rows = MAX_STRIP_MEMORY_BYTES // workers // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
+            if workers > 1 and available_rows < 1:
+                workers = 1
+                available_rows = MAX_STRIP_MEMORY_BYTES // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
+            if available_rows < 1:
+                raise ValueError("A largura/DPI exigem mais memória do que o limite seguro de processamento por tira.")
+            strip_rows = max(1, min(STRIP, int(available_rows)))
+            im = self._prepare_resampling(im, n_dots, art_rows)
+            fd, tmp_path = tempfile.mkstemp(prefix=f".{os.path.basename(out_path)}.", suffix=".part", dir=out_dir)
+            os.close(fd)
+            wr = None
+            try:
+                wr = PrtWriter(tmp_path, s.dpi_x, s.dpi_y, n_rows, n_dots)
+                if workers == 1:
+                    y = 0
+                    while y < n_rows:
                         if control:
                             control()
-                        start = next(ranges, None)
-                        if start is None:
-                            return
-                        end = min(n_rows, start + strip_rows)
-                        a0, a1 = max(0, start - halo), min(n_rows, end + halo)
-                        future = pool.submit(self._render, im, a0, a1, top, art_rows, n_dots, labels)
-                        pending.append((start, end, a0, future))
-                    for _ in range(workers):
-                        submit()
-                    while pending:
-                        if control:
-                            control()
-                        start, end, a0, future = pending.popleft()
-                        planes_full = future.result()
-                        offset = start - a0
-                        block = [plane[offset:offset + end - start] for plane in planes_full]
-                        wr.write_block(block)
-                        del block, planes_full, future
+                        y1 = min(n_rows, y + strip_rows)
+                        a0, a1 = max(0, y - halo), min(n_rows, y1 + halo)       # com halo para morfologia
+                        planes_full = self._render(im, a0, a1, top, art_rows, n_dots, labels)
+                        o = y - a0
+                        blk = [p[o:o + (y1 - y)] for p in planes_full]
+                        wr.write_block(blk)
+                        # Libere a tira anterior antes de alocar a próxima e seus buffers EDT.
+                        del blk, planes_full
+                        y = y1
                         if progress:
-                            progress(end / n_rows)
+                            progress(y / n_rows)
                         if control:
                             control()
-                        submit()
-            wr.close()
-            result = dict(n_rows=n_rows, n_dots=n_dots, width_cm=w_cm,
-                          height_cm=art_rows / s.dpi_y * 2.54, dpi_x=s.dpi_x,
-                          dpi_y=s.dpi_y, has_alpha=has_alpha)
-            if before_publish:
-                before_publish(tmp_path, dict(result))
-            out_path = publish_unique_file(tmp_path, out_path)
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-        except BaseException:
-            if wr is not None and not wr.f.closed:
-                wr.f.close()
-            try:
-                os.remove(tmp_path)
-            except OSError:
-                pass
-            raise
-        result["output_path"] = out_path
-        return result
+                else:
+                    from collections import deque
+                    from concurrent.futures import ThreadPoolExecutor
+                    ranges = iter(range(0, n_rows, strip_rows))
+                    pending = deque()
+                    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="autorip-render") as pool:
+                        def submit():
+                            if control:
+                                control()
+                            start = next(ranges, None)
+                            if start is None:
+                                return
+                            end = min(n_rows, start + strip_rows)
+                            a0, a1 = max(0, start - halo), min(n_rows, end + halo)
+                            future = pool.submit(self._render, im, a0, a1, top, art_rows, n_dots, labels)
+                            pending.append((start, end, a0, future))
+                        for _ in range(workers):
+                            submit()
+                        while pending:
+                            if control:
+                                control()
+                            start, end, a0, future = pending.popleft()
+                            planes_full = future.result()
+                            offset = start - a0
+                            block = [plane[offset:offset + end - start] for plane in planes_full]
+                            wr.write_block(block)
+                            del block, planes_full, future
+                            if progress:
+                                progress(end / n_rows)
+                            if control:
+                                control()
+                            submit()
+                wr.close()
+                result = dict(n_rows=n_rows, n_dots=n_dots, width_cm=w_cm,
+                              height_cm=art_rows / s.dpi_y * 2.54, dpi_x=s.dpi_x,
+                              dpi_y=s.dpi_y, has_alpha=has_alpha)
+                if before_publish:
+                    before_publish(tmp_path, dict(result))
+                out_path = publish_unique_file(tmp_path, out_path)
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            except BaseException:
+                if wr is not None and not wr.f.closed:
+                    wr.f.close()
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+                raise
+            result["output_path"] = out_path
+            return result
+        finally:
+            im.close()
 
     def _render(self, im, a0, a1, top, art_rows, n_dots, labels):
         s = self.s
