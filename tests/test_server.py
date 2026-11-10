@@ -29,6 +29,21 @@ def test_bind_host_preserva_loopback_por_padrao(monkeypatch):
     assert server_module._allowed_hosts("127.0.0.1") == {"127.0.0.1", "localhost"}
 
 
+@pytest.mark.parametrize('path', ['/', '/api/state', '/planner.js'])
+def test_csp_limita_blob_as_imagens_sem_liberar_scripts(panel, path):
+    status, _, headers = request(panel, path)
+    assert status == 200
+    directives = {parts[0]: parts[1:] for rule in headers['Content-Security-Policy'].split(';')
+                  if (parts := rule.split())}
+    assert set(directives['img-src']) == {"'self'", 'data:', 'blob:'}
+    assert directives['default-src'] == ["'self'"]
+    assert directives['object-src'] == ["'none'"]
+    assert directives['frame-ancestors'] == ["'none'"]
+    assert 'blob:' not in directives['script-src']
+    assert 'data:' not in directives['script-src']
+    assert "'unsafe-eval'" not in directives['script-src']
+
+
 def test_bind_host_lan_exige_lista_de_hosts(monkeypatch):
     monkeypatch.setenv("AUTORIP_BIND_HOST", "0.0.0.0")
     monkeypatch.setenv("AUTORIP_ALLOWED_HOSTS", "192.168.1.50, autorip.local")
