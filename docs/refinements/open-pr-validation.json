@@ -1,0 +1,251 @@
+{
+  "base_commit": "adb602f",
+  "reviewed_prs": [
+    45,
+    46,
+    47
+  ],
+  "local_tests": {
+    "passed": 738,
+    "seconds": 80.17
+  },
+  "focused_tests": {
+    "passed": 67,
+    "seconds": 29.48
+  },
+  "real_cli_smoke": {
+    "rounds": 2,
+    "tests_per_round": 7,
+    "all_passed": true,
+    "is_full_15x_regression": false
+  },
+  "browser_smokes": {
+    "nesting": {
+      "passed": 9,
+      "total": 9,
+      "results": [
+        {
+          "name": "desktop preview and exports",
+          "passed": true
+        },
+        {
+          "name": "edit while calculation pending",
+          "passed": true
+        },
+        {
+          "name": "close while calculation pending",
+          "passed": true
+        },
+        {
+          "name": "session change discards private planning",
+          "passed": true
+        },
+        {
+          "name": "piece capacity error preserves login",
+          "passed": true
+        },
+        {
+          "name": "removed source reports error",
+          "passed": true
+        },
+        {
+          "name": "mobile 390",
+          "passed": true
+        },
+        {
+          "name": "mobile 320",
+          "passed": true
+        },
+        {
+          "name": "login required to open planner",
+          "passed": true
+        }
+      ],
+      "output": "/workspace/autorip-review/open-pr-review/nesting"
+    },
+    "polling": {
+      "baseline": null,
+      "browser": "156.0.8078.79",
+      "uiSha256": "f8a4834d250652635f3fdad488b9b7be4159a103d1125ec110c36cf2bb6e4eda",
+      "passed": true,
+      "cases": 23,
+      "results": [
+        {
+          "name": "authenticated lists remove all login placeholder nodes",
+          "passed": true
+        },
+        {
+          "name": "unchanged hot rows preserve nodes and focus",
+          "passed": true,
+          "preserved": true,
+          "polls": 20,
+          "childListMutations": 0
+        },
+        {
+          "name": "one changed hot row preserves its neighbour",
+          "passed": true
+        },
+        {
+          "name": "hot polling is single flight with one forced followup",
+          "passed": true,
+          "requests": 2,
+          "maximumInFlight": 1
+        },
+        {
+          "name": "old session 401 cannot clear new session: hot-files",
+          "passed": true
+        },
+        {
+          "name": "old session 401 cannot clear new session: prints",
+          "passed": true
+        },
+        {
+          "name": "old session 401 cannot clear new session: state",
+          "passed": true
+        },
+        {
+          "name": "old session data is discarded: hot-files",
+          "passed": true
+        },
+        {
+          "name": "old session data is discarded: prints",
+          "passed": true
+        },
+        {
+          "name": "printed 404 preserves authentication",
+          "passed": true
+        },
+        {
+          "name": "printed 500 preserves authentication",
+          "passed": true
+        },
+        {
+          "name": "delete 404 preserves authentication",
+          "passed": true
+        },
+        {
+          "name": "delete 500 preserves authentication",
+          "passed": true
+        },
+        {
+          "name": "network failure keeps session and reports failure",
+          "passed": true
+        },
+        {
+          "name": "settings response cannot repopulate a closed dialog",
+          "passed": true
+        },
+        {
+          "name": "current session 401 clears every private view",
+          "passed": true
+        },
+        {
+          "name": "unchanged print list makes no DOM writes",
+          "passed": true,
+          "polls": 20,
+          "domMutations": 0
+        },
+        {
+          "name": "changed print preserves neighbour and preview",
+          "passed": true
+        },
+        {
+          "name": "next print badge changes without replacing remaining row",
+          "passed": true
+        },
+        {
+          "name": "print reordering keeps existing nodes and keyboard focus",
+          "passed": true
+        },
+        {
+          "name": "unchanged prints update relative age without replacing rows",
+          "passed": true
+        },
+        {
+          "name": "forced refresh discards snapshot captured before mutation",
+          "passed": true
+        },
+        {
+          "name": "shutdown stops timers and ignores pending responses",
+          "passed": true,
+          "requestsAfterShutdown": 0
+        }
+      ]
+    },
+    "queue": {
+      "passed": true,
+      "activeJobsShown": 100,
+      "capacityBadge": "100 / 100",
+      "singleDomReplacement": true,
+      "idleDomPreserved": true,
+      "scrollPreserved": true,
+      "selectionPreserved": true,
+      "keyboardFocusPreserved": true,
+      "keyboardPauseResume": true,
+      "resumeQueuedItems": 100,
+      "cancelPreservesArtwork": true,
+      "slotReleased": true,
+      "mobileGeometry": {
+        "height": 549,
+        "scroll": 12309
+      },
+      "noOverflow390": true,
+      "noOverflow320": true,
+      "reducedMotionIntroHidden": true,
+      "reducedMotionAnimations": 0,
+      "normalMotionIntroDismissed": true,
+      "completionCacheAfter600Jobs": 12,
+      "fullUploadStatus": 429,
+      "preparingSlotCounted": true,
+      "preparingHintShown": true,
+      "preparingDoesNotRebuildJobs": true,
+      "pageErrors": []
+    },
+    "thumbnails": {
+      "passed": true,
+      "imagesInDom": 340,
+      "baselineRequests": null,
+      "coldRequests": 5,
+      "requestsAfterScroll": 24,
+      "maximumConcurrentFetches": 4,
+      "deferredImages": 332,
+      "inflightRequestSharedAcrossRender": true,
+      "idleDomPreserved": true,
+      "observerCleanupAfter30Renders": {
+        "pending": 308,
+        "queued": 9,
+        "active": 4
+      },
+      "cacheByteLimit": 8388608,
+      "cacheEntriesAfterFour3MiBBlobs": 2,
+      "cacheEntryLimit": 64,
+      "expiryReleasesBytes": true,
+      "sessionReset": {
+        "pending": 0,
+        "queued": 0,
+        "cache": 0,
+        "bytes": 0
+      },
+      "inflightResetPreventsStaleImage": true,
+      "observerUnavailableFallback": true,
+      "noOverflow390": true,
+      "noOverflow320": true,
+      "pageErrors": []
+    }
+  },
+  "local_launcher_smoke": "Smoke test aprovado: AutoRIP 0.8.16, login, planejamento de duas peças e assets, três uploads com alfa variável, PRTs 2.54 cm idênticos sem ICC/com ICC repetido, prévias idênticas com marca e encerramento.",
+  "source_sha256": {
+    ".github/workflows/tests.yml": "2a791858eb40e4a200cbf6084846914c3b389a603b73d0a125275aa16edc67c7",
+    ".github/workflows/build-windows.yml": "c8535711fccd143ea8772153040bca301d989afadd00e25f7eebcf149f24e181",
+    "tools/repeat_regression.py": "10b37d6acdb3cfeec99414c8429e8b63924344c6f100c61301ba55da7099e252",
+    "tools/smoke_windows_installer.ps1": "add5b8131e0799e0a692d186605024437517e60696c0631b48cc595e9a84b4cf",
+    "tests/test_repeat_regression.py": "66c1ac8121a29267c963f7a0dbe58c26d975fb0386a0cc50c61f4a383b6e9019",
+    "tests/test_server.py": "e9665d88f0f14fdefbac860c0661308285e3a9d5a3bac4c2b2a9e3edaed7a67e"
+  },
+  "unchanged_rip_modules": [
+    "engine",
+    "prt",
+    "morph"
+  ],
+  "scheduled_agent_or_notifications": false
+}
