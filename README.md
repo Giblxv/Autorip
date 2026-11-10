@@ -26,6 +26,12 @@ O botão **⏻ Encerrar** do painel encerra o servidor local de forma segura. Qu
 
 O instalador é por usuário e não precisa de privilégios administrativos. A configuração inicial fica em `%APPDATA%\AutoRIP\autorip.json`; atualizações não sobrescrevem a configuração existente. Em executáveis Windows, a opção **Atualizar automaticamente pelo GitHub** vem ligada: o AutoRIP consulta no máximo uma vez por dia, aceita somente a release oficial, valida o SHA-256 e executa o instalador silencioso. Desative-a em Configurações se preferir atualizar manualmente; o modo offline nunca consulta a rede.
 
+### Aplicativo móvel
+
+O cliente Android está em [`mobile/`](mobile/README.md). O cliente Flutter para iPhone/iPad está em [`mobile_ios/`](mobile_ios/README.md); ele abre o painel do servidor em WKWebView e mantém localmente até cinco endereços recentes. O teste e a análise Dart rodam com `flutter test` e `flutter analyze`; gerar/assinar o IPA exige macOS com Xcode.
+
+O instalador Windows e a área **Ajuda** do painel exibem QR codes móveis: Android abre o APK de teste da release e iPhone/iPad abre o guia até haver IPA assinado publicado. Para conectar os apps à instância local, use **Conectar celular** no painel para gerar o QR de endereço; ele não inclui a senha.
+
 ### Python / linha de comando
 
 ```bash

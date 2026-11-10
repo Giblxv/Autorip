@@ -1,4 +1,5 @@
 """Painel local do AutoRIP: servidor HTTP (127.0.0.1) + fila de jobs + modo automatico + senha."""
+import ipaddress
 import os, sys, json, time, math, hashlib, secrets, tempfile, threading, queue, traceback, webbrowser, io, shutil, stat
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, urlencode
@@ -18,6 +19,7 @@ from .paths import (ProcessLock, safe_filename, move_unique, next_available_path
                     file_sha256, find_marked_output, source_signature_matches, write_json_atomic)
 from . import integrations, agent, updater
 from PIL import Image, ImageDraw, ImageOps
+import segno
 
 # Uploads de arte nao possuem teto artificial; permanecem protegidos por
 # Content-Length valido, espaco livre em disco, validacao Pillow e limite de pixels.
@@ -1247,6 +1249,30 @@ def _allowed_hosts(bind_host):
     return values
 
 
+def _mobile_connection_url():
+    """URL QR somente para IPv4 privado/link-local que o listener realmente aceita."""
+    bind_host = _bind_host().strip().lower().rstrip(".")
+    public_host = os.environ.get("AUTORIP_PUBLIC_HOST", "").strip()
+    candidate = public_host or bind_host
+    try:
+        address = ipaddress.IPv4Address(candidate)
+        bound = ipaddress.IPv4Address(bind_host)
+    except ipaddress.AddressValueError:
+        return None
+    if address.is_loopback or address.is_unspecified or not (address.is_private or address.is_link_local):
+        return None
+    if not bound.is_unspecified and (bound.is_loopback or bound != address):
+        return None
+    if address.compressed.lower() not in _allowed_hosts(bind_host):
+        return None
+    if HTTP_SERVER is None:
+        return None
+    port = int(HTTP_SERVER.server_address[1])
+    if not 1 <= port <= 65535:
+        return None
+    return f"http://{address.compressed}:{port}/"
+
+
 class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 
@@ -1377,6 +1403,20 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/planner.js":
             with open(res_path("ui", "planner.js"), "rb") as source:
                 return self._send(200, source.read(), "application/javascript; charset=utf-8")
+        mobile_qr_assets = {
+            "/mobile-android-qr.png": "mobile-android-qr.png",
+            "/mobile-ios-guide-qr.png": "mobile-ios-guide-qr.png",
+        }
+        if u.path in mobile_qr_assets:
+            try:
+                path = res_path("ui", mobile_qr_assets[u.path])
+                with open(path, "rb") as image:
+                    data = image.read(256 * 1024 + 1)
+                if len(data) > 256 * 1024:
+                    return self._send(404, {"error": "nao encontrado"})
+                return self._send(200, data, "image/png")
+            except OSError:
+                return self._send(404, {"error": "nao encontrado"})
         if u.path == "/api/state":
             global LAST_CLIENT_SEEN
             LAST_CLIENT_SEEN = time.monotonic()
@@ -1445,6 +1485,15 @@ class H(BaseHTTPRequestHandler):
             return self._send(404, {})
         if u.path == "/api/settings":
             return self._send(200, self._settings_public()) if self._auth() else self._send(401, {"error": "login"})
+        if u.path == "/api/mobile/qr":
+            if not self._auth():
+                return self._send(401, {"error": "login"})
+            url = _mobile_connection_url()
+            if not url:
+                return self._send(409, {"error": "Para gerar o QR, inicie o AutoRIP usando AUTORIP_BIND_HOST com o IPv4 privado deste computador. Se usar 0.0.0.0, defina também AUTORIP_PUBLIC_HOST e inclua esse IP em AUTORIP_ALLOWED_HOSTS."})
+            image = io.BytesIO()
+            segno.make_qr(url, error="M").save(image, kind="svg", scale=7, border=4)
+            return self._send(200, {"url": url, "svg": image.getvalue().decode("utf-8")})
         self._send(404, {"error": "nao encontrado"})
 
     def do_POST(self):

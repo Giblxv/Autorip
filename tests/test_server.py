@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import threading
+from types import SimpleNamespace
 from http.server import ThreadingHTTPServer
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -119,6 +120,62 @@ def test_configuracoes_nao_revelam_segredos_e_resposta_tem_headers(panel, app):
     assert headers["X-Content-Type-Options"] == "nosniff"
     assert headers["X-Frame-Options"] == "DENY"
     assert "frame-ancestors 'none'" in headers["Content-Security-Policy"]
+
+
+def test_qr_mobile_exige_login(panel, app):
+    status, body, _ = request(panel, "/api/mobile/qr")
+    assert status == 401
+    assert json.loads(body)["error"] == "login"
+
+
+def test_qr_mobile_contem_apenas_url_local_e_svg(panel, app, monkeypatch):
+    port = int(panel.rsplit(":", 1)[1])
+    monkeypatch.setenv("AUTORIP_BIND_HOST", "192.168.1.50")
+    monkeypatch.delenv("AUTORIP_PUBLIC_HOST", raising=False)
+    monkeypatch.setenv("AUTORIP_ALLOWED_HOSTS", "127.0.0.1,localhost,192.168.1.50")
+    monkeypatch.setattr(server_module, "HTTP_SERVER", SimpleNamespace(server_address=("192.168.1.50", port)))
+    app.tokens.add("TOKEN-NAO-INCLUIR-NO-QR")
+
+    status, body, headers = request(panel, "/api/mobile/qr", headers={"X-Token": "TOKEN-NAO-INCLUIR-NO-QR"})
+    result = json.loads(body)
+
+    assert status == 200
+    assert result["url"] == f"http://192.168.1.50:{port}/"
+    assert result["svg"].lstrip().startswith("<?xml") or "<svg" in result["svg"]
+    assert "TOKEN-NAO-INCLUIR-NO-QR" not in body.decode()
+    assert headers["Cache-Control"] == "no-store"
+
+
+def test_qr_mobile_nao_divulga_loopback_ou_ip_publico(panel, app, monkeypatch):
+    port = int(panel.rsplit(":", 1)[1])
+    monkeypatch.setenv("AUTORIP_BIND_HOST", "127.0.0.1")
+    monkeypatch.setenv("AUTORIP_PUBLIC_HOST", "8.8.8.8")
+    monkeypatch.setattr(server_module, "HTTP_SERVER", SimpleNamespace(server_address=("127.0.0.1", port)))
+    app.tokens.add("sessao")
+    status, body, _ = request(panel, "/api/mobile/qr", headers={"X-Token": "sessao"})
+    assert status == 409
+    assert "AUTORIP_BIND_HOST" in json.loads(body)["error"]
+
+
+def test_qr_mobile_wildcard_exige_host_na_allowlist(monkeypatch):
+    monkeypatch.setenv("AUTORIP_BIND_HOST", "0.0.0.0")
+    monkeypatch.setenv("AUTORIP_PUBLIC_HOST", "192.168.1.50")
+    monkeypatch.setenv("AUTORIP_ALLOWED_HOSTS", "127.0.0.1,192.168.1.50")
+    monkeypatch.setattr(server_module, "HTTP_SERVER", SimpleNamespace(server_address=("0.0.0.0", 8765)))
+    assert server_module._mobile_connection_url() == "http://192.168.1.50:8765/"
+
+    monkeypatch.setenv("AUTORIP_ALLOWED_HOSTS", "127.0.0.1")
+    assert server_module._mobile_connection_url() is None
+
+
+def test_painel_serve_apenas_pngs_qr_permitidos(panel):
+    for path in ("/mobile-android-qr.png", "/mobile-ios-guide-qr.png"):
+        status, body, headers = request(panel, path)
+        assert status == 200
+        assert body.startswith(b"\x89PNG\r\n\x1a\n")
+        assert headers.get_content_type() == "image/png"
+    status, _, _ = request(panel, "/../../README.md")
+    assert status == 404
 
 
 def test_endpoint_logo_nao_serve_caminho_arbitrario(panel, app, tmp_path):

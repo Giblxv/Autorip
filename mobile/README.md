@@ -24,7 +24,11 @@ cd android
 ./gradlew assembleDebug
 ```
 
-O artefato de teste fica em `android/app/build/outputs/apk/debug/app-debug.apk`. Ao abrir pela primeira vez, informe o endereço do servidor. O aplicativo guarda até cinco endereços recentes localmente e não contém credenciais.
+O artefato de teste fica em `android/app/build/outputs/apk/debug/app-debug.apk`. O app aceita conexão manual ou leitura do QR de endereço exibido no painel AutoRIP. Ao abrir pela primeira vez, informe o endereço do servidor; o app guarda até cinco endereços recentes localmente e não contém credenciais.
+
+Para testar a variante não depurável com R8 e remoção de recursos não usados, execute `npm run android:optimized`. O APK fica em `android/app/build/outputs/apk/optimized/app-optimized.apk`; instala como `com.giblxv.autorip.optimized` para coexistir com o app normal e usa a chave debug, portanto serve para avaliação, não para publicação de produção. O workflow compara tamanhos de debug, optimized e release e disponibiliza os APKs debug e optimized como artefatos.
+
+A variante `release` também ativa R8 e resource shrinking, mas `assembleRelease` gera APK não assinado enquanto não houver uma chave de produção configurada. O APK atualmente anexado à release móvel permanece o debug existente até que uma assinatura estável de produção seja configurada e validada.
 
 ## Release
 
