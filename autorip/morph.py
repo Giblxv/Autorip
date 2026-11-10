@@ -25,7 +25,7 @@ def dilate(mask, mm, dpi_x, dpi_y):
     if not radius or not mask.any():
         return mask
     # Sem primeiro plano, EDT(~mask) mediria uma borda virtual e criaria tinta.
-    return ndi.distance_transform_edt(~mask, sampling=sampling) <= radius
+    return _distance(~mask, sampling=sampling) <= radius
 
 
 def erode(mask, mm, dpi_x, dpi_y):
@@ -34,14 +34,15 @@ def erode(mask, mm, dpi_x, dpi_y):
     if not radius or not mask.any():
         return mask
     padded = np.pad(mask, 1, constant_values=False)
-    distance = ndi.distance_transform_edt(padded, sampling=sampling)
+    distance = _distance(padded, sampling=sampling)
     return (distance > radius)[1:-1, 1:-1]
 
 
 def close_holes(mask, mm, dpi_x, dpi_y):
     """Dilata e erode com disco físico, preservando objetos junto às bordas."""
     mask, radius, _ = _parameters(mask, mm, dpi_x, dpi_y)
-    if not radius or not mask.any():
+    # Fechar uma máscara totalmente preenchida com exterior vazio a preserva.
+    if not radius or not mask.any() or mask.all():
         return mask
     ry = math.ceil(radius * dpi_y) + 1
     rx = math.ceil(radius * dpi_x) + 1
@@ -49,3 +50,18 @@ def close_holes(mask, mm, dpi_x, dpi_y):
     closed = erode(dilate(padded, mm, dpi_x, dpi_y), mm, dpi_x, dpi_y)
     # Cópia compacta: não mantém todo o buffer com padding vivo no renderizador.
     return closed[ry:ry + mask.shape[0], rx:rx + mask.shape[1]].copy()
+
+
+def _distance(mask, sampling):
+    indices = ndi.distance_transform_edt(mask, sampling=sampling,
+                                         return_distances=False, return_indices=True)
+    indices[0] -= np.arange(mask.shape[0], dtype=np.int32)[:, None]
+    indices[1] -= np.arange(mask.shape[1], dtype=np.int32)[None, :]
+    y = indices[0].astype(np.float64)
+    x = indices[1].astype(np.float64)
+    y *= sampling[0]
+    x *= sampling[1]
+    np.square(y, out=y)
+    np.square(x, out=x)
+    np.add(y, x, out=y)
+    return np.sqrt(y, out=y)

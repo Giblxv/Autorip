@@ -3,11 +3,16 @@ import os, sys, json, time, math, hashlib, secrets, tempfile, threading, queue, 
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, urlencode
 from dataclasses import asdict
+from contextlib import contextmanager
 from . import __version__
+from .watermarks import WatermarkCache
+from .layout import LayoutItem, inspect_image, layout_to_svg, sheet_height
+from .nesting import nest_layout, utilization
 from .config import Settings
 from .engine import Rip, MAX_INPUT_PIXELS
 from .prt import read_header
-from .watcher import EXTS, _signature, _stable
+from .prints import PrintCatalog
+from .watcher import EXTS, _signature, _stable_files
 from .paths import (ProcessLock, safe_filename, move_unique, next_available_path,
                     read_archive_marker, remove_archive_marker, write_archive_marker,
                     file_sha256, find_marked_output, source_signature_matches, write_json_atomic)
@@ -22,6 +27,8 @@ MIN_FREE_DISK_BYTES = 128 * 1024 * 1024
 MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
 MAX_JSON_BYTES = 2 * 1024 * 1024
 MAX_PENDING_JOBS = 100
+MAX_JOB_HISTORY = 50
+MAX_STATE_HISTORY = 12
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128
 SECRET_FIELDS = ("trello_key", "trello_token", "notion_token", "jira_token", "anthropic_key")
@@ -31,12 +38,35 @@ class InsufficientStorageError(Exception):
     pass
 
 
+class QueueFullError(RuntimeError):
+    """Capacidade temporariamente ocupada por trabalhos ou entradas em preparação."""
+
+
 class JobPaused(Exception):
     """Interrupcao cooperativa segura no limite de uma tira de RIP."""
 
 
 class JobCancelled(Exception):
     """Cancelamento cooperativo sem publicar um PRT parcial."""
+
+
+def _source_key(path):
+    """Identidade de fila comum ao caminho original, aliases e casing Windows."""
+    return os.path.normcase(os.path.realpath(path))
+
+
+def _parse_width_cm(value):
+    if value is None or value == "":
+        return None
+    try:
+        if isinstance(value, bool):
+            raise ValueError()
+        width = float(value)
+        if not math.isfinite(width) or not 0 < width <= 300:
+            raise ValueError()
+    except (ValueError, TypeError, OverflowError):
+        raise ValueError("A largura precisa estar entre 0 e 300 cm.") from None
+    return width
 
 
 def res_path(*p):
@@ -56,13 +86,19 @@ def home_dir():
     return h
 
 
-def _save_thumbnail_atomic(image, destination):
-    """Escreve JPEG completo antes de substituir uma miniatura visivel no painel."""
+def _encode_thumbnail(image):
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=82)
+    return buffer.getvalue()
+
+
+def _write_thumbnail_atomic(encoded, destination):
+    """Publica os mesmos bytes completos sem repetir a codificação JPEG."""
     directory = os.path.dirname(destination)
     fd, temporary = tempfile.mkstemp(prefix=".thumb.", suffix=".part", dir=directory)
     try:
         with os.fdopen(fd, "wb") as target:
-            image.save(target, format="JPEG", quality=82)
+            target.write(encoded)
             target.flush()
             os.fsync(target.fileno())
         os.replace(temporary, destination)
@@ -71,6 +107,26 @@ def _save_thumbnail_atomic(image, destination):
             os.remove(temporary)
         except OSError:
             pass
+
+
+def _save_thumbnail_atomic(image, destination):
+    """Escreve JPEG completo antes de substituir uma miniatura visivel no painel."""
+    _write_thumbnail_atomic(_encode_thumbnail(image), destination)
+
+
+def _load_thumbnail(path, bounds, *, orient=True, max_pixels=None):
+    with Image.open(path) as source:
+        if max_pixels is not None and source.width * source.height > max_pixels:
+            raise ValueError("Imagem acima do limite da miniatura.")
+        # A orientação PNG/TIFF pode estar disponível somente após o load.
+        source.load()
+        orientation = source.getexif().get(274, 1) if orient else 1
+        image = ImageOps.exif_transpose(source) if orientation in (2, 3, 4, 5, 6, 7, 8) else source
+        if image.mode != "RGBA":
+            image = image.convert("RGBA")
+        # RGBA já está no modo final: reduza antes de copiar o buffer grande.
+        image.thumbnail(bounds)
+        return image.copy() if image is source else image
 
 
 class App:
@@ -82,17 +138,22 @@ class App:
         self.s = Settings.load(self.cfg_path, base=self.home)
         self.s.validate()
         self.rip = Rip(self.s)
+        self._watermark_cache = WatermarkCache()
+        self._layout_lock = threading.Lock()
         self.auto = self.s.auto_mode
         self.jobs, self.log_lines, self.tokens = [], [], set()
         self.q = queue.Queue()
         self.lock = threading.RLock()
         self.settings_lock = threading.RLock()
         self.print_lock = threading.Lock()
+        self.print_catalog = PrintCatalog()
         self.upload_lock = threading.Lock()
+        self.upload_receive_lock = threading.Lock()
         self.login_attempts = {}
         self.archive_pending = {}
         self.invalid_journal_alerts = set()
         self.queued_sources = set()
+        self._admission_reservations = set()
         self.source_jobs = {}
         self.job_controls = {}
         self._watch_locks = []
@@ -235,6 +296,11 @@ class App:
             return None
 
     def _recover_marked_source(self, source, settings):
+        # A estabilidade e o snapshot do watcher podem anteceder um enqueue.
+        # Reconsulte a fila viva antes de tocar no journal de um job ativo/pausado.
+        with self.lock:
+            if _source_key(source) in self.queued_sources:
+                return True
         marker = read_archive_marker(source)
         if marker is None:
             if os.path.lexists(source + ".autorip.json"):
@@ -365,13 +431,16 @@ class App:
         return total
 
     def receive_upload(self, handler, name, width_value):
-        with self.upload_lock:
-            raw_length = handler.headers.get("Content-Length", "0")
-            if not raw_length.isdigit():
-                raise ValueError("Content-Length invalido.")
-            length = int(raw_length)
-            if length <= 0:
-                raise ValueError("O arquivo enviado esta vazio.")
+        width = _parse_width_cm(width_value)
+        raw_length = handler.headers.get("Content-Length", "0")
+        if not raw_length.isdigit():
+            raise ValueError("Content-Length invalido.")
+        length = int(raw_length)
+        if length <= 0:
+            raise ValueError("O arquivo enviado esta vazio.")
+        # Recepção continua serializada para verificar disco entre envios; o
+        # observador só compartilha o lock curto de publicação, não o de rede.
+        with self._reserve_admission() as reservation, self.upload_receive_lock:
             if shutil.disk_usage(self.inbox).free < length + MIN_FREE_DISK_BYTES:
                 raise InsufficientStorageError("Espaco livre insuficiente; mantenha ao menos 128 MiB de reserva para o RIP.")
             folder = os.path.join(self.inbox, secrets.token_hex(12))
@@ -385,16 +454,19 @@ class App:
                     if image.width * image.height > MAX_INPUT_PIXELS:
                         raise ValueError(f"Imagem acima do limite de {MAX_INPUT_PIXELS:,} pixels.")
                     image.verify()
-                width = None
-                if width_value:
-                    width = float(width_value)
-                    if not math.isfinite(width) or width <= 0 or width > 300:
-                        raise ValueError("A largura precisa estar entre 0 e 300 cm.")
                 # Persista a medida ANTES de tornar a imagem visível à recuperação.
                 write_json_atomic(request_path, {"version": 1, "width_cm": width,
                                                 "sha256": file_sha256(temporary)})
-                os.replace(temporary, path)
-                return self.enqueue(path, width, move_to_done=True)
+                with self.upload_lock:
+                    try:
+                        os.replace(temporary, path)
+                        return self.enqueue(path, width, move_to_done=True, _reservation=reservation)
+                    except BaseException:
+                        # Não libere para recuperação uma imagem cujo pedido
+                        # falhou; o sidecar e o restante são limpos abaixo.
+                        try: os.remove(path)
+                        except OSError: pass
+                        raise
             except BaseException:
                 for candidate in (temporary, path, request_path):
                     try: os.remove(candidate)
@@ -454,45 +526,156 @@ class App:
                 continue
         return result
 
+    def plan_layout(self, data):
+        """Planeja uma fotografia da hot folder sem mover ou enfileirar as artes."""
+        if not isinstance(data, dict):
+            raise ValueError("Informe as opções e as artes da folha.")
+        width = data.get("sheet_width_cm", 58)
+        margin = data.get("margin_cm", .2)
+        gap = data.get("gap_cm", .2)
+        rotate = data.get("allow_rotation", False)
+        # Valide a geometria antes de consultar arquivos.
+        nest_layout([], width, margin, gap, rotate)
+        width, margin, gap = map(float, (width, margin, gap))
+        requested = data.get("items")
+        if not isinstance(requested, list) or not 1 <= len(requested) <= 100:
+            raise ValueError("Selecione de 1 a 100 peças por planejamento.")
+        checked, total = [], 0
+        for item in requested:
+            if not isinstance(item, dict):
+                raise ValueError("Cada arte precisa informar nome, largura e quantidade.")
+            name, quantity = item.get("name"), item.get("quantity", 1)
+            if (not isinstance(name, str) or not name or len(name) > 255
+                    or safe_filename(name) != name or name.startswith(".")
+                    or not name.lower().endswith(EXTS)):
+                raise ValueError("Selecione um arquivo de imagem da hot folder.")
+            if type(quantity) is not int or quantity < 1 or total + quantity > 100:
+                raise ValueError("O planejamento permite até 100 peças, contando as cópias.")
+            total += quantity
+            checked.append((name, _parse_width_cm(item.get("width_cm")), quantity))
+        with self.settings_lock:
+            folder = os.path.realpath(self.s.hot_folder)
+        items = []
+        for index, (name, requested_width, quantity) in enumerate(checked):
+            source = os.path.join(folder, name)
+            if (os.path.commonpath((folder, os.path.realpath(source))) != folder
+                    or os.path.islink(source) or _signature(source) is None):
+                raise FileNotFoundError("Uma arte não está mais na hot folder; atualize a lista.")
+            before = _signature(source)
+            try:
+                info = inspect_image(source)
+            except FileNotFoundError:
+                raise FileNotFoundError("Uma arte saiu da hot folder; atualize a lista.") from None
+            except (OSError, ValueError) as exc:
+                raise ValueError(f"Não foi possível ler as dimensões de {name}.") from exc
+            if before != _signature(source):
+                raise ValueError("Uma arte mudou durante a leitura; tente novamente.")
+            if info.width_px * info.height_px > MAX_INPUT_PIXELS:
+                raise ValueError("Uma arte excede o limite de pixels do RIP.")
+            w = requested_width if requested_width is not None else min(info.width_cm, width - 2 * margin)
+            h = w * info.height_cm / info.width_cm
+            for copy in range(quantity):
+                items.append(LayoutItem(f"{index}:{copy}", name, "", info.width_px,
+                                        info.height_px, w, h))
+        packed = nest_layout(items, width, margin, gap, rotate)
+        return {"items": [item.as_dict() for item in packed], "sheet_width_cm": width,
+                "sheet_height_cm": sheet_height(packed, margin, gap),
+                "margin_cm": margin, "gap_cm": gap,
+                "utilization": utilization(packed, width, margin, gap),
+                "svg": layout_to_svg(packed, width, margin, gap)}
+
     def enqueue_hot_file(self, name, width_value=""):
+        width = _parse_width_cm(width_value)
         safe_name = safe_filename(name)
         with self.settings_lock:
             folder = os.path.realpath(self.s.hot_folder)
             processing = os.path.join(folder, ".autorip_processing")
         source = os.path.join(folder, safe_name)
+        return self._enqueue_hot_source(source, processing, width)
+
+    def _enqueue_hot_source(self, source, processing, width=None):
         if not os.path.isfile(source) or os.path.islink(source):
             raise FileNotFoundError("Arquivo nao encontrado na hot folder.")
-        os.makedirs(processing, exist_ok=True)
-        claimed = move_unique(source, processing, safe_name)
-        width = None
-        if width_value not in (None, ""):
-            width = float(width_value)
-        return self.enqueue(claimed, width, move_to_done=True)
+        with self._reserve_admission() as reservation:
+            claimed = move_unique(source, processing, os.path.basename(source))
+            return self.enqueue(claimed, width, move_to_done=True, _reservation=reservation)
 
-    def enqueue(self, path, width_cm=None, move_to_done=True):
+    def _queue_used(self):
+        """Com self.lock adquirido: inclui entradas ainda não publicadas na fila."""
+        return len(self.queued_sources) + len(self._admission_reservations)
+
+    def _has_capacity(self):
+        with self.lock:
+            return self._queue_used() < MAX_PENDING_JOBS
+
+    @contextmanager
+    def _reserve_admission(self):
+        reservation = object()
+        with self.lock:
+            if self._queue_used() >= MAX_PENDING_JOBS:
+                raise QueueFullError("Fila cheia: aguarde um trabalho terminar antes de enviar mais artes.")
+            self._admission_reservations.add(reservation)
+        try:
+            yield reservation
+        finally:
+            with self.lock:
+                self._admission_reservations.discard(reservation)
+
+    def _retained_jobs(self, history_limit):
+        """Com self.lock adquirido: mantém ativos e os últimos N finalizados."""
+        kept = []
+        finished = 0
+        for job in reversed(self.jobs):
+            if job.get("id") not in self.job_controls:
+                if finished >= history_limit:
+                    continue
+                finished += 1
+            kept.append(job)
+        return kept[::-1]
+
+    def _schedule_job(self, control):
+        """Com self.lock adquirido: no máximo uma referência pendente por job."""
+        if not control["queued"]:
+            control["queued"] = True
+            self.q.put(control["item"])
+
+    def enqueue(self, path, width_cm=None, move_to_done=True, *, _reservation=None):
         if width_cm is not None and (isinstance(width_cm, bool) or not isinstance(width_cm, (int, float)) or not math.isfinite(width_cm) or width_cm <= 0 or width_cm > 300):
             raise ValueError("A largura precisa estar entre 0 e 300 cm.")
         job = dict(id=secrets.token_hex(8), name=safe_filename(os.path.basename(path)), status="fila", progress=0.0, out="", error="")
-        control = {"pause": threading.Event(), "cancel": threading.Event(),
+        control = {"pause": threading.Event(), "cancel": threading.Event(), "queued": False,
                    "item": (job, path, width_cm, move_to_done)}
+        source_key = _source_key(path)
         with self.lock:
-            if path in self.queued_sources:
-                return self.source_jobs[path]
-            if self.q.qsize() >= MAX_PENDING_JOBS:
-                raise RuntimeError("Fila cheia: aguarde um trabalho terminar antes de enviar mais artes.")
-            self.queued_sources.add(path)
-            self.source_jobs[path] = job
+            if source_key in self.queued_sources:
+                return self.source_jobs[source_key]
+            if _reservation is not None:
+                if _reservation not in self._admission_reservations:
+                    raise RuntimeError("Reserva de admissao indisponivel.")
+                self._admission_reservations.remove(_reservation)
+            elif self._queue_used() >= MAX_PENDING_JOBS:
+                raise QueueFullError("Fila cheia: aguarde um trabalho terminar antes de enviar mais artes.")
+            self.queued_sources.add(source_key)
+            self.source_jobs[source_key] = job
             self.job_controls[job["id"]] = control
-            self.jobs.append(job); self.jobs[:] = self.jobs[-50:]
-            self.q.put(control["item"])
+            self.jobs.append(job)
+            self.jobs[:] = self._retained_jobs(MAX_JOB_HISTORY)
+            self._schedule_job(control)
         return job
 
     def _release_source(self, path):
+        source_key = _source_key(path)
         with self.lock:
-            self.queued_sources.discard(path)
-            job = self.source_jobs.pop(path, None)
+            self.queued_sources.discard(source_key)
+            job = self.source_jobs.pop(source_key, None)
             if job:
                 self.job_controls.pop(job.get("id"), None)
+                # Uma arte pausada antiga pode terminar depois das mais novas.
+                # O histórico deve refletir a conclusão, não apenas o enqueue.
+                if job in self.jobs:
+                    self.jobs.remove(job)
+                    self.jobs.append(job)
+            self.jobs[:] = self._retained_jobs(MAX_JOB_HISTORY)
 
     def control_job(self, job_id, action):
         if action not in ("pause", "resume", "cancel"):
@@ -502,6 +685,10 @@ class App:
             control = self.job_controls.get(job_id)
             if job is None or control is None:
                 raise ValueError("Trabalho nao encontrado ou ja finalizado.")
+            if control["cancel"].is_set():
+                if action == "cancel":
+                    return dict(job)
+                raise ValueError("O cancelamento deste trabalho ja foi solicitado.")
             status = job.get("status")
             if action == "pause":
                 if status not in ("fila", "processando"):
@@ -515,13 +702,16 @@ class App:
                     raise ValueError("Somente trabalhos pausados podem ser retomados.")
                 control["pause"].clear()
                 job["status"] = "fila"
-                self.q.put(control["item"])
+                self._schedule_job(control)
                 self.log(f"Fila: retomando {job['name']} desde o inicio seguro")
                 return dict(job)
             if status in ("pronto", "erro", "cancelado"):
                 raise ValueError("O trabalho ja terminou.")
             control["cancel"].set()
             job["status"] = "cancelando"
+            # Pausados podem já ter saído de q. Acorde o worker para arquivar
+            # a entrada e liberar a capacidade, sem I/O no handler HTTP.
+            self._schedule_job(control)
             self.log(f"Fila: cancelamento solicitado para {job['name']}")
             return dict(job)
 
@@ -538,21 +728,29 @@ class App:
     def _worker(self):
         while True:
             job, path, width_cm, move = self.q.get()
+            with self.lock:
+                control = self.job_controls.get(job["id"])
+                if control is None or not control["queued"]:
+                    continue
+                control["queued"] = False
+                if control["cancel"].is_set():
+                    action = "cancel"
+                elif control["pause"].is_set():
+                    action = "pause"
+                    job["status"] = "pausado"
+                else:
+                    action = "run"
+                    job["status"] = "processando"
             with self.settings_lock:
                 settings, rip = self.s, self.rip
                 self._active_output_key = self._output_lock_key(settings.output_folder)
-            control = self.job_controls.get(job["id"])
-            if control and control["cancel"].is_set():
+            if action == "cancel":
                 self._cancel_job(job, path, move, settings, "Cancelado antes do processamento.")
                 continue
-            if control and control["pause"].is_set():
-                with self.lock:
-                    job["status"] = "pausado"
+            if action == "pause":
                 self.log(f"PAUSADO {job['name']}")
                 self._finish_output_use()
                 continue
-            with self.lock:
-                job["status"] = "processando"
             self.log(f"RIP: {job['name']}")
             out = None
             # A entrada pode desaparecer depois de entrar na fila; essa falha nao
@@ -593,9 +791,14 @@ class App:
             except JobPaused:
                 remove_archive_marker(path)
                 with self.lock:
-                    job["status"] = "pausado"
-                    job["error"] = "Pausado com segurança; retoma desde o início do RIP."
-                self.log(f"PAUSADO {job['name']}")
+                    cancelling = control["cancel"].is_set()
+                    if cancelling:
+                        job["status"] = "cancelando"
+                    else:
+                        job["status"] = "pausado"
+                        job["error"] = "Pausado com segurança; retoma desde o início do RIP."
+                if not cancelling:
+                    self.log(f"PAUSADO {job['name']}")
                 self._finish_output_use()
                 continue
             except JobCancelled:
@@ -685,82 +888,94 @@ class App:
         threading.Thread(target=self._trello_loop, daemon=True).start()
         while True:
             try:
-                self._retry_archive_pending()
-                with self.settings_lock:
-                    settings = self.s
-                    auto = self.auto
-                    hot_folders = list(self._known_hot_folders)
-                current_hot = os.path.normcase(os.path.realpath(settings.hot_folder))
-                if current_hot not in hot_folders:
-                    hot_folders.append(current_hot)
-                processing_folders = [(folder, os.path.join(folder, ".autorip_processing"))
-                                      for folder in hot_folders if os.path.isdir(folder)]
-                current_processing = os.path.join(settings.hot_folder, ".autorip_processing")
-                os.makedirs(current_processing, exist_ok=True)
-                with self.lock:
-                    pending_archives = set(self.archive_pending)
-                    queued_sources = set(self.queued_sources)
-                for hot_folder, processing_folder in processing_folders:
-                    if not os.path.isdir(processing_folder):
-                        continue
-                    for n in sorted(os.listdir(processing_folder)):
-                        p = os.path.join(processing_folder, n)
-                        if (not n.lower().endswith(EXTS) or os.path.islink(p) or not os.path.isfile(p)
-                                or p in queued_sources or p in pending_archives or not _stable(p, wait=0.5)):
-                            continue
-                        has_marker = os.path.lexists(p + ".autorip.json")
-                        if not auto and not has_marker:
-                            continue
-                        if self._recover_marked_source(p, settings):
-                            continue
-                        elif auto:
-                            self.enqueue(p, move_to_done=True)
-                if auto:
-                    for n in sorted(os.listdir(settings.hot_folder)):
-                        if not n.lower().endswith(EXTS):
-                            continue
-                        src = os.path.join(settings.hot_folder, n)
-                        try:
-                            signature = _signature(src)
-                        except OSError:
-                            continue
-                        if signature is None or signature[2] <= 0 or not _stable(src, wait=0.5):
-                            continue
-                        try:
-                            claimed = move_unique(src, current_processing, n)
-                        except OSError:
-                            continue
-                        self.enqueue(claimed, move_to_done=True)
-                # Uploads manuais ficam em subpastas privadas; retomá-los também após reinício.
-                with self.upload_lock:
-                    for root, directories, files in os.walk(self.inbox, topdown=True, followlinks=False):
-                        directories[:] = [name for name in directories if not os.path.islink(os.path.join(root, name))]
-                        for name in sorted(files):
-                            if not name.lower().endswith(EXTS):
-                                continue
-                            path = os.path.join(root, name)
-                            with self.lock:
-                                if path in self.queued_sources or path in self.archive_pending:
-                                    continue
-                            if os.path.islink(path) or not os.path.isfile(path) or not _stable(path, wait=0.5):
-                                continue
-                            if not self._recover_marked_source(path, settings):
-                                self._enqueue_manual_recovery(path)
+                self._scan_inputs()
             except Exception as e:
                 self.log(f"Falha ao observar hot-folder: {type(e).__name__}: {e}")
             with self.settings_lock:
                 poll_seconds = self.s.poll_seconds
             time.sleep(max(0.5, poll_seconds))
 
+    def _scan_inputs(self):
+        self._retry_archive_pending()
+        with self.settings_lock:
+            settings = self.s
+            auto = self.auto
+            hot_folders = list(self._known_hot_folders)
+        current_hot = os.path.normcase(os.path.realpath(settings.hot_folder))
+        if current_hot not in hot_folders:
+            hot_folders.append(current_hot)
+        processing_folders = [(folder, os.path.join(folder, ".autorip_processing"))
+                              for folder in hot_folders if os.path.isdir(folder)]
+        current_processing = os.path.join(settings.hot_folder, ".autorip_processing")
+        os.makedirs(current_processing, exist_ok=True)
+        with self.lock:
+            pending_archives = {_source_key(path) for path in self.archive_pending}
+            queued_sources = set(self.queued_sources)
+            accepting = self._queue_used() < MAX_PENDING_JOBS
+        recovery_candidates = []
+        for hot_folder, processing_folder in processing_folders:
+            if not os.path.isdir(processing_folder):
+                continue
+            for n in sorted(os.listdir(processing_folder)):
+                p = os.path.join(processing_folder, n)
+                if (not n.lower().endswith(EXTS) or os.path.islink(p) or not os.path.isfile(p)
+                        or _source_key(p) in queued_sources or _source_key(p) in pending_archives):
+                    continue
+                has_marker = os.path.lexists(p + ".autorip.json")
+                if not has_marker and (not auto or not accepting):
+                    continue
+                recovery_candidates.append(p)
+        for p, _ in _stable_files(recovery_candidates, wait=0.5):
+            if not self._recover_marked_source(p, settings) and auto:
+                try:
+                    self.enqueue(p, move_to_done=True)
+                except QueueFullError:
+                    continue
+        if auto and self._has_capacity():
+            candidates = (os.path.join(settings.hot_folder, n)
+                          for n in sorted(os.listdir(settings.hot_folder))
+                          if n.lower().endswith(EXTS))
+            for src, _ in _stable_files(candidates, wait=0.5):
+                try:
+                    self._enqueue_hot_source(src, current_processing)
+                except QueueFullError:
+                    break
+                except OSError:
+                    continue
+        # Uploads manuais ficam em subpastas privadas; retomá-los também após reinício.
+        manual_candidates = []
+        for root, directories, files in os.walk(self.inbox, topdown=True, followlinks=False):
+            directories[:] = [name for name in directories if not os.path.islink(os.path.join(root, name))]
+            for name in sorted(files):
+                if not name.lower().endswith(EXTS):
+                    continue
+                path = os.path.join(root, name)
+                with self.lock:
+                    if (_source_key(path) in self.queued_sources
+                            or _source_key(path) in {_source_key(p) for p in self.archive_pending}):
+                        continue
+                if not self._has_capacity() and not os.path.lexists(path + ".autorip.json"):
+                    continue
+                manual_candidates.append(path)
+        for path, _ in _stable_files(manual_candidates, wait=0.5):
+            with self.upload_lock:
+                if not self._recover_marked_source(path, settings) and self._has_capacity():
+                    try:
+                        self._enqueue_manual_recovery(path)
+                    except QueueFullError:
+                        continue
+
     # ---- miniaturas ----
     def _thumb(self, jid, path, output_name=None, settings=None, size=220):
         try:
             settings = settings or self.s
-            with Image.open(path) as source:
-                if source.width * source.height > 80_000_000:
-                    return ""
-                im = ImageOps.exif_transpose(source).convert("RGBA")
-            im.thumbnail((size, size))
+            thumbs = os.path.join(self.home, "thumbs"); os.makedirs(thumbs, exist_ok=True)
+            if os.path.islink(thumbs):
+                return ""
+            by_name = os.path.join(thumbs, "by_name"); os.makedirs(by_name, exist_ok=True)
+            if os.path.islink(by_name):
+                return ""
+            im = _load_thumbnail(path, (size, size), max_pixels=MAX_INPUT_PIXELS)
             bg = Image.new("RGBA", im.size, (255, 255, 255, 255)); d = ImageDraw.Draw(bg)
             for y in range(0, im.height, 10):                       # xadrez: mostra a transparencia (= area do branco)
                 for x in range(0, im.width, 10):
@@ -768,21 +983,18 @@ class App:
             bg.alpha_composite(im)
             wm = settings.watermark_path
             if wm and os.path.exists(wm):                           # marca d'agua do cliente
-                with Image.open(wm) as watermark:
-                    w = watermark.convert("RGBA")
-                w.thumbnail((im.width // 2, im.height // 2))
+                # A orientação da marca não era aplicada; preserve essa regra.
+                bounds = (im.width // 2, im.height // 2)
+                cache = getattr(self, "_watermark_cache", None)
+                w = (cache.get(wm, bounds, _load_thumbnail) if cache is not None
+                     else _load_thumbnail(wm, bounds, orient=False))
                 a = w.getchannel("A").point(lambda v: int(v * settings.watermark_opacity)); w.putalpha(a)
                 bg.alpha_composite(w, ((im.width - w.width) // 2, (im.height - w.height) // 2))
-            d = os.path.join(self.home, "thumbs"); os.makedirs(d, exist_ok=True)
-            if os.path.islink(d):
-                return ""
-            nd = os.path.join(d, "by_name"); os.makedirs(nd, exist_ok=True)
-            if os.path.islink(nd):
-                return ""
             rgb = bg.convert("RGB")
             thumb_name = safe_filename(output_name or os.path.splitext(os.path.basename(path))[0])
-            _save_thumbnail_atomic(rgb, os.path.join(d, jid + ".jpg"))
-            _save_thumbnail_atomic(rgb, os.path.join(nd, thumb_name + ".jpg"))
+            encoded = _encode_thumbnail(rgb)
+            _write_thumbnail_atomic(encoded, os.path.join(thumbs, jid + ".jpg"))
+            _write_thumbnail_atomic(encoded, os.path.join(by_name, thumb_name + ".jpg"))
             return f"/api/thumb?id={jid}"
         except Exception:
             return ""
@@ -826,28 +1038,13 @@ class App:
 
     # ---- fila de impressao (arquivos .PRT prontos, aguardando o PrintExp) ----
     def list_prints(self):
-        from .prt import read_header
-        out = []
         with self.settings_lock:
             settings = self.s
-        folder = settings.output_folder
-        for n in os.listdir(folder) if os.path.isdir(folder) else []:
-            if not n.lower().endswith(".prt"): continue
-            f = os.path.join(folder, n)
-            try:
-                if os.path.islink(f): continue
-                st = os.stat(f); h = read_header(f)
-                w = h["n_dots"] / h["dpi_x"] * 2.54
-                rows = h["n_rows"] - int((settings.margin_top_in + settings.margin_bottom_in) * h["dpi_y"])
-                metadata = self._read_output_metadata(f)
-                width_cm, height_cm = metadata if metadata else (w, max(rows, 0) / h["dpi_y"] * 2.54)
-                out.append(dict(name=n, mb=round(st.st_size / 1048576, 1), mtime=int(st.st_mtime),
-                                width_cm=round(width_cm, 2), height_cm=round(height_cm, 2),
-                                thumb="/api/thumb?" + urlencode({"name": os.path.splitext(n)[0]})))
-            except Exception:
-                continue
-        out.sort(key=lambda x: x["mtime"])                       # mais antigo primeiro (FIFO)
-        return out
+            folder = settings.output_folder
+            margins = (settings.margin_top_in, settings.margin_bottom_in)
+        return self.print_catalog.list_prints(
+            folder, margins, os.path.join(self.home, "thumbs", "by_name"),
+            self._read_output_metadata)
 
     def _print_file(self, name):
         name = safe_filename(name)
@@ -1177,6 +1374,9 @@ class H(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
+        if u.path == "/planner.js":
+            with open(res_path("ui", "planner.js"), "rb") as source:
+                return self._send(200, source.read(), "application/javascript; charset=utf-8")
         if u.path == "/api/state":
             global LAST_CLIENT_SEEN
             LAST_CLIENT_SEEN = time.monotonic()
@@ -1186,7 +1386,9 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, dict(version=__version__, has_pass=APP.has_pass(),
                                             brand="AutoRIP", has_logo=False, locked=True))
             with APP.lock:
-                jobs = [dict(job) for job in APP.jobs[-12:]]
+                jobs = [dict(job) for job in APP._retained_jobs(MAX_STATE_HISTORY)]
+                queue_used = APP._queue_used()
+                queue_preparing = len(APP._admission_reservations)
                 logs = list(APP.log_lines[-60:])
             with APP.settings_lock:
                 auto = APP.auto
@@ -1210,7 +1412,9 @@ class H(BaseHTTPRequestHandler):
                 pending = -1
             return self._send(200, dict(version=__version__, auto=auto, has_pass=APP.has_pass(),
                                         jobs=jobs, log=logs, hot_folder=hot_folder, output_folder=output_folder,
-                                        icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo))
+                                        icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo,
+                                        queue_used=queue_used, queue_limit=MAX_PENDING_JOBS,
+                                        queue_preparing=queue_preparing))
         if u.path == "/api/prints":
             return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/hot-files":
@@ -1218,7 +1422,10 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/thumb":
             if not self._auth(): return self._send(401, {"error": "login"})
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
-            thumbs_root = os.path.realpath(os.path.join(APP.home, "thumbs"))
+            thumbs_path = os.path.join(APP.home, "thumbs")
+            if os.path.islink(thumbs_path):
+                return self._send(404, {})
+            thumbs_root = os.path.realpath(thumbs_path)
             f = os.path.join(thumbs_root, "by_name", nm + ".jpg") if nm else os.path.join(thumbs_root, jid + ".jpg")
             try:
                 inside = os.path.commonpath((thumbs_root, os.path.realpath(f))) == thumbs_root
@@ -1247,6 +1454,15 @@ class H(BaseHTTPRequestHandler):
         if not self._origin_allowed():
             return self._send(403, {"error": "origem da requisicao nao autorizada"})
         try:
+            if u.path == "/api/layout/plan":
+                if not self._auth(): return self._send(401, {"error": "login"})
+                if not APP._layout_lock.acquire(blocking=False):
+                    return self._send(429, {"error": "Um planejamento está em andamento; aguarde."})
+                try:
+                    result = APP.plan_layout(self._json(max_bytes=65536))
+                finally:
+                    APP._layout_lock.release()
+                return self._send(200, result)
             if u.path == "/api/auto":
                 if not self._auth(): return self._send(401, {"error": "login"})
                 on = self._json().get("on")
@@ -1354,6 +1570,8 @@ class H(BaseHTTPRequestHandler):
             if u.path == "/api/settings":
                 if not self._auth(): return self._send(401, {"error": "login"})
                 APP.apply_settings(self._json()); return self._send(200, self._settings_public())
+        except QueueFullError as e:
+            return self._send(429, {"error": str(e)})
         except FileNotFoundError as e:
             return self._send(404, {"error": str(e)})
         except InsufficientStorageError as e:
@@ -1379,7 +1597,8 @@ def _can_close_idle_browser(app):
         trello_active = (not settings.offline_mode and bool(settings.trello_key)
                          and bool(settings.trello_token) and bool(settings.trello_in_list))
     with app.lock:
-        pending = bool(app.queued_sources or app.archive_pending) or not app.q.empty()
+        pending = bool(app.queued_sources or app.archive_pending
+                       or getattr(app, "_admission_reservations", ())) or not app.q.empty()
     return not (automatic or trello_active or pending)
 
 

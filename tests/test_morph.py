@@ -64,3 +64,11 @@ def test_fechamento_preserva_objeto_nas_quatro_bordas():
     full = np.ones((50, 60), bool)
     assert morph.close_holes(full, .3, DX, DY).all()
     assert not morph.erode(full, .3, DX, DY)[0].any()
+
+
+def test_mascara_cheia_nao_precisa_de_edt_no_fechamento(monkeypatch):
+    def unexpected(*args, **kwargs):
+        raise AssertionError('Fechamento de mascara cheia nao precisa de EDT')
+    monkeypatch.setattr(morph.ndi, 'distance_transform_edt', unexpected)
+    full = np.ones((120, 90), bool)
+    assert np.array_equal(morph.close_holes(full, .6, DX, DY), full)

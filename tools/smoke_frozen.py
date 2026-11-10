@@ -10,15 +10,18 @@ import tempfile
 import time
 from urllib.request import Request, urlopen
 
-from PIL import Image
+from PIL import Image, ImageCms
 
 
 def smoke(executable, expected_version):
     with tempfile.TemporaryDirectory(prefix="autorip-smoke-") as folder:
         home = Path(folder)
+        mark=home / "smoke-watermark.png"
+        Image.new("RGBA",(128,128),(230,40,70,127)).save(mark)
         config = dict(auto_mode=False, offline_mode=True, auto_update=False,
-                      label_enabled=False, dpi_x=72, dpi_y=72,
-                      margin_top_in=0, margin_bottom_in=0, poll_seconds=.25)
+                      label_enabled=False, dpi_x=720, dpi_y=2400,
+                      margin_top_in=0, margin_bottom_in=0, poll_seconds=.25,
+                      watermark_path=str(mark), watermark_opacity=.35)
         (home / "autorip.json").write_text(json.dumps(config), encoding="utf-8")
         env = dict(os.environ, AUTORIP_HOME=str(home), AUTORIP_NOBROWSER="1")
         # O bootloader Windows pode manter stdout válido quando o chamador o
@@ -59,31 +62,62 @@ def smoke(executable, expected_version):
                 if state.get("version") != expected_version:
                     raise RuntimeError(f"Versao do executavel inesperada: {state.get('version')}")
                 token = api("/api/setpass", {"new": "Smoke-test-only-123"})["token"]
-                image = io.BytesIO()
-                Image.new("RGBA", (72, 72), (20, 140, 210, 255)).save(image, format="PNG")
-                job = api("/api/upload?name=smoke.png&width=2.54", raw=image.getvalue())
-                deadline = time.monotonic() + 60
-                while time.monotonic() < deadline:
-                    state = api("/api/state")
-                    result = next((item for item in state["jobs"] if item["id"] == job["id"]), None)
-                    if result and result["status"] == "erro":
-                        raise RuntimeError(f"RIP do executavel falhou: {result.get('error')}")
-                    if result and result["status"] == "pronto":
-                        break
-                    time.sleep(.25)
-                else:
-                    raise TimeoutError("RIP nao terminou em 60 segundos")
+                artwork = Image.new("RGBA", (72, 72), (20, 140, 210, 255))
+                alpha = Image.new("L", artwork.size)
+                alpha.putdata([x * 255 // 71 for _ in range(72) for x in range(72)])
+                artwork.putalpha(alpha)
+                alpha.close()
+                embedded = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+                # Exercite o algoritmo e os assets do planejador no pacote real.
+                hot = Path(api("/api/settings")["hot_folder"])
+                planned_source = hot / "planejamento.png"
+                artwork.save(planned_source, dpi=(300, 300))
+                planned_bytes = planned_source.read_bytes()
+                plan = api("/api/layout/plan", {"items": [{"name": planned_source.name,
+                           "width_cm": 3, "quantity": 2}], "allow_rotation": True})
+                if (len(plan["items"]) != 2 or not 0 < plan["utilization"] <= 1
+                        or "<svg" not in plan["svg"] or planned_source.read_bytes() != planned_bytes):
+                    raise RuntimeError("Planejador do executável não preservou as peças e a fonte")
+                with urlopen(base + "/planner.js", timeout=10) as response:
+                    if b"computeSheetPlan" not in response.read():
+                        raise RuntimeError("JavaScript do planejador ausente do pacote")
+                planned_source.unlink()
+                # Um controle sem ICC e duas artes com o mesmo perfil exercitam
+                # a primeira compilação e a reutilização dentro do executável.
+                jobs=[]
+                for name, profile in [("smoke", b""), ("icc-first", embedded), ("icc-reused", embedded)]:
+                    image = io.BytesIO()
+                    artwork.save(image, format="PNG", icc_profile=profile)
+                    job = api(f"/api/upload?name={name}.png&width=2.54", raw=image.getvalue())
+                    jobs.append(job["id"])
+                    deadline = time.monotonic() + 60
+                    while time.monotonic() < deadline:
+                        state = api("/api/state")
+                        result = next((item for item in state["jobs"] if item["id"] == job["id"]), None)
+                        if result and result["status"] == "erro":
+                            raise RuntimeError(f"RIP do executavel falhou: {result.get('error')}")
+                        if result and result["status"] == "pronto":
+                            break
+                        time.sleep(.25)
+                    else:
+                        raise TimeoutError("RIP nao terminou em 60 segundos")
+                artwork.close()
                 prints = api("/api/prints")
-                if not prints or abs(prints[0]["width_cm"] - 2.54) > .01:
-                    raise RuntimeError("PRT nao apareceu na fila com a medida esperada")
+                if len(prints) != 3 or any(abs(item["width_cm"] - 2.54) > .01 for item in prints):
+                    raise RuntimeError("Os três PRTs nao apareceram na fila com a medida esperada")
                 files = list((home / "saida").glob("*.PRT"))
-                if len(files) != 1 or files[0].stat().st_size <= 48:
-                    raise RuntimeError("Executavel nao publicou um PRT completo")
+                if len(files) != 3 or any(path.stat().st_size <= 48 for path in files):
+                    raise RuntimeError("Executavel nao publicou três PRTs completos")
+                if len({path.read_bytes() for path in files}) != 1:
+                    raise RuntimeError("Os PRTs sem ICC e com o mesmo perfil sRGB divergiram")
+                previews=[(home / "thumbs" / (job_id + ".jpg")).read_bytes() for job_id in jobs]
+                if len(set(previews)) != 1 or not previews[0]:
+                    raise RuntimeError("Prévias com a mesma marca divergiram entre trabalhos")
                 api("/api/shutdown", {})
                 process.wait(timeout=20)
                 if process.returncode:
                     raise RuntimeError(f"Executavel encerrou com codigo {process.returncode}")
-                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, upload, PRT 2.54 cm e encerramento.")
+                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, planejamento de duas peças e assets, três uploads com alfa variável, PRTs 2.54 cm idênticos sem ICC/com ICC repetido, prévias idênticas com marca e encerramento.")
             except BaseException:
                 print(logs()[-5000:])
                 raise

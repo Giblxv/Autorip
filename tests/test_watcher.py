@@ -52,6 +52,34 @@ def test_arquivo_corrompido_vai_para_pasta_de_erro(tmp_path):
     assert not list(output.glob("*.PRT"))
 
 
+def test_lote_revalida_arte_alterada_durante_o_rip_anterior(sample_png, tmp_path):
+    hot, output, done, errors = (tmp_path / name for name in ("batch-hot", "batch-out", "batch-done", "batch-errors"))
+    hot.mkdir()
+    for name in ("01.png", "02.png"):
+        shutil.copyfile(sample_png, hot / name)
+    settings = Settings(dpi_x=300, dpi_y=300, label_enabled=False,
+                        hot_folder=str(hot), output_folder=str(output),
+                        done_folder=str(done), error_folder=str(errors))
+    rip = Rip(settings)
+    original = rip.process
+    second = hot / ".autorip_processing" / "02.png"
+
+    def copying_during_first_rip(*args, **kwargs):
+        info = original(*args, **kwargs)
+        second.write_bytes(b"copia ainda incompleta")
+        return info
+
+    rip.process = copying_during_first_rip
+    assert run_once(settings, rip, log=lambda _: None) == 1
+    assert (done / "01.png").is_file()
+    assert second.is_file() and not (output / "02.PRT").exists()
+    assert not (errors / "02.png").exists()
+    shutil.copyfile(sample_png, second)
+    rip.process = original
+    assert run_once(settings, rip, log=lambda _: None) == 1
+    assert (done / "02.png").is_file() and (output / "02.PRT").is_file()
+
+
 def test_mudanca_de_hot_folder_mantem_recuperacao_antiga(app, sample_png, tmp_path):
     old_hot = app.s.hot_folder
     processing = os.path.join(old_hot, ".autorip_processing")

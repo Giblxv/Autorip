@@ -45,6 +45,8 @@ main{display:grid;grid-template-columns:1.1fr 1fr;gap:24px;padding:24px 28px;max
 #drop input[type=file]{display:none}.row{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px;font-size:18px}
 input[type=text],input[type=number],input[type=password]{font-family:monospace;font-size:15px;padding:7px 10px;border:3px solid var(--k);border-radius:10px;width:100%}
 /* ---- fila com gotas correndo ---- */
+#jobs{max-height:min(65vh,680px);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-gutter:stable;padding:6px}#jobs:focus-visible{outline:3px solid var(--v);outline-offset:3px}
+#queuePreparing{font-size:14px;color:#5d477f}#queuePreparing:not(:empty){margin-bottom:8px}
 .job{margin:10px 0;font-size:18px;overflow:hidden;padding:8px;border:2px solid transparent;border-radius:14px;transition:.15s}.job:hover,.job.selected{border-color:var(--v);background:rgba(124,77,255,.08)}.job-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:7px}.job-actions button{font-size:13px;padding:4px 9px;border-width:2px;box-shadow:3px 3px 0 var(--k)}.job-actions .danger{background:var(--m);color:#fff}.hot-file{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:2px dashed #d9c9f4}.hot-file:last-child{border-bottom:0}.hot-file .hot-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:15px monospace}.hot-file small{color:#6c5a8d;white-space:nowrap}.hot-file button{font-size:13px;padding:4px 8px;border-width:2px;box-shadow:3px 3px 0 var(--k)}.hot-empty{font-size:14px;color:#6c5a8d;padding:10px 0}
 .bar{height:34px;border:4px solid var(--k);border-radius:20px;background:#eee;position:relative;overflow:hidden;margin-top:4px}
 .fill{height:100%;background:linear-gradient(90deg,var(--c) 0 25%,var(--m) 25% 50%,var(--y) 50% 75%,var(--k) 75%);background-size:60px 100%;transition:width .4s;animation:stripes 1s linear infinite}
@@ -95,7 +97,7 @@ button:disabled{opacity:.6;cursor:wait}
 .grid input{max-width:100%;min-width:0}
 @media(max-width:900px){main{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:560px){.grid{grid-template-columns:minmax(0,1fr)}dialog{padding:18px 14px}.card{padding:16px}.row{flex-wrap:wrap}#connection{padding:10px 14px}}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){#intro{display:none}*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 /* ---- tema psicodélico: somente apresentação; filas, PRT, ICC e controles permanecem iguais ---- */
 :root{--c:#5cf2ff;--m:#ff4fd8;--y:#faff6b;--k:#160d2e;--paper:#fff8ff;--v:#7c4dff;--l:#b7ff5a;--o:#ff8a4d}
 html{background:#100723}
@@ -160,9 +162,19 @@ button,.btn{animation:none}
 .job.selected{outline:3px solid rgba(124,77,255,.5);outline-offset:3px;animation:psySelected 1.8s ease-in-out infinite}
 #fim.go{animation:iris 2.4s ease-in-out,psyFinish 2.4s ease-in-out}
 body.tab-hidden *{animation-play-state:paused!important}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
 @media (max-width:900px){body::before{width:260px;height:260px;left:-150px}body::after{width:300px;height:300px;right:-170px}.card::before{animation-duration:12s}}
 @media (hover:none){button:hover{animation:none!important;filter:none!important}}
+#sheetDlg{width:min(1060px,94vw);max-width:94vw;box-sizing:border-box;max-height:90vh;overflow:auto}
+.sheet-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.sheet-controls label{display:flex;flex-direction:column;gap:6px;min-width:0}.sheet-controls input{width:100%;box-sizing:border-box}
+.sheet-table{overflow:auto;max-height:30vh;margin:14px 0;border:1px solid #9a88b6;border-radius:10px}
+.sheet-table table{width:100%;min-width:460px;border-collapse:collapse;text-align:left}.sheet-table th,.sheet-table td{padding:9px;border-bottom:1px solid #9a88b6}
+.sheet-table th{font-size:13px}.sheet-table td:first-child{max-width:260px}.sheet-table label{display:flex;gap:8px;align-items:center}.sheet-name{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet-table input[type=number]{width:90px;box-sizing:border-box}.sheet-table input[type=checkbox]{flex:none}
+#sheetPreview{display:block;width:100%;height:420px;object-fit:contain;background:#eee;border-radius:10px;margin-top:16px}
+#sheetPreview[hidden]{display:none}.sheet-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.sheet-actions a{color:var(--c)}
+@media(max-width:560px){.sheet-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.sheet-table td,.sheet-table th{padding:6px}#sheetPreview{height:300px}}
+@media(max-width:560px){.sheet-table table{display:block;min-width:0}.sheet-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.sheet-table tbody{display:block}.sheet-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-bottom:1px solid #9a88b6;padding:5px}.sheet-table td{display:block;min-width:0;border:0}.sheet-table td:first-child{grid-column:1/-1}.sheet-table td:nth-child(2)::before{content:"Quantidade";display:block;font-size:12px;margin-bottom:4px}.sheet-table td:nth-child(3)::before{content:"Largura (cm)";display:block;font-size:12px;margin-bottom:4px}.sheet-table input[type=number]{width:100%}}
 </style></head><body>
 <div id="intro"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="ring r4"></div><h1>AutoRIP!</h1></div>
 <div id="fim"><h1>É ISSO AÍ,<br>PESSOAL!</h1></div>
@@ -179,15 +191,16 @@ body.tab-hidden *{animation-play-state:paused!important}
    <div id="drop">🖨️ Arraste a arte aqui (PNG, TIFF ou JPEG)<br><small style="font-size:15px">Prefira PNG com transparência real para o branco automático.</small><br><br><button class="c" onclick="document.getElementById('file').click()">Escolher arquivo</button><input id="file" type="file" multiple accept=".png,.tif,.tiff,.jpg,.jpeg">
     <div class="row"><label for="wcm">Largura (cm):</label> <input id="wcm" type="number" min="0.1" max="300" step="0.1" placeholder="auto" style="width:130px"></div></div>
   </div>
-  <div class="card h-k" style="margin-top:24px"><div class="hd"><h2><i>Hot folder</i></h2><button class="sm c" onclick="pollHotFiles()">↻ Atualizar</button></div>
+  <div class="card h-k" style="margin-top:24px"><div class="hd"><h2><i>Hot folder</i></h2><button class="sm c" onclick="pollHotFiles(true)">↻ Atualizar</button></div>
    <div style="font-size:15px;margin-bottom:8px">Artes salvas na pasta de entrada. Escolha uma para iniciar o RIP manualmente.</div>
+   <div class="row" style="justify-content:flex-start"><button class="sm c" id="openSheet" onclick="openSheetPlanner()">Planejar folha</button></div>
    <div id="hotFiles"><div class="empty">Faça login para listar os arquivos.</div></div>
   </div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Fila de impressão</i></h2><span class="cnt" id="pqn">0</span></div>
    <div style="font-size:15px;margin-bottom:6px">Arquivos <b>.PRT</b> prontos, esperando o PrintExp. O mais antigo vai primeiro.</div><div id="pq"><div class="empty">Nada esperando impressão 🎉</div></div></div>
  </section>
  <section>
-  <div class="card h-m"><h2><i>Fila de RIP</i></h2><div style="font-size:14px;margin:-6px 0 10px;color:#5d477f">Selecione um trabalho para pausar, retomar ou cancelar com segurança.</div><div id="jobs"><em>Nenhum trabalho ainda…</em></div></div>
+  <div class="card h-m"><div class="hd"><h2><i>Fila de RIP</i></h2><span class="cnt" id="ripCount" title="Trabalhos pendentes, incluindo pausados e arquivos em preparação">0</span></div><div style="font-size:14px;margin:-6px 0 10px;color:#5d477f">Selecione um trabalho para pausar, retomar ou cancelar com segurança.</div><div id="queuePreparing" aria-live="polite"></div><div id="jobs" role="region" aria-label="Trabalhos da fila de RIP" tabindex="0"><em>Nenhum trabalho ainda…</em></div></div>
   <div class="card h-c" style="margin-top:24px"><h2><i>Agente de IA</i></h2><div style="font-size:16px">Pesquisa na internet como aprimorar o RIP. <b>Só sugere</b>, não muda nada sozinho.</div>
    <div class="row" style="justify-content:flex-start"><button class="c" onclick="askAgent()">🔎 Pesquisar melhorias</button></div><div id="agentOut" style="white-space:pre-wrap;font:14px/1.5 sans-serif;margin-top:10px"></div></div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Registro</i></h2><button class="sm" onclick="copyLog()">📋 Copiar</button></div><div class="logbox" id="log"></div></div>
@@ -198,67 +211,141 @@ body.tab-hidden *{animation-play-state:paused!important}
  <p class="msg" id="lmsg"></p><button class="k" onclick="doLogin()">Entrar</button> <button onclick="dlg.close()">Fechar</button></div>
  <div id="cfgBox" style="display:none"><div class="grid" id="grid"></div><p class="msg" id="cmsg"></p>
  <button class="c" onclick="saveCfg()">Salvar</button> <button onclick="dlg.close()">Fechar</button></div></dialog>
+<dialog id="sheetDlg" aria-labelledby="sheetTitle">
+ <h2 id="sheetTitle">Planejar folha</h2>
+ <p>Escolha artes da hot folder e organize até 100 peças. A largura em branco usa o tamanho da arte, limitado à folha; a altura mantém a proporção física.</p>
+ <form id="sheetForm">
+  <div class="sheet-controls">
+   <label>Largura da folha (cm)<input id="sheetWidth" type="number" min="0.001" max="58" step="any" value="58" required></label>
+   <label>Margem (cm)<input id="sheetMargin" type="number" min="0" step="any" value="0.2" required></label>
+   <label>Espaçamento (cm)<input id="sheetGap" type="number" min="0" step="any" value="0.2" required></label>
+  </div>
+  <label><input id="sheetRotate" type="checkbox"> Permitir rotação de 90°</label>
+  <div class="sheet-actions" style="margin-top:12px"><button id="sheetRefresh" type="button" class="sm">Atualizar artes</button><span id="sheetCount" role="status">0 peças selecionadas</span></div>
+  <div class="sheet-table" role="region" aria-label="Artes para planejamento" tabindex="0"><table><thead><tr><th scope="col">Arte</th><th scope="col">Quantidade</th><th scope="col">Largura (cm)</th></tr></thead><tbody id="sheetSources"></tbody></table></div>
+  <div class="sheet-actions"><button id="sheetCompute" type="submit" class="c">Calcular encaixe</button><button type="button" onclick="sheetDlg.close()">Fechar</button></div>
+ </form>
+ <p id="sheetMessage" role="status" aria-live="polite"></p>
+ <img id="sheetPreview" alt="Prévia do posicionamento das artes na folha" hidden>
+ <p id="sheetSummary" role="status"></p>
+ <div class="sheet-actions"><a id="sheetSvg" download="AutoRIP-folha.svg" hidden>Baixar prévia SVG</a><button id="sheetJson" type="button" class="sm" hidden>Exportar planejamento JSON</button></div>
+ <p style="font-size:13px">Prévia de planejamento por retângulos. As artes permanecem na pasta; esta etapa não compõe nem envia um PRT.</p>
+</dialog>
+<script src="/planner.js"></script>
 <script>
 const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new Set(),first=true;
-let jobsKey="",printsKey="",polling=false,printsPolling=false,noticeTimer;
-const thumbnailCache=new Map();
-function notify(message){$("notice").textContent=message;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$("notice").textContent="",6000)}
-function connection(ok){$("connection").classList.toggle("stale",!ok);$("connection").textContent=ok?"Servidor local conectado":"Conexão perdida. Os dados exibidos podem estar desatualizados.";if(!ok){$("autoTxt").textContent="Estado indisponível";$("sw").disabled=true}}
+let jobsKey="",printsKey="",hotKey="",noticeTimer,appClosed=false,cfgRequest=0;
+const apiRequests=new Set(),pollTimers=[],printRows=new Map(),hotRows=new Map();
+// Timer ticks share the current request. Explicit refreshes invalidate its snapshot
+// and coalesce into one subsequent request, including while that request is pending.
+function createPoller(task){let running=null,revision=0;return function run(force=false){
+ if(appClosed)return Promise.resolve();if(force)revision++;if(running)return running;
+ running=(async()=>{try{let current;do{current=revision;await task(()=>current!==revision)}while(current!==revision&&!appClosed)}finally{running=null}})();return running;
+}}
+function lockPanel(){token="";jobsKey=printsKey=hotKey="";lastDone.clear();first=true;printRows.clear();hotRows.clear();resetThumbnails();
+ resetSheetPlanner();
+ $("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";$("hotFiles").textContent="Faça login para listar os arquivos.";
+ $("jobs").textContent="Faça login para ver seus trabalhos";$("ripCount").textContent="—";$("queuePreparing").textContent="";
+ $("sw").setAttribute("aria-checked","false");$("sw").classList.remove("on");$("autoTxt").textContent="Entre para consultar o estado";
+ $("off").style.display="none";$("pin").textContent="Acesso restrito";$("pout").textContent="Acesso restrito";$("picc").textContent="Entre para consultar";renderLog([]);
+ $("agentOut").textContent="";$("grid").replaceChildren();window._cfg=null;$("cfgBox").style.display="none";$("loginBox").style.display="";
+}
+function actionFailed(r,message){if(r.stale)return;if(r.status===401)openCfg();else notify(r.d?.error||message)}
+const thumbnailCache=new Map(),thumbnailPending=new Map(),thumbnailQueue=new Map(),thumbnailActive=new Map();
+const THUMBNAIL_WORKERS=4,THUMBNAIL_CACHE_LIMIT=64,THUMBNAIL_CACHE_BYTES=8*1024*1024;
+let thumbnailCacheBytes=0;
+const thumbnailObserver=typeof IntersectionObserver!=="undefined"?new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting)activateThumbnail(entry.target)},{rootMargin:"160px"}):null;
+function notify(message){if(appClosed)return;$("notice").textContent=message;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$("notice").textContent="",6000)}
+function connection(ok){if(appClosed)return;$("connection").classList.toggle("stale",!ok);$("connection").textContent=ok?"Servidor local conectado":"Conexão perdida. Os dados exibidos podem estar desatualizados.";if(!ok){$("autoTxt").textContent="Estado indisponível";$("sw").disabled=true}}
 let brandShown="";function setBrand(n,has){if(n!==brandShown){brandShown=n;$("logo").innerHTML="";n.split("").forEach(ch=>{const s=document.createElement("span");s.textContent=ch===" "?"\u00a0":ch;$("logo").appendChild(s)});document.title=n}const b=$("blogo");if(has&&!b.src){b.src="/api/brand-logo?"+Date.now();b.style.display=""}if(!has){b.style.display="none";b.removeAttribute("src")}}
 setBrand("AutoRIP",false);
 async function api(path,opt={}){
- const session=token;
- opt.headers=Object.assign({},opt.headers,session?{"X-Token":session}:{});
- const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),path==="/api/state"?5000:180000);
- try{const r=await fetch(path,{...opt,signal:controller.signal});const d=await r.json();
-  if(r.status===401&&token===session){token="";jobsKey=printsKey="";thumbnailCache.clear()}
-  return{ok:r.ok,d};
- }finally{clearTimeout(timeout)}
+ const session=token;if(appClosed)return{ok:false,d:{},session,stale:true};
+ const headers=Object.assign({},opt.headers,session?{"X-Token":session}:{});
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),path==="/api/state"?5000:180000);apiRequests.add(controller);
+ try{const r=await fetch(path,{...opt,headers,signal:controller.signal});const d=await r.json();
+  const stale=appClosed||token!==session;if(r.status===401&&!stale)lockPanel();
+  return{ok:r.ok,d,status:r.status,session,stale};
+ }catch(error){return{ok:false,d:{error:"Falha de conexão. Confira o estado antes de tentar novamente."},status:0,session,stale:appClosed||token!==session}}
+ finally{clearTimeout(timeout);apiRequests.delete(controller)}
 }
-async function shutdownApp(){if(!confirm("Encerrar o AutoRIP no computador? O processamento e o painel serão fechados."))return;const r=await api("/api/shutdown",{method:"POST",body:"{}"});if(r.ok){document.body.innerHTML="<main style='padding:40px'><h1>AutoRIP encerrado</h1><p>Você pode fechar esta aba.</p></main>"}else if(r.d&&r.d.error==="login"){openCfg()}}
-async function privateThumbnail(img,path){
- const session=token;
- if(!session||typeof path!=="string"||!path.startsWith("/api/thumb?"))return;
- const key=session+path;
- try{
-  let entry=thumbnailCache.get(key);
-  if(!entry||Date.now()-entry.time>60000){
-   const promise=fetch(path,{headers:{"X-Token":session},cache:"no-store"}).then(async response=>{
-    if(!response.ok)throw new Error("miniatura indisponível");
-    const blob=await response.blob();if(!blob.type.startsWith("image/"))throw new Error("imagem inválida");return blob});
-   entry={time:Date.now(),promise};thumbnailCache.set(key,entry);
-   if(thumbnailCache.size>64)thumbnailCache.delete(thumbnailCache.keys().next().value);
-  }
-  const blob=await entry.promise;
-  if(!img.isConnected||token!==session)return;
-  const objectUrl=URL.createObjectURL(blob);
-  img.onload=img.onerror=()=>URL.revokeObjectURL(objectUrl);img.src=objectUrl;
- }catch(e){thumbnailCache.delete(key);if(img.isConnected)img.alt="Miniatura indisponível"}
+async function shutdownApp(){if(appClosed||!confirm("Encerrar o AutoRIP no computador? O processamento e o painel serão fechados."))return;
+ try{const r=await api("/api/shutdown",{method:"POST",body:"{}"});if(r.stale)return;if(!r.ok){actionFailed(r,"Não foi possível encerrar o AutoRIP.");return}
+ appClosed=true;for(const timer of pollTimers)clearInterval(timer);clearTimeout(noticeTimer);for(const controller of apiRequests)controller.abort();resetThumbnails();printRows.clear();hotRows.clear();lastDone.clear();window._cfg=null;token="";
+ document.body.classList.add("tab-hidden");document.body.innerHTML="<main style='padding:40px'><h1>AutoRIP encerrado</h1><p>Você pode fechar esta aba.</p></main>";
+ }catch(e){notify("Não foi possível confirmar o encerramento. Verifique o servidor local.")}
 }
-async function poll(){if(polling)return;polling=true;try{const session=token;const {ok,d}=await api("/api/state");if(token!==session)return;if(!ok)throw new Error("estado indisponível");connection(true);$("sw").disabled=false;hasPass=d.has_pass;setBrand(d.brand,d.has_logo);$("ver").textContent="v"+d.version;
- if(d.locked){token="";jobsKey=printsKey="";thumbnailCache.clear();$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";$("sw").setAttribute("aria-checked","false");$("off").style.display="none";$("pin").textContent="Acesso restrito";$("pout").textContent="Acesso restrito";$("picc").textContent="Entre para consultar";
- $("sw").classList.remove("on");$("autoTxt").textContent="Entre para consultar o estado";
- $("jobs").textContent="Faça login para ver seus trabalhos";renderLog([]);return}
+function dropThumbnailCache(key){const previous=thumbnailCache.get(key);if(previous){thumbnailCacheBytes-=previous.blob.size;thumbnailCache.delete(key)}}
+function cachedThumbnail(key){const entry=thumbnailCache.get(key);if(!entry)return null;if(Date.now()-entry.time>60000){dropThumbnailCache(key);return null}thumbnailCache.delete(key);thumbnailCache.set(key,entry);return entry.blob}
+function rememberThumbnail(key,blob){dropThumbnailCache(key);if(blob.size>THUMBNAIL_CACHE_BYTES)return;thumbnailCache.set(key,{time:Date.now(),blob});thumbnailCacheBytes+=blob.size;while(thumbnailCache.size>THUMBNAIL_CACHE_LIMIT||thumbnailCacheBytes>THUMBNAIL_CACHE_BYTES)dropThumbnailCache(thumbnailCache.keys().next().value)}
+function resetThumbnails(){thumbnailCache.clear();thumbnailCacheBytes=0;for(const image of thumbnailPending.keys())thumbnailObserver?.unobserve(image);thumbnailPending.clear();thumbnailQueue.clear();for(const task of thumbnailActive.values()){task.cancelled=true;task.images.clear();task.controller.abort()}}
+function applyThumbnail(image,blob,session){if(!image.isConnected||token!==session)return;const url=URL.createObjectURL(blob);image.onload=image.onerror=()=>URL.revokeObjectURL(url);image.src=url}
+function privateThumbnail(image,path){
+ const session=token;if(!session||typeof path!=="string"||!path.startsWith("/api/thumb?"))return;
+ image.decoding="async";const key=session+path;
+ const active=thumbnailActive.get(key);if(active&&!active.cancelled){active.images.add(image);return}
+ const queued=thumbnailQueue.get(key);if(queued){queued.images.add(image);return}
+ thumbnailPending.set(image,{session,path,key});if(thumbnailObserver)thumbnailObserver.observe(image);else queueMicrotask(()=>activateThumbnail(image));
+}
+function activateThumbnail(image){
+ const request=thumbnailPending.get(image);if(!request)return;thumbnailPending.delete(image);thumbnailObserver?.unobserve(image);
+ if(!image.isConnected||token!==request.session)return;
+ const blob=cachedThumbnail(request.key);if(blob){applyThumbnail(image,blob,request.session);return}
+ const active=thumbnailActive.get(request.key);if(active&&!active.cancelled){active.images.add(image);return}
+ const queued=thumbnailQueue.get(request.key);if(queued)queued.images.add(image);else thumbnailQueue.set(request.key,{...request,images:new Set([image])});
+ pumpThumbnails();
+}
+function pumpThumbnails(){
+ while(thumbnailActive.size<THUMBNAIL_WORKERS){
+  const next=[...thumbnailQueue].find(([key])=>!thumbnailActive.has(key));if(!next)return;
+  const [key,task]=next;thumbnailQueue.delete(key);
+  for(const image of task.images)if(!image.isConnected||token!==task.session)task.images.delete(image);
+  if(!task.images.size)continue;
+  task.controller=new AbortController();task.cancelled=false;thumbnailActive.set(key,task);
+  fetch(task.path,{headers:{"X-Token":task.session},cache:"no-store",signal:task.controller.signal}).then(async response=>{
+   if(!response.ok)throw new Error("miniatura indisponível");const blob=await response.blob();if(!blob.type.startsWith("image/"))throw new Error("imagem inválida");
+   if(task.cancelled||token!==task.session)return;rememberThumbnail(key,blob);for(const image of task.images)applyThumbnail(image,blob,task.session);
+  }).catch(error=>{if(error.name!=="AbortError"&&token===task.session)for(const image of task.images)if(image.isConnected)image.alt="Miniatura indisponível"}).finally(()=>{if(thumbnailActive.get(key)===task)thumbnailActive.delete(key);pumpThumbnails()});
+ }
+}
+function pruneThumbnails(){
+ for(const [image,request] of thumbnailPending)if(!image.isConnected||token!==request.session){thumbnailObserver?.unobserve(image);thumbnailPending.delete(image)}
+ for(const [key,task] of thumbnailQueue){for(const image of task.images)if(!image.isConnected||token!==task.session)task.images.delete(image);if(!task.images.size)thumbnailQueue.delete(key)}
+ for(const task of thumbnailActive.values()){for(const image of task.images)if(!image.isConnected||token!==task.session)task.images.delete(image);if(!task.images.size){task.cancelled=true;task.controller.abort()}}
+ pumpThumbnails();
+}
+const poll=createPoller(async obsolete=>{try{const {ok,d,stale}=await api("/api/state");if(stale||obsolete())return;if(!ok)throw new Error("estado indisponível");connection(true);$("sw").disabled=false;hasPass=d.has_pass;setBrand(d.brand,d.has_logo);$("ver").textContent="v"+d.version;
+ if(d.locked){lockPanel();return}
  {const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending>0?" · "+d.pending+" aviso(s) na fila":d.pending<0?" · aviso local indisponível":"")}$("ver").textContent="v"+d.version;
  $("pin").textContent=d.hot_folder;$("pout").textContent=d.output_folder;$("picc").textContent=d.icc;
  $("sw").setAttribute("aria-checked",String(Boolean(d.auto)));$("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";
+ $("ripCount").textContent=d.queue_limit?`${d.queue_used} / ${d.queue_limit}`:String(d.jobs.filter(j=>["fila","processando","pausando","pausado","cancelando"].includes(j.status)).length);
+ const preparing=Number(d.queue_preparing)||0,preparingText=preparing?`Preparando ${preparing} arquivo${preparing===1?"":"s"}…`:"";if($("queuePreparing").textContent!==preparingText)$("queuePreparing").textContent=preparingText;
  const key=JSON.stringify(d.jobs);if(key===jobsKey){renderLog(d.log);return}jobsKey=key;
- const jobs=$("jobs");jobs.replaceChildren();
- if(!d.jobs.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";jobs.appendChild(empty)}
-	 d.jobs.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
-  if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;height:64px;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
+ renderJobs(d.jobs);first=false;renderLog(d.log);}catch(e){if(!obsolete())connection(false)}});
+function renderJobs(items){
+ const jobs=$("jobs"),scroll=jobs.scrollTop,selected=jobs.querySelector(".job.selected")?.dataset.jobId;
+ const focused=jobs.contains(document.activeElement)?document.activeElement.closest(".job-actions button"):null;
+ const focusedJob=focused?.closest(".job")?.dataset.jobId,focusedAction=focused?.dataset.action;
+ const fragment=document.createDocumentFragment();let focusTarget=null,focusFallback=null;
+ const ids=new Set(items.map(j=>j.id));lastDone=new Set([...lastDone].filter(id=>ids.has(id)));
+ if(!items.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";fragment.appendChild(empty)}
+ items.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;if(j.id===selected)e.classList.add("selected");e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
+  if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;width:64px;height:64px;object-fit:contain;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
   const name=document.createElement("span");name.textContent=String(j.name||"");e.appendChild(name);
   const status=document.createElement("span");status.className="st "+(["fila","processando","pronto","erro"].includes(j.status)?j.status:"");status.textContent=String(j.status||"");e.appendChild(status);
   const bar=document.createElement("div");bar.className="bar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-label","Progresso de "+j.name);bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax","100");bar.setAttribute("aria-valuenow",String(p));const fill=document.createElement("div");fill.className="fill";fill.style.width=p+"%";bar.appendChild(fill);
   const drop=document.createElement("div");drop.className="drop";drop.style.left=`calc(${p}% - 14px)`;drop.textContent=["💧","🎨","💧","🖨️"][p%4];bar.appendChild(drop);e.appendChild(bar);
   if(j.error){const error=document.createElement("small");error.style.color="var(--m)";error.textContent=String(j.error);e.appendChild(error)}
   if(["fila","processando","pausando","pausado","cancelando"].includes(j.status)){const actions=document.createElement("div");actions.className="job-actions";
-   if(j.status==="pausado"){const resume=document.createElement("button");resume.className="c";resume.textContent="▶ Retomar";resume.onclick=()=>controlJob(j.id,"resume");actions.appendChild(resume)}
-   else if(["fila","processando"].includes(j.status)){const pause=document.createElement("button");pause.className="y";pause.textContent="Ⅱ Pausar";pause.onclick=()=>controlJob(j.id,"pause");actions.appendChild(pause)}
-   if(!["cancelando","pausando"].includes(j.status)){const cancel=document.createElement("button");cancel.className="danger";cancel.textContent="✕ Cancelar";cancel.onclick=()=>controlJob(j.id,"cancel");actions.appendChild(cancel)}
+   const addAction=(action,text,style)=>{const b=document.createElement("button");b.className=style;b.textContent=text;b.dataset.action=action;b.setAttribute("aria-label",({pause:"Pausar",resume:"Retomar",cancel:"Cancelar"})[action]+" "+j.name);b.onclick=()=>controlJob(j.id,action);actions.appendChild(b);if(j.id===focusedJob){if(!focusFallback)focusFallback=b;if(action===focusedAction)focusTarget=b}};
+   if(j.status==="pausado")addAction("resume","▶ Retomar","c");
+   else if(["fila","processando"].includes(j.status))addAction("pause","Ⅱ Pausar","y");
+   if(!["cancelando","pausando"].includes(j.status))addAction("cancel","✕ Cancelar","danger");
    e.appendChild(actions)}
-  jobs.appendChild(e);if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
- first=false;renderLog(d.log);}catch(e){connection(false)}finally{polling=false}}
+  fragment.appendChild(e);if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
+ jobs.replaceChildren(fragment);pruneThumbnails();jobs.scrollTop=scroll;if(focusedJob)(focusTarget||focusFallback||jobs).focus({preventScroll:true});
+}
 let lastLog="";
 function tagOf(m){const r=[[/^OK/,"ok","PRONTO"],[/^ERRO|falhou/i,"erro","ERRO"],[/^RIP/,"rip","RIP"],[/^Impresso/,"","IMPRESSO"],[/^Integra|^Trello|^Fila offline|^Agente/,"rede","REDE"],[/^Modo auto/,"rip","AUTO"],[/^Configura/,"","CONFIG"],[/^Removido/,"erro","FILA"]];
  for(const [re,c,t] of r)if(re.test(m))return[c,t,m.replace(/^(OK|RIP|ERRO):?\s*/,"")];return["","INFO",m]}
@@ -269,31 +356,55 @@ function renderLog(lines){const key=lines.join("\n");if(key===lastLog)return;las
  if(atEnd)L.scrollTop=L.scrollHeight}
 function copyLog(){navigator.clipboard&&navigator.clipboard.writeText(lastLog)}
 function ago(ts){const s=Math.max(0,Date.now()/1000-ts);return s<90?"agora":s<3600?Math.round(s/60)+" min":s<86400?Math.round(s/3600)+" h":Math.round(s/86400)+" d"}
-async function pollPrints(){if(printsPolling)return;printsPolling=true;try{if(!token){printsKey="";$("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";return}
- const {ok,d}=await api("/api/prints");if(!ok){if(d?.error==="login")token="";return}
- const key=JSON.stringify(d);if(key===printsKey)return;printsKey=key;$("pqn").textContent=d.length;const box=$("pq");box.innerHTML="";
- if(!d.length){box.innerHTML='<div class="empty">Nada esperando impressão 🎉</div>';return}
- d.forEach((p,i)=>{const r=document.createElement("div");r.className="pq";const im=document.createElement("img");im.alt="Prévia";privateThumbnail(im,p.thumb);
-  const g=document.createElement("div");g.className="gr";const n=document.createElement("div");n.className="nm";n.textContent=p.name;if(i===0){const nx=document.createElement("span");nx.className="nx";nx.textContent="próximo";n.append(" ",nx)}
-  const sm=document.createElement("small");sm.textContent=`${p.width_cm.toFixed(1)} × ${p.height_cm.toFixed(1)} cm · ${p.mb} MB · há ${ago(p.mtime)}`;g.append(n,sm);
-  const bt=document.createElement("div");bt.className="bt";const ok=document.createElement("button");ok.className="sm c";ok.textContent="✔ Impresso";ok.onclick=()=>markPrinted(p.name);
-  const del=document.createElement("button");del.className="sm m";del.textContent="🗑";del.title="Remover da fila (pede senha)";del.onclick=()=>delPrint(p.name);bt.append(ok,del);r.append(im,g,bt);box.appendChild(r)})}catch(e){notify("Não foi possível atualizar a fila de impressão.")}finally{printsPolling=false}}
-async function markPrinted(n){if(!token){openCfg();return}const r=await api("/api/prints/printed",{method:"POST",body:JSON.stringify({name:n})});if(!r.ok){token="";openCfg();return}pollPrints();poll()}
-async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+" da fila? O arquivo será apagado."))return;const r=await api("/api/prints/delete",{method:"POST",body:JSON.stringify({name:n})});if(!r.ok)token="";pollPrints();poll()}
-function celebrate(){notify("Trabalho concluído. PRT disponível na fila de impressão.")}
-async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
-async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});if(!r.ok){token="";openCfg();return}poll()}
-	async function upload(files){
- const width=$("wcm").value;
- if(width&&(!Number.isFinite(Number(width))||Number(width)<=0||Number(width)>300)){notify("Informe uma largura maior que zero e até 300 cm.");return}
- try{for(const f of files){const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(width)}`,{method:"POST",body:f});if(!r.ok){notify(`${f.name}: ${r.d.error||"falha no upload"}`);break}}}
- catch(e){notify("Falha de conexão ao enviar a arte. Confira a fila antes de tentar novamente.")}
- finally{poll();$("file").value=""}
+// Keep unchanged rows connected: this preserves keyboard focus and decoded previews.
+function reconcileRows(box,nodes){const focused=document.activeElement,identity=box.contains(focused)?focused.closest("[data-name]")?.dataset.name:null,action=focused?.dataset.action;
+ const keep=new Set(nodes);for(const child of [...box.childNodes])if(!keep.has(child))child.remove();let cursor=box.firstChild;
+ for(const node of nodes){if(node===cursor)cursor=cursor.nextSibling;else box.insertBefore(node,cursor)}
+ if(identity&&document.activeElement!==focused){const row=nodes.find(n=>n.dataset.name===identity);row?.querySelector(`[data-action="${action}"]`)?.focus({preventScroll:true})}
 }
-async function controlJob(id,action){if(!token){openCfg();return}if(action==="cancel"&&!confirm("Cancelar este trabalho? A arte será preservada na pasta de erros para revisão."))return;const r=await api("/api/jobs/control",{method:"POST",body:JSON.stringify({id,action})});if(!r.ok)notify(r.d.error||"Não foi possível alterar o trabalho");poll()}
+function updatePrintAge(entry){const label=entry.prefix+ago(entry.mtime);if(entry.age.textContent!==label)entry.age.textContent=label}
+function renderPrints(items){const key=JSON.stringify(items);if(key===printsKey){for(const entry of printRows.values())updatePrintAge(entry);return}printsKey=key;const box=$("pq"),nodes=[],names=new Set();$("pqn").textContent=items.length;
+ for(const [i,p] of items.entries()){names.add(p.name);const signature=JSON.stringify(p);let entry=printRows.get(p.name);
+  if(!entry||entry.signature!==signature){const row=document.createElement("div");row.className="pq";row.dataset.name=p.name;
+   const im=document.createElement("img");im.alt="Prévia";privateThumbnail(im,p.thumb);
+   const group=document.createElement("div");group.className="gr";const name=document.createElement("div");name.className="nm";name.textContent=p.name;
+   const badge=document.createElement("span");badge.className="nx";badge.textContent="próximo";name.append(" ",badge);
+   const age=document.createElement("small");group.append(name,age);const buttons=document.createElement("div");buttons.className="bt";
+   const done=document.createElement("button");done.className="sm c";done.textContent="✔ Impresso";done.dataset.action="printed";done.onclick=()=>markPrinted(p.name);
+   const del=document.createElement("button");del.className="sm m";del.textContent="🗑";del.title="Remover da fila (pede senha)";del.dataset.action="delete";del.onclick=()=>delPrint(p.name);
+   buttons.append(done,del);row.append(im,group,buttons);entry={signature,row,badge,age,mtime:p.mtime,prefix:`${p.width_cm.toFixed(1)} × ${p.height_cm.toFixed(1)} cm · ${p.mb} MB · há `};printRows.set(p.name,entry);
+  }
+  const hidden=i!==0;if(entry.badge.hidden!==hidden)entry.badge.hidden=hidden;updatePrintAge(entry);nodes.push(entry.row);
+ }
+ for(const name of printRows.keys())if(!names.has(name))printRows.delete(name);
+ if(!nodes.length){if(!box.querySelector(".empty")){const empty=document.createElement("div");empty.className="empty";empty.textContent="Nada esperando impressão 🎉";nodes.push(empty)}else nodes.push(box.firstElementChild)}
+ reconcileRows(box,nodes);pruneThumbnails();
+}
+const pollPrints=createPoller(async obsolete=>{try{if(!token)return;const r=await api("/api/prints");if(r.stale||obsolete())return;if(!r.ok){if(r.status===0)notify(r.d.error);return}renderPrints(r.d)}catch(e){if(!obsolete())notify("Não foi possível atualizar a fila de impressão.")}});
+async function markPrinted(n){if(!token){openCfg();return}try{const r=await api("/api/prints/printed",{method:"POST",body:JSON.stringify({name:n})});if(r.stale)return;if(!r.ok){actionFailed(r,"Não foi possível marcar a impressão.");return}pollPrints(true);poll(true)}catch(e){notify("Falha de conexão. Confira a fila antes de tentar novamente.")}}
+async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+" da fila? O arquivo será apagado."))return;try{const r=await api("/api/prints/delete",{method:"POST",body:JSON.stringify({name:n})});if(r.stale)return;if(!r.ok){actionFailed(r,"Não foi possível remover a impressão.");return}pollPrints(true);poll(true)}catch(e){notify("Falha de conexão. Confira a fila antes de tentar novamente.")}}
+function celebrate(){notify("Trabalho concluído. PRT disponível na fila de impressão.")}
+async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});if(r.stale)return;$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
+async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});if(r.stale)return;if(!r.ok){actionFailed(r,"Não foi possível alterar o modo automático.");return}poll(true)}
+	async function upload(files){
+ const session=token,width=$("wcm").value;
+ if(width&&(!Number.isFinite(Number(width))||Number(width)<=0||Number(width)>300)){notify("Informe uma largura maior que zero e até 300 cm.");return}
+ try{for(const f of files){if(appClosed||token!==session)break;const r=await api(`/api/upload?name=${encodeURIComponent(f.name)}&width=${encodeURIComponent(width)}`,{method:"POST",body:f});if(r.stale)break;if(!r.ok){notify(`${f.name}: ${r.d.error||"falha no upload"}`);break}}}
+ catch(e){notify("Falha de conexão ao enviar a arte. Confira a fila antes de tentar novamente.")}
+ finally{if(!appClosed&&token===session){poll(true);$("file").value=""}}
+}
+async function controlJob(id,action){if(!token){openCfg();return}if(action==="cancel"&&!confirm("Cancelar este trabalho? A arte será preservada na pasta de erros para revisão."))return;const r=await api("/api/jobs/control",{method:"POST",body:JSON.stringify({id,action})});if(r.stale)return;if(!r.ok)actionFailed(r,"Não foi possível alterar o trabalho");else poll(true)}
 function humanSize(bytes){const units=["B","KiB","MiB","GiB","TiB"];let value=Number(bytes)||0,index=0;while(value>=1024&&index<units.length-1){value/=1024;index++}return `${value.toFixed(index?1:0)} ${units[index]}`}
-async function enqueueHot(name){if(!token){openCfg();return}const r=await api("/api/hot-files/enqueue",{method:"POST",body:JSON.stringify({name,width:$("wcm").value||""})});if(!r.ok)notify(r.d.error||"O arquivo não está mais na hot folder");pollHotFiles();poll()}
-async function pollHotFiles(){try{if(!token){$("hotFiles").innerHTML='<div class="hot-empty">Faça login para listar os arquivos.</div>';return}const {ok,d}=await api("/api/hot-files");if(!ok)return;const box=$("hotFiles");box.innerHTML="";if(!d.length){box.innerHTML='<div class="hot-empty">Nenhuma arte disponível na hot folder.</div>';return}d.forEach(file=>{const row=document.createElement("div");row.className="hot-file";const name=document.createElement("span");name.className="hot-name";name.title=file.name;name.textContent=file.name;const size=document.createElement("small");size.textContent=humanSize(file.size);const button=document.createElement("button");button.className="c";button.textContent="RIP agora";button.onclick=()=>enqueueHot(file.name);row.append(name,size,button);box.appendChild(row)})}catch(e){}}
+async function enqueueHot(name){if(!token){openCfg();return}const r=await api("/api/hot-files/enqueue",{method:"POST",body:JSON.stringify({name,width:$("wcm").value||""})});if(r.stale)return;if(!r.ok){actionFailed(r,"O arquivo não está mais na hot folder");return}pollHotFiles(true);poll(true)}
+const pollHotFiles=createPoller(async obsolete=>{try{if(!token)return;const r=await api("/api/hot-files");if(r.stale||obsolete())return;if(!r.ok){if(r.status===0)notify(r.d.error);return}const key=JSON.stringify(r.d);if(key===hotKey)return;hotKey=key;const box=$("hotFiles"),nodes=[],names=new Set();
+ for(const file of r.d){names.add(file.name);const signature=JSON.stringify(file);let entry=hotRows.get(file.name);
+  if(!entry||entry.signature!==signature){const row=document.createElement("div");row.className="hot-file";row.dataset.name=file.name;const name=document.createElement("span");name.className="hot-name";name.title=file.name;name.textContent=file.name;
+   const size=document.createElement("small");size.textContent=humanSize(file.size);const button=document.createElement("button");button.className="c";button.dataset.action="enqueue";button.textContent="RIP agora";button.onclick=()=>enqueueHot(file.name);row.append(name,size,button);entry={signature,row};hotRows.set(file.name,entry)}nodes.push(entry.row);
+ }
+ for(const name of hotRows.keys())if(!names.has(name))hotRows.delete(name);
+ if(!nodes.length){if(!box.querySelector(".hot-empty")){const empty=document.createElement("div");empty.className="hot-empty";empty.textContent="Nenhuma arte disponível na hot folder.";nodes.push(empty)}else nodes.push(box.firstElementChild)}
+ reconcileRows(box,nodes);
+ }catch(e){if(!obsolete())notify("Não foi possível atualizar a hot folder.")}});
 $("file").onchange=e=>upload(e.target.files);
 const dz=$("drop");["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over")}));
 ["dragleave","drop"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove("over")}));dz.addEventListener("drop",e=>upload(e.dataTransfer.files));
@@ -309,8 +420,8 @@ function openCfg(){$("dlg").showModal();$("lmsg").textContent="";if(token){showC
  $("loginTxt").textContent=hasPass?"Digite a senha para abrir as configurações.":"Primeiro acesso: crie uma senha (mínimo 8 caracteres).";$("pw2box").style.display=hasPass?"none":""}}
 async function doLogin(){let r;if(hasPass)r=await api("/api/login",{method:"POST",body:JSON.stringify({password:$("pw").value})});
  else{if($("pw").value.length<8){$("lmsg").textContent="Use pelo menos 8 caracteres";return}if($("pw").value!==$("pw2").value){$("lmsg").textContent="As senhas não conferem";return}r=await api("/api/setpass",{method:"POST",body:JSON.stringify({new:$("pw").value})})}
- if(r.ok){token=r.d.token;jobsKey=printsKey="";thumbnailCache.clear();showCfg();poll();pollPrints()}else $("lmsg").textContent=r.d.error}
-async function showCfg(){const {ok,d}=await api("/api/settings");if(!ok){token="";return openCfg()}$("loginBox").style.display="none";$("cfgBox").style.display="";
+ if(r.stale)return;if(r.ok){lockPanel();token=r.d.token;showCfg();poll(true);pollPrints(true);pollHotFiles(true)}else $("lmsg").textContent=r.d.error}
+async function showCfg(){const request=++cfgRequest,r=await api("/api/settings");if(r.stale||request!==cfgRequest||!$("dlg").open)return;const {ok,d}=r;if(!ok){actionFailed(r,"Não foi possível carregar as configurações.");return}$("loginBox").style.display="none";$("cfgBox").style.display="";
  const g=$("grid");g.replaceChildren();window._cfg=d;SCHEMA.forEach(f=>{if(f[0]==="h"){const h=document.createElement("h3");h.textContent=f[1];g.appendChild(h);return}
   if(f[0]==="@logo"||f[0]==="@wm"){const label=document.createElement("label");label.appendChild(document.createTextNode(f[0]==="@logo"?"Logo da marca (PNG)":"Marca d'água (PNG)"));const file=document.createElement("input");file.type="file";file.accept="image/*";file.addEventListener("change",()=>upImg(f[0]==="@logo"?"logo":"watermark",file));label.appendChild(file);g.appendChild(label);return}
   const [k,lab,t,full]=f,label=document.createElement("label"),input=document.createElement("input");if(full)label.classList.add("full");input.id="f_"+k;
@@ -318,12 +429,13 @@ async function showCfg(){const {ok,d}=await api("/api/settings");if(!ok){token="
   else{input.type=t==="n"?"number":t==="p"?"password":"text";if(t==="n")input.step="any";input.value=String(d[k]??"");label.append(document.createTextNode(lab),input);if(t==="p")input.placeholder=d._secret_configured?.[k]?"Configurada; deixe vazio para manter":"Ainda não configurada"}
   g.appendChild(label)});
  const heading=document.createElement("h3");heading.textContent="Limite de tinta (%)";g.appendChild(heading);["K","C","M","Y"].forEach(c=>{const label=document.createElement("label"),input=document.createElement("input");label.appendChild(document.createTextNode(c));input.type="number";input.id="ink_"+c;input.value=String(d.ink_limit[c]);label.appendChild(input);g.appendChild(label)})}
-async function upImg(kind,el){const f=el.files[0];if(!f)return;const r=await api("/api/"+kind,{method:"POST",body:f});$("cmsg").textContent=r.ok?"Imagem enviada! 🎉":(r.d.error||"erro");poll()}
+async function upImg(kind,el){const f=el.files[0];if(!f)return;const r=await api("/api/"+kind,{method:"POST",body:f});if(r.stale)return;$("cmsg").textContent=r.ok?"Imagem enviada! 🎉":(r.d.error||"erro");poll()}
 async function saveCfg(){if(!token){openCfg();return}const o={};for(const f of SCHEMA){if(f[0]==="h"||f[0][0]==="@")continue;const [k,,t]=f,e=$("f_"+k);
   if(t==="b")o[k]=e.checked;else if(t==="n"){const v=Number(e.value);if(!e.value.trim()||!Number.isFinite(v)){$("cmsg").textContent=`Valor inválido: ${k}`;return}o[k]=v}
   else if(t==="p"){if(e.value)o[k]=e.value}else o[k]=e.value}
  o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=Number($("ink_"+c).value));
- const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok){await showCfg();poll()}}
-	document.addEventListener("visibilitychange",()=>document.body.classList.toggle("tab-hidden",document.hidden));
-	poll();pollPrints();pollHotFiles();setInterval(poll,1000);setInterval(pollPrints,3000);setInterval(pollHotFiles,3000);
+ const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});if(r.stale)return;$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok){await showCfg();poll(true)}}
+	initSheetPlanner();
+	document.addEventListener("visibilitychange",()=>document.body.classList.toggle("tab-hidden",appClosed||document.hidden));
+	poll();pollPrints();pollHotFiles();pollTimers.push(setInterval(poll,1000),setInterval(pollPrints,3000),setInterval(pollHotFiles,3000));
 </script></body></html>

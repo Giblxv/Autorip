@@ -112,9 +112,17 @@ class PrtWriter:
         if any(plane.shape != (rows, self.n_dots) for plane in arrays):
             raise ValueError("todos os planos precisam ter a mesma forma (linhas, n_dots).")
         out = np.empty((rows, self.n_channels, self.pb), dtype=np.uint8)
+        packed = {}
         for index, plane in enumerate(arrays):
-            out[:, index, :] = pack2(plane, self.pb)
-        self.f.write(out.tobytes())
+            key = (plane.__array_interface__["data"][0], plane.strides, plane.dtype.str)
+            previous = packed.get(key)
+            if previous is None:
+                out[:, index, :] = pack2(plane, self.pb)
+                packed[key] = index
+            else:
+                out[:, index, :] = out[:, previous, :]
+        # BufferedWriter aceita o buffer contíguo diretamente; não duplique o bloco.
+        self.f.write(memoryview(out))
         self.written += rows
 
     def close(self):

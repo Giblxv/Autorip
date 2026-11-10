@@ -1,0 +1,100 @@
+{
+  "rounds": 15,
+  "consecutive_without_gain": 15,
+  "accepted": 0,
+  "icc_sha256": "8472fa1493a024b800b67dee9424835ec0c41ab79490200ae8ec4a689fd1b9a9",
+  "final_source_hash": "2316a187a0a3d42fcdc333ea338f5ec6831515d1bbdcaa9cd6860321281cd898",
+  "checkout_checked": true,
+  "prt_sha256": {
+    "alpha": {
+      "baseline": "8a35ffdf66d1f71894dd65bcd1c2cbafc5a2251cb70e8138514feb48b189df5b",
+      "final": "8a35ffdf66d1f71894dd65bcd1c2cbafc5a2251cb70e8138514feb48b189df5b",
+      "equal": true
+    },
+    "icc": {
+      "baseline": "a6bca8a6689e3b8b8acabcf8a6518d68b122227f91ee7381ab5f559d39e0223a",
+      "final": "a6bca8a6689e3b8b8acabcf8a6518d68b122227f91ee7381ab5f559d39e0223a",
+      "equal": true
+    },
+    "no_white": {
+      "baseline": "adfbae98e42078c21d23d3fce66b44662bbab9a9b4598abfa4b0cb8f1cda5a0b",
+      "final": "adfbae98e42078c21d23d3fce66b44662bbab9a9b4598abfa4b0cb8f1cda5a0b",
+      "equal": true
+    },
+    "sparse": {
+      "baseline": "94661dcbd0b92593e686465fece53d6ad2dd15cb194dacb162962bc52bac4f21",
+      "final": "94661dcbd0b92593e686465fece53d6ad2dd15cb194dacb162962bc52bac4f21",
+      "equal": true
+    },
+    "large_source": {
+      "baseline": "2d1f035550bbd6d126bc5b57056e6caa278e83c1f489ae17b367df45b07ae318",
+      "final": "2d1f035550bbd6d126bc5b57056e6caa278e83c1f489ae17b367df45b07ae318",
+      "equal": true
+    },
+    "low_dpi": {
+      "baseline": "c8d8e7d48cb42e47c38afeb481a5b10be552a221466c11383760190a0e823959",
+      "final": "c8d8e7d48cb42e47c38afeb481a5b10be552a221466c11383760190a0e823959",
+      "equal": true
+    },
+    "anisotropic": {
+      "baseline": "7a9f940a5dde28b579f48eca079e6b58913d8af7b206969dcbec2f53835aa3a6",
+      "final": "7a9f940a5dde28b579f48eca079e6b58913d8af7b206969dcbec2f53835aa3a6",
+      "equal": true
+    },
+    "tiff": {
+      "baseline": "c8f1d429c8863815ac873c2dd43f5da15b39790dfa0c75b67c947b34a4bd1119",
+      "final": "c8f1d429c8863815ac873c2dd43f5da15b39790dfa0c75b67c947b34a4bd1119",
+      "equal": true
+    },
+    "white_planes": {
+      "baseline": "4170edd4bf6dfba230d4380df8a3be094c3224a259fdac3d05e06bbbf72f6701",
+      "final": "4170edd4bf6dfba230d4380df8a3be094c3224a259fdac3d05e06bbbf72f6701",
+      "equal": true
+    },
+    "narrow": {
+      "baseline": "4b08aebf886510452001b9f9c47a9c98709d3c64e07645636717a1a9710f5518",
+      "final": "4b08aebf886510452001b9f9c47a9c98709d3c64e07645636717a1a9710f5518",
+      "equal": true
+    },
+    "wide_opaque": {
+      "baseline": "253eb9df97032a7d4868a1f2f8f097ad0862bc8d3bb4c95d124ca07e101533ea",
+      "final": "253eb9df97032a7d4868a1f2f8f097ad0862bc8d3bb4c95d124ca07e101533ea",
+      "equal": true
+    },
+    "wide_alpha": {
+      "baseline": "4d60f249df5b8b76ba71e958b833b2c1bbc5fa38a683b2b2801b9dbc9f9645a0",
+      "final": "4d60f249df5b8b76ba71e958b833b2c1bbc5fa38a683b2b2801b9dbc9f9645a0",
+      "equal": true
+    },
+    "icc_two_cpu": {
+      "baseline": "a6bca8a6689e3b8b8acabcf8a6518d68b122227f91ee7381ab5f559d39e0223a",
+      "final": "a6bca8a6689e3b8b8acabcf8a6518d68b122227f91ee7381ab5f559d39e0223a",
+      "equal": true
+    },
+    "icc_single_cpu": {
+      "baseline": "5ee71e49c3007db49aa78028001a3082410251ee0d6c4be139ea2f050491d22d",
+      "final": "5ee71e49c3007db49aa78028001a3082410251ee0d6c4be139ea2f050491d22d",
+      "equal": true
+    },
+    "wide_edges": {
+      "baseline": "456ce33b40cea33a741c33d2f7045ddb1e68be4e83b6be7b57d12d5b0d11292e",
+      "final": "456ce33b40cea33a741c33d2f7045ddb1e68be4e83b6be7b57d12d5b0d11292e",
+      "equal": true
+    },
+    "source_rgb_icc": {
+      "baseline": "35848ef3c98a8ea3eff6f8b823994380091991e2b9b01a84bd9a9fd29d518a2a",
+      "final": "35848ef3c98a8ea3eff6f8b823994380091991e2b9b01a84bd9a9fd29d518a2a",
+      "equal": true
+    },
+    "source_lab_icc": {
+      "baseline": "2915ccf0f423e02638ddb6f2bc0a7887e1186a6e7f79043c900beb724d54c8bd",
+      "final": "2915ccf0f423e02638ddb6f2bc0a7887e1186a6e7f79043c900beb724d54c8bd",
+      "equal": true
+    },
+    "source_cmyk_icc": {
+      "baseline": "6ea897658256e248f4006af474815afd3307072c5023f7d22990337fcc95a30e",
+      "final": "6ea897658256e248f4006af474815afd3307072c5023f7d22990337fcc95a30e",
+      "equal": true
+    }
+  }
+}

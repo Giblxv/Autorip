@@ -421,6 +421,55 @@ def test_hot_folder_retry_sidecar_apos_enqueue_no_mesmo_processo(app, sample_png
     assert len([name for name in os.listdir(app.s.output_folder) if name.endswith(".PRT")]) == 1
 
 
+def test_alias_de_caminho_nao_duplica_job_nem_recupera_journal_ativo(sample_png, monkeypatch):
+    import queue
+
+    # Sem threads: força a disputa enqueue/recovery sem depender do scheduler.
+    app = server_module.App.__new__(server_module.App)
+    app.lock = threading.RLock()
+    app.q = queue.Queue()
+    app.queued_sources = set()
+    app._admission_reservations = set()
+    app.source_jobs = {}
+    app.job_controls = {}
+    app.jobs = []
+    source = str(sample_png)
+    alias = os.path.join(os.path.dirname(source), ".", os.path.basename(source))
+    if os.name == "nt":
+        alias = alias.swapcase()
+    job = app.enqueue(source)
+    assert app.enqueue(alias) is job
+    assert app.q.qsize() == 1 and len(app.jobs) == 1
+
+    def journal_proibido(_source):
+        pytest.fail("Recovery tocou no journal de um trabalho ainda na fila")
+
+    monkeypatch.setattr(server_module, "read_archive_marker", journal_proibido)
+    assert app._recover_marked_source(alias, None) is True
+    assert job["status"] == "fila"
+    app._release_source(alias)
+    assert not app.queued_sources and not app.source_jobs and not app.job_controls
+
+
+def test_hot_folder_em_lote_nao_duplica_rip_nem_perde_metadados(app, sample_png):
+    import shutil
+
+    names = [f"lote-{i:02}" for i in range(4)]
+    for name in names:
+        shutil.copyfile(sample_png, os.path.join(app.s.hot_folder, name + ".png"))
+    app.s.poll_seconds = .25
+    app.auto = True
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        if all(os.path.isfile(os.path.join(app.s.done_folder, name + ".png")) for name in names):
+            break
+        time.sleep(.05)
+    assert all(os.path.isfile(os.path.join(app.s.done_folder, name + ".png")) for name in names)
+    assert len(app.jobs) == 4 and all(job["status"] == "pronto" for job in app.jobs)
+    assert sorted(name for name in os.listdir(app.s.output_folder) if name.endswith(".PRT")) == [name + ".PRT" for name in names]
+    assert all(os.path.isfile(os.path.join(app.s.output_folder, name + ".PRT.meta.json")) for name in names)
+
+
 def test_troca_de_senha_revoga_sessoes_anteriores(panel, app):
     origin = {"Origin": panel, "Sec-Fetch-Site": "same-origin"}
     first = json.dumps({"new": "senha-inicial-123"}).encode()
@@ -625,6 +674,19 @@ def test_previa_jpeg_requer_autenticacao(panel, app):
                                     headers={"X-Token": "sessao-thumb"})
     assert status == 200 and body == b"JPEG-PRIVADO"
     assert headers["Content-Type"] == "image/jpeg"
+
+
+def test_previa_nao_serve_raiz_de_cache_redirecionada(panel, app, tmp_path):
+    outside=tmp_path/'outside-thumbnails'
+    outside.mkdir()
+    (outside/'pedido.jpg').write_bytes(b'fora-do-cache')
+    try:
+        os.symlink(outside, os.path.join(app.home,'thumbs'),target_is_directory=True)
+    except (OSError,NotImplementedError):
+        pytest.skip('symlink indisponivel')
+    app.tokens.add('thumb-boundary')
+    status,body,_=request(panel,'/api/thumb?id=pedido',headers={'X-Token':'thumb-boundary'})
+    assert status==404 and b'fora-do-cache' not in body
 
 
 def test_tela_login_atualiza_atividade_sem_revelar_jobs(panel, app, monkeypatch):

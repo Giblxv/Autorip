@@ -2,7 +2,8 @@
 import os
 
 import pytest
-from PIL import Image
+import numpy as np
+from PIL import Image, ImageOps
 
 from autorip import server as server_module
 
@@ -74,3 +75,57 @@ def test_thumb_nao_escreve_em_diretorio_symlink(app, sample_png, tmp_path):
 
     assert app._thumb("nao-gravar", str(sample_png)) == ""
     assert not list(target.iterdir())
+
+
+@pytest.mark.parametrize('mode,format', [('RGBA','PNG'),('RGB','PNG'),('LA','PNG'),('P','PNG'),
+                                       ('RGB','JPEG'),('CMYK','JPEG'),('RGBA','TIFF'),('RGB','TIFF')])
+@pytest.mark.parametrize('orientation', range(1,9))
+def test_thumbnail_preserva_pixels_da_referencia_pillow(tmp_path,mode,format,orientation):
+    pixels=np.random.default_rng(20261109).integers(0,256,(317,463,4),dtype=np.uint8)
+    image=Image.fromarray(pixels,'RGBA').convert(mode)
+    if mode=='P':image.info['transparency']=3
+    exif=Image.Exif();exif[274]=orientation
+    path=tmp_path/('input.'+format.lower())
+    image.save(path,format=format,exif=exif)
+    with Image.open(path) as original:
+        reference=ImageOps.exif_transpose(original).convert('RGBA')
+    reference.thumbnail((220,220))
+    actual=server_module._load_thumbnail(path,(220,220))
+    assert actual.size==reference.size
+    assert np.array_equal(np.asarray(actual),np.asarray(reference))
+
+
+def test_marca_preserva_regra_de_nao_aplicar_orientacao(tmp_path):
+    path=tmp_path/'watermark.png'
+    data=np.random.default_rng(78).integers(0,256,(320,400,4),dtype=np.uint8)
+    exif=Image.Exif();exif[274]=6
+    Image.fromarray(data,'RGBA').save(path,exif=exif)
+    with Image.open(path) as source:reference=source.convert('RGBA')
+    reference.thumbnail((110,110))
+    actual=server_module._load_thumbnail(path,(110,110),orient=False)
+    assert np.array_equal(np.asarray(actual),np.asarray(reference))
+
+
+def test_duas_miniaturas_usam_uma_codificacao_e_os_mesmos_bytes(app,sample_png,monkeypatch):
+    original=server_module._encode_thumbnail
+    encoded=[]
+    def record(image):
+        value=original(image);encoded.append(value);return value
+    monkeypatch.setattr(server_module,'_encode_thumbnail',record)
+    assert app._thumb('one-encode',str(sample_png),output_name='one-encode-output')
+    assert len(encoded)==1
+    from pathlib import Path
+    root=Path(app.home)/'thumbs'
+    assert (root/'one-encode.jpg').read_bytes()==encoded[0]
+    assert (root/'by_name'/'one-encode-output.jpg').read_bytes()==encoded[0]
+
+
+def test_limite_e_validado_antes_de_carregar_pixels(tmp_path,monkeypatch):
+    class Header:
+        width=10000;height=10000
+        def __enter__(self):return self
+        def __exit__(self,*args):pass
+        def load(self):pytest.fail('Decodificou imagem acima do limite')
+    monkeypatch.setattr(server_module.Image,'open',lambda _:Header())
+    with pytest.raises(ValueError,match='limite'):
+        server_module._load_thumbnail(tmp_path/'input.png',(220,220),max_pixels=80_000_000)

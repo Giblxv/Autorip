@@ -1,0 +1,11 @@
+{
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "files": 200,
+  "repeat": 11,
+  "baseline_seconds": 0.004984,
+  "baseline_header_reads": 200,
+  "new_seconds": 0.00203,
+  "new_header_reads": 0,
+  "speedup": 2.46
+}

@@ -1,0 +1,328 @@
+{
+  "scope": "Controlled browser behavior, not RIP throughput",
+  "baselineCommit": "0298da6dfeb04fe8050a2c417c465e3c276bf038",
+  "comparison": "Baseline HTML and current HTML served over the same temporary backend",
+  "baseline": {
+    "baseline": "0298da6",
+    "browser": "156.0.8078.79",
+    "uiSha256": "4a194e6ff3e5de0316c0ff754ae328441f7c7cced7e83dfe6073ca011e3a459c",
+    "passed": false,
+    "cases": 23,
+    "results": [
+      {
+        "name": "authenticated lists remove all login placeholder nodes",
+        "passed": true
+      },
+      {
+        "name": "unchanged hot rows preserve nodes and focus",
+        "passed": false,
+        "error": "The expression evaluated to a falsy value:\n\n  assert(await page.evaluate(()=>originalHot===document.querySelector('#hotFiles .hot-file')&&document.activeElement===hotButton))\n",
+        "pageErrors": [],
+        "polls": 20,
+        "childListMutations": 60
+      },
+      {
+        "name": "one changed hot row preserves its neighbour",
+        "passed": false,
+        "error": "The expression evaluated to a falsy value:\n\n  assert(await page.evaluate(()=>originalHot===document.querySelector('#hotFiles .hot-file')&&originalHot.contains(document.activeElement)))\n",
+        "pageErrors": []
+      },
+      {
+        "name": "hot polling is single flight with one forced followup",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n\n21 !== 2\n",
+        "pageErrors": [],
+        "requests": 21,
+        "maximumInFlight": 20
+      },
+      {
+        "name": "old session 401 cannot clear new session: hot-files",
+        "passed": true
+      },
+      {
+        "name": "old session 401 cannot clear new session: prints",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ ''\n- 'queue-browser-token-new'\n",
+        "pageErrors": []
+      },
+      {
+        "name": "old session 401 cannot clear new session: state",
+        "passed": true
+      },
+      {
+        "name": "old session data is discarded: hot-files",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n\n0 !== 2\n",
+        "pageErrors": []
+      },
+      {
+        "name": "old session data is discarded: prints",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n\n0 !== 2\n",
+        "pageErrors": []
+      },
+      {
+        "name": "printed 404 preserves authentication",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ ''\n- 'queue-browser-token'\n",
+        "pageErrors": []
+      },
+      {
+        "name": "printed 500 preserves authentication",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ ''\n- 'queue-browser-token'\n",
+        "pageErrors": []
+      },
+      {
+        "name": "delete 404 preserves authentication",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ ''\n- 'queue-browser-token'\n",
+        "pageErrors": []
+      },
+      {
+        "name": "delete 500 preserves authentication",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ ''\n- 'queue-browser-token'\n",
+        "pageErrors": []
+      },
+      {
+        "name": "network failure keeps session and reports failure",
+        "passed": false,
+        "error": "page.evaluate: TypeError: Failed to fetch\n    at api (http://127.0.0.1:34431/:217:20)\n    at toggleAuto (http://127.0.0.1:34431/:319:71)\n    at eval (eval at evaluate (:311:30), <anonymous>:1:5)\n    at UtilityScript.evaluate (<anonymous>:313:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)",
+        "pageErrors": []
+      },
+      {
+        "name": "settings response cannot repopulate a closed dialog",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n\n43 !== 0\n",
+        "pageErrors": []
+      },
+      {
+        "name": "current session 401 clears every private view",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n\n104 !== 0\n",
+        "pageErrors": []
+      },
+      {
+        "name": "unchanged print list makes no DOM writes",
+        "passed": true,
+        "polls": 20,
+        "domMutations": 0
+      },
+      {
+        "name": "changed print preserves neighbour and preview",
+        "passed": false,
+        "error": "The expression evaluated to a falsy value:\n\n  assert(await page.evaluate(()=>originalPrint===document.querySelector('#pq .pq')&&originalImage===originalPrint.querySelector('img')&&originalPrint.contains(document.activeElement)))\n",
+        "pageErrors": []
+      },
+      {
+        "name": "next print badge changes without replacing remaining row",
+        "passed": false,
+        "error": "The expression evaluated to a falsy value:\n\n  assert(await page.evaluate(()=>remaining===document.querySelector('#pq .pq')&&remaining.contains(document.activeElement)&&!remaining.querySelector('.nx').hidden))\n",
+        "pageErrors": []
+      },
+      {
+        "name": "print reordering keeps existing nodes and keyboard focus",
+        "passed": false,
+        "error": "The expression evaluated to a falsy value:\n\n  assert(await page.evaluate(()=>moving===document.querySelector('#pq .pq')&&document.activeElement===movingButton))\n",
+        "pageErrors": []
+      },
+      {
+        "name": "unchanged prints update relative age without replacing rows",
+        "passed": false,
+        "error": "Expected \"actual\" to be strictly unequal to:\n\n'0.3 × 0.0 cm · 0 MB · há agora'",
+        "pageErrors": []
+      },
+      {
+        "name": "forced refresh discards snapshot captured before mutation",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n\n1 !== 2\n",
+        "pageErrors": []
+      },
+      {
+        "name": "shutdown stops timers and ignores pending responses",
+        "passed": false,
+        "error": "Expected values to be strictly equal:\n\n5 !== 0\n",
+        "pageErrors": [
+          "Cannot read properties of null (reading 'classList')",
+          "Cannot read properties of null (reading 'classList')",
+          "Cannot read properties of null (reading 'classList')"
+        ],
+        "requestsAfterShutdown": 5
+      }
+    ]
+  },
+  "refined": {
+    "baseline": null,
+    "browser": "156.0.8078.79",
+    "uiSha256": "c6aad88e48c74b87aee08de4adcf4fe77b929558418b1bc920ac3f9ec90fe56c",
+    "passed": true,
+    "cases": 23,
+    "results": [
+      {
+        "name": "authenticated lists remove all login placeholder nodes",
+        "passed": true
+      },
+      {
+        "name": "unchanged hot rows preserve nodes and focus",
+        "passed": true,
+        "preserved": true,
+        "polls": 20,
+        "childListMutations": 0
+      },
+      {
+        "name": "one changed hot row preserves its neighbour",
+        "passed": true
+      },
+      {
+        "name": "hot polling is single flight with one forced followup",
+        "passed": true,
+        "requests": 2,
+        "maximumInFlight": 1
+      },
+      {
+        "name": "old session 401 cannot clear new session: hot-files",
+        "passed": true
+      },
+      {
+        "name": "old session 401 cannot clear new session: prints",
+        "passed": true
+      },
+      {
+        "name": "old session 401 cannot clear new session: state",
+        "passed": true
+      },
+      {
+        "name": "old session data is discarded: hot-files",
+        "passed": true
+      },
+      {
+        "name": "old session data is discarded: prints",
+        "passed": true
+      },
+      {
+        "name": "printed 404 preserves authentication",
+        "passed": true
+      },
+      {
+        "name": "printed 500 preserves authentication",
+        "passed": true
+      },
+      {
+        "name": "delete 404 preserves authentication",
+        "passed": true
+      },
+      {
+        "name": "delete 500 preserves authentication",
+        "passed": true
+      },
+      {
+        "name": "network failure keeps session and reports failure",
+        "passed": true
+      },
+      {
+        "name": "settings response cannot repopulate a closed dialog",
+        "passed": true
+      },
+      {
+        "name": "current session 401 clears every private view",
+        "passed": true
+      },
+      {
+        "name": "unchanged print list makes no DOM writes",
+        "passed": true,
+        "polls": 20,
+        "domMutations": 0
+      },
+      {
+        "name": "changed print preserves neighbour and preview",
+        "passed": true
+      },
+      {
+        "name": "next print badge changes without replacing remaining row",
+        "passed": true
+      },
+      {
+        "name": "print reordering keeps existing nodes and keyboard focus",
+        "passed": true
+      },
+      {
+        "name": "unchanged prints update relative age without replacing rows",
+        "passed": true
+      },
+      {
+        "name": "forced refresh discards snapshot captured before mutation",
+        "passed": true
+      },
+      {
+        "name": "shutdown stops timers and ignores pending responses",
+        "passed": true,
+        "requestsAfterShutdown": 0
+      }
+    ]
+  },
+  "queueRegression": {
+    "passed": true,
+    "activeJobsShown": 100,
+    "capacityBadge": "100 / 100",
+    "singleDomReplacement": true,
+    "idleDomPreserved": true,
+    "scrollPreserved": true,
+    "selectionPreserved": true,
+    "keyboardFocusPreserved": true,
+    "keyboardPauseResume": true,
+    "resumeQueuedItems": 100,
+    "cancelPreservesArtwork": true,
+    "slotReleased": true,
+    "mobileGeometry": {
+      "height": 549,
+      "scroll": 12309
+    },
+    "noOverflow390": true,
+    "noOverflow320": true,
+    "reducedMotionIntroHidden": true,
+    "reducedMotionAnimations": 0,
+    "normalMotionIntroDismissed": true,
+    "completionCacheAfter600Jobs": 12,
+    "fullUploadStatus": 429,
+    "preparingSlotCounted": true,
+    "preparingHintShown": true,
+    "preparingDoesNotRebuildJobs": true,
+    "pageErrors": []
+  },
+  "thumbnailRegression": {
+    "passed": true,
+    "imagesInDom": 340,
+    "baselineRequests": null,
+    "coldRequests": 5,
+    "requestsAfterScroll": 24,
+    "maximumConcurrentFetches": 4,
+    "deferredImages": 332,
+    "inflightRequestSharedAcrossRender": true,
+    "idleDomPreserved": true,
+    "observerCleanupAfter30Renders": {
+      "pending": 309,
+      "queued": 5,
+      "active": 4
+    },
+    "cacheByteLimit": 8388608,
+    "cacheEntriesAfterFour3MiBBlobs": 2,
+    "cacheEntryLimit": 64,
+    "expiryReleasesBytes": true,
+    "sessionReset": {
+      "pending": 0,
+      "queued": 0,
+      "cache": 0,
+      "bytes": 0
+    },
+    "inflightResetPreventsStaleImage": true,
+    "observerUnavailableFallback": true,
+    "noOverflow390": true,
+    "noOverflow320": true,
+    "pageErrors": []
+  },
+  "localPytest": {
+    "passed": 382,
+    "seconds": 55.9
+  }
+}
