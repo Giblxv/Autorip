@@ -1,4 +1,4 @@
-# AutoRIP 0.8.17 — automação de pré-impressão DTF / DTF UV
+# AutoRIP 0.8.18 — automação de pré-impressão DTF / DTF UV
 
 O AutoRIP organiza uma etapa de pré-impressão: importa artes raster, converte cores, prepara a base branca e gera arquivos `.PRT` para fluxo com PrintExp. Ele não substitui o software/driver do fabricante e **o formato PRT deste projeto foi inferido de uma referência, não de uma especificação oficial**. Antes de produção, valide em uma impressora de teste: abertura no PrintExp, ordem de canais, dimensão, escala, branco, orientação e densidade. Comece com material de baixo custo; o arquivo pode não ser compatível com todo equipamento.
 
@@ -18,7 +18,7 @@ A base branca respeita o alfa/transparência e oferece controles de densidade, r
 2. Execute `build_windows.bat` para gerar o executável one-file `dist\AutoRIP\AutoRIP.exe` e, com o Inno Setup 6 instalado, o instalador único `Output\AutoRIP_Setup.exe`.
 3. Para preparar o pacote em um computador conectado e compilar depois sem internet, use `preparar_offline.bat` e, no computador de build, `build_windows_offline.bat`.
 
-Também existe o workflow **Build Windows** no GitHub Actions. Em uma tag `v*`, ele compila em Windows e publica uma release com `AutoRIP.exe`, `AutoRIP_Setup.exe` e `SHA256SUMS.txt`; a release atual está em [v0.8.17](https://github.com/Giblxv/Autorip/releases/tag/v0.8.17). O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
+Também existe o workflow **Build Windows** no GitHub Actions. Em uma tag `v*`, ele compila em Windows e publica uma release com `AutoRIP.exe`, `AutoRIP_Setup.exe` e `SHA256SUMS.txt`; a release atual está em [v0.8.18](https://github.com/Giblxv/Autorip/releases/tag/v0.8.18). O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
 
 O RIP, a conversão ICC, o meio-tom, as integrações e a geração do `.PRT` rodam localmente no computador usando a conexão de internet do próprio Windows quando necessário. O executável Windows inicia por padrão em uma pequena janela nativa de status, sem abrir navegador. Para isso, use o atalho **AutoRIP (modo direto)** ou execute `AutoRIP.exe --direct`; `--headless` continua aceito como alias. O painel web opcional oferece controles da fila, configurações e planejamento da folha; abra-o com `AutoRIP.exe --web`. A velocidade depende principalmente de CPU, memória, resolução, tamanho da arte e perfil ICC.
 
@@ -60,7 +60,7 @@ A configuração da conta e as credenciais das integrações ficam no diretório
 
 - O modo offline vem **ligado por padrão**. O RIP local, a geração de `.PRT` e a fila de impressão funcionam sem rede.
 - O servidor local aplica senha de 8 a 128 caracteres, limite de tentativas, token de sessão em memória, validação de origem/CSRF e limites de upload/fila.
-- Uploads aceitam PNG, TIFF e JPEG sem quota artificial de bytes; continuam limitados por 80 milhões de pixels, validação do formato e 128 MiB de espaço livre para não comprometer o sistema. Entradas de hot-folder também são limitadas por pixel.
+- Artes para RIP, enviadas pelo painel ou pela hot folder, aceitam PNG, TIFF e JPEG sem teto artificial de pixels ou de bytes no upload. O processamento depende da RAM e do disco disponíveis; continuam a validação do formato, a reserva de 128 MiB de disco e os limites representáveis do PRT.
 - Integrações externas só funcionam se configuradas e com o modo offline desligado. Tokens não são incluídos em URLs Trello; redirects de APIs com credenciais são bloqueados. Downloads Trello são limitados, validados como imagem e restritos a hosts permitidos.
 - Notificações são enfileiradas localmente antes do envio e retentadas por serviço. O AutoRIP conserva avisos pendentes caso um canal falhe ou seja desativado.
 - O agente de IA é opcional e só é chamado quando solicitado. Ele recebe parâmetros técnicos permitidos, não chaves, caminhos locais, nomes de arquivo ou conteúdo do registro; pode pesquisar a web e apenas sugere mudanças, sem alterar a configuração.
@@ -109,6 +109,8 @@ A remoção de fundo exige `model_path` apontando para um modelo ONNX local
 compatível; o AutoRIP não baixa modelos automaticamente.
 
 ## Histórico recente
+
+- **0.8.18:** artes para RIP sem teto artificial de pixels, inclusive upload, hot folder, planejamento e prévias. [Notas da versão](docs/releases/v0.8.18.md).
 
 - **0.8.17:** menos buffers na conversão RGBA com ICC; teste real de instalação Windows no CI. [Notas da versão](docs/releases/v0.8.17.md) e [medições e limites](docs/refinements/DIRECT-RGBA-ICC.md).
 

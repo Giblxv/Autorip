@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from PIL import Image, ImageFile
+from PIL import Image
 
 from autorip import engine
 from autorip.config import Settings
@@ -72,19 +72,6 @@ def test_perfil_icc_invalido_falha_explicitamente(sample_png, tmp_path):
     assert rip.icc_error
     with pytest.raises(RuntimeError, match="Perfil ICC"):
         rip.process(str(sample_png), str(tmp_path / "nao-criar.PRT"), 2.54)
-
-
-def test_rejeita_imagem_acima_do_limite_sem_decodificar(monkeypatch, sample_png, tmp_path):
-    monkeypatch.setattr(engine, "MAX_INPUT_PIXELS", 100)
-
-    def forbid_decode(*args, **kwargs):
-        pytest.fail("Imagem acima do limite chegou a decodificacao de pixels")
-
-    monkeypatch.setattr(ImageFile.ImageFile, "load", forbid_decode)
-    with pytest.raises(ValueError, match="limite"):
-        Rip(Settings(label_enabled=False)).process(str(sample_png), str(tmp_path / "x.PRT"), 2.54)
-    assert not (tmp_path / "x.PRT").exists()
-    assert not list(tmp_path.glob("*.part"))
 
 
 def test_verifica_espaco_estimado_antes_de_criar_temporario(monkeypatch, sample_png, tmp_path):

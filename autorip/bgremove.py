@@ -6,7 +6,8 @@ pelo operador precisa ser compatível com a sessão u2net_custom do rembg.
 import os
 import tempfile
 
-from PIL import Image, ImageOps
+from PIL import ImageOps
+from .imaging import Image
 from .paths import publish_unique_file
 
 
@@ -24,8 +25,6 @@ def remove_background(src: str, dst: str, model_path: str = None, alpha_cut: int
         raise RuntimeError("Instale o modulo opcional: pip install rembg onnxruntime") from exc
     session = new_session("u2net_custom", model_path=os.path.realpath(model_path))
     with Image.open(src) as image:
-        if image.width * image.height > 80_000_000:
-            raise ValueError("Imagem acima do limite de 80 milhoes de pixels.")
         out = remove(ImageOps.exif_transpose(image).convert("RGBA"), session=session).convert("RGBA")
     if alpha_cut:
         alpha = out.getchannel("A").point(lambda value: 0 if value < alpha_cut else value)

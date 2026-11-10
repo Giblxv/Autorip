@@ -1,5 +1,8 @@
 # RIP: menos buffers na conversão de entrada com ICC e alfa
 
+Continuação na v0.8.18: [remoção do teto de pixels das artes](INPUT-PIXELS.md).
+Os limites de entrada citados abaixo descrevem a etapa histórica.
+
 Base de comparação: `feb3214`. Implementação: `7718ba1`.
 
 Continuação: [conversão direta RGBA](DIRECT-RGBA-ICC.md). As medições

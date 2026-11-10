@@ -6,11 +6,32 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import struct
 import tempfile
 import time
+import zlib
 from urllib.request import Request, urlopen
 
 from PIL import Image, ImageCms
+
+
+def write_large_artwork(path):
+    """PNG válido de 400 MP para inspecionar cabeçalho no executável real."""
+    with path.open("wb") as target:
+        target.write(b"\x89PNG\r\n\x1a\n")
+
+        def chunk(kind, data):
+            target.write(struct.pack(">I", len(data)) + kind + data)
+            target.write(struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
+
+        chunk(b"IHDR", struct.pack(">IIBBBBB", 20000, 20000, 1, 0, 0, 0, 0))
+        compressor = zlib.compressobj(level=1)
+        for _ in range(20000):
+            data = compressor.compress(b"\0" * 2501)
+            if data:
+                chunk(b"IDAT", data)
+        chunk(b"IDAT", compressor.flush())
+        chunk(b"IEND", b"")
 
 
 def smoke(executable, expected_version):
@@ -82,6 +103,17 @@ def smoke(executable, expected_version):
                     if b"computeSheetPlan" not in response.read():
                         raise RuntimeError("JavaScript do planejador ausente do pacote")
                 planned_source.unlink()
+                # O planejador lê só metadados: valide o antigo teto do RIP e
+                # o teto interno do Pillow sem alocar um RGBA de 400 MP no CI.
+                large_source = hot / "large-artwork.png"
+                write_large_artwork(large_source)
+                large_plan = api("/api/layout/plan", {"items": [{"name": large_source.name,
+                                 "width_cm": 3, "quantity": 1}]})
+                if (len(large_plan["items"]) != 1
+                        or large_plan["items"][0]["source_width_px"] != 20000
+                        or large_plan["items"][0]["source_height_px"] != 20000):
+                    raise RuntimeError("Executável não aceitou o cabeçalho da arte de 400 MP")
+                large_source.unlink()
                 # Um controle sem ICC e duas artes com o mesmo perfil exercitam
                 # a primeira compilação e a reutilização dentro do executável.
                 jobs=[]
@@ -117,7 +149,7 @@ def smoke(executable, expected_version):
                 process.wait(timeout=20)
                 if process.returncode:
                     raise RuntimeError(f"Executavel encerrou com codigo {process.returncode}")
-                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, planejamento de duas peças e assets, três uploads com alfa variável, PRTs 2.54 cm idênticos sem ICC/com ICC repetido, prévias idênticas com marca e encerramento.")
+                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, planejamento de duas peças e arte de 400 MP, assets, três uploads com alfa variável, PRTs 2.54 cm idênticos sem ICC/com ICC repetido, prévias idênticas com marca e encerramento.")
             except BaseException:
                 print(logs()[-5000:])
                 raise
