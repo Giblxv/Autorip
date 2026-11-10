@@ -11,11 +11,13 @@ import math
 import os
 from pathlib import Path
 import platform
+import queue
 import statistics
 import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -55,6 +57,55 @@ def peak_rss():
         value=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         return value/(1024**2 if sys.platform=='darwin' else 1024)
     except ImportError:return None
+
+
+class TimingWorker:
+    """Um Rip persistente por processo, sem compartilhar o alocador entre versões."""
+    def __init__(self, module_path, case_path):
+        self.errors = tempfile.TemporaryFile(mode='w+t', encoding='utf-8')
+        try:
+            self.process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()),
+                '--timing-worker', str(module_path), '--case', str(case_path)],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.errors,
+                text=True, bufsize=1)
+        except BaseException:
+            self.errors.close()
+            raise
+        self.responses = queue.Queue()
+        self.reader = threading.Thread(target=self._read, daemon=True)
+        self.reader.start()
+
+    def _read(self):
+        try:
+            for line in self.process.stdout:
+                self.responses.put(json.loads(line))
+        except Exception as error:
+            self.responses.put(error)
+        finally:
+            self.responses.put(None)
+
+    def run(self):
+        self.process.stdin.write('{}\n');self.process.stdin.flush()
+        try:
+            response = self.responses.get(timeout=180)
+        except queue.Empty as error:
+            raise TimeoutError('Worker de medição excedeu 180 segundos') from error
+        if response is None or isinstance(response, Exception):
+            self.errors.seek(0)
+            raise RuntimeError('Worker de medição falhou: ' + self.errors.read()[-5000:])
+        return response['seconds'], response['outputs'], response['cpu_seconds']
+
+    def close(self):
+        try:
+            self.process.stdin.close()
+        except (BrokenPipeError, OSError):
+            pass
+        try:
+            self.process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.process.kill();self.process.wait(timeout=5)
+        self.reader.join(timeout=1)
+        self.process.stdout.close();self.errors.close()
 
 
 def alpha_fixtures(root, icc, direct=False):
@@ -200,7 +251,19 @@ def main():
     parser.add_argument('--icc',type=Path);parser.add_argument('--output',type=Path)
     parser.add_argument('--suite',choices=['profiles','alpha','rgba-direct'],default='profiles')
     parser.add_argument('--rss-worker',type=Path);parser.add_argument('--case',type=Path)
+    parser.add_argument('--timing-worker',type=Path)
+    parser.add_argument('--paired-workers',action='store_true',help='Isolar as duas versões em processos persistentes por cenário')
     args=parser.parse_args()
+    if args.timing_worker:
+        case=json.loads(args.case.read_text());module=load(args.timing_worker,'timing')
+        rip=module.Rip(Settings(**case['settings']))
+        with tempfile.TemporaryDirectory(prefix='autorip-input-icc-timing-') as folder:
+            for line in sys.stdin:
+                json.loads(line)
+                if case['cold']:rip=module.Rip(Settings(**case['settings']))
+                seconds,outputs=run(rip,case,Path(folder))
+                print(json.dumps(dict(seconds=seconds,outputs=outputs,cpu_seconds=rip._benchmark_cpu_seconds)),flush=True)
+        return
     if args.rss_worker:
         case=json.loads(args.case.read_text());module=load(args.rss_worker,'rss');rip=module.Rip(Settings(**case['settings']))
         with tempfile.TemporaryDirectory(prefix='autorip-input-icc-rss-') as folder:
@@ -224,6 +287,8 @@ def main():
                 pillow=Image.__version__,numpy=np.__version__,cpu_count=os.cpu_count(),
                 source_sha256=dict(baseline=hashlib.sha256(source.encode()).hexdigest(),candidate=hashlib.sha256(candidate.read_bytes()).hexdigest()),
                 benchmark_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                timing_processes='separate persistent workers per implementation/case' if args.paired_workers else 'shared parent process',
+                cpu_affinity=sorted(os.sched_getaffinity(0)) if hasattr(os,'sched_getaffinity') else None,
                 cpu_metric='time.process_time summed around Rip.process, including threads; verification excluded',
                 shared_modules_sha256=shared,rss_metric='VmHWM of fresh Linux workers; ru_maxrss on other Unix; unavailable on Windows',scenarios={})
     with tempfile.TemporaryDirectory(prefix='autorip-input-icc-') as folder:
@@ -231,16 +296,28 @@ def main():
         cases,profiles=fixtures(root,str(args.icc.resolve()) if args.icc else None,args.suite);report['profile_sha256']=profiles
         modules=[load(baseline,'baseline'),load(candidate,'candidate')]
         for case in cases:
-            rips=[module.Rip(Settings(**case['settings'])) for module in modules];oracle=None;samples=[[],[]];cpu_samples=[[],[]]
-            for side in range(2):
-                _,outputs=run(rips[side],case,root)
-                if oracle is None:oracle=outputs
-                assert outputs==oracle,case['name']
-            for iteration in range(args.repeat):
-                for side in ((0,1) if iteration%2==0 else (1,0)):
+            rips=[] if args.paired_workers else [module.Rip(Settings(**case['settings'])) for module in modules]
+            oracle=None;samples=[[],[]];cpu_samples=[[],[]];workers=[]
+            case_path=root/'timing-case.json';case_path.write_text(json.dumps(case))
+            try:
+                if args.paired_workers:
+                    for path in (baseline,candidate):workers.append(TimingWorker(path,case_path))
+                def measured(side):
+                    if workers:return workers[side].run()
                     if case['cold']:rips[side]=modules[side].Rip(Settings(**case['settings']))
-                    elapsed,outputs=run(rips[side],case,root);assert outputs==oracle,case['name'];samples[side].append(elapsed)
-                    cpu_samples[side].append(rips[side]._benchmark_cpu_seconds)
+                    seconds,outputs=run(rips[side],case,root)
+                    return seconds,outputs,rips[side]._benchmark_cpu_seconds
+                for side in range(2):
+                    _,outputs,_=measured(side)
+                    if oracle is None:oracle=outputs
+                    assert outputs==oracle,case['name']
+                for iteration in range(args.repeat):
+                    for side in ((0,1) if iteration%2==0 else (1,0)):
+                        elapsed,outputs,cpu_elapsed=measured(side)
+                        assert outputs==oracle,case['name'];samples[side].append(elapsed)
+                        cpu_samples[side].append(cpu_elapsed)
+            finally:
+                for worker in workers:worker.close()
             old,new=map(statistics.median,samples);ratios=np.asarray(samples[0])/np.asarray(samples[1]);rng=np.random.default_rng(194)
             bootstrap=np.median(ratios[rng.integers(0,args.repeat,(3000,args.repeat))],axis=1)
             cpu_old,cpu_new=map(statistics.median,cpu_samples)
