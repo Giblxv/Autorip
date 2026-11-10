@@ -32,6 +32,9 @@ MAX_JSON_BYTES = 2 * 1024 * 1024
 MAX_PENDING_JOBS = 100
 MAX_JOB_HISTORY = 50
 MAX_STATE_HISTORY = 12
+# Até o Pillow 12, resize(RGBA) descartava reducing_gap ao converter para RGBa.
+# Preserve os mesmos pixels ao reduzir diretamente uma origem opaca.
+OPAQUE_THUMBNAIL_REDUCING_GAP = 2.0 if int(Image.__version__.split('.', 1)[0]) >= 13 else None
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128
 SECRET_FIELDS = ("trello_key", "trello_token", "notion_token", "jira_token", "anthropic_key")
@@ -129,7 +132,7 @@ def _load_thumbnail(path, bounds, *, orient=True):
                 source.close()
             if image.mode in ("RGB", "L") and "transparency" not in image.info:
                 # Preserve filtro/reducing_gap, reduzindo antes da expansão RGBA.
-                image.thumbnail(bounds)
+                image.thumbnail(bounds, reducing_gap=OPAQUE_THUMBNAIL_REDUCING_GAP)
                 converted = image.convert("RGBA")
                 image.close()
                 image = converted

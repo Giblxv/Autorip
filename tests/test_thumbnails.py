@@ -175,7 +175,12 @@ def test_erro_na_previa_fecha_rasters_mesmo_com_traceback_retido(tmp_path, monke
         image = opened(*args, **kwargs); tracked.append(image); return image
 
     def track_transpose(*args, **kwargs):
-        image = transpose(*args, **kwargs); tracked.append(image); return image
+        image = transpose(*args, **kwargs)
+        # O decoder TIFF também chama exif_transpose(in_place=True), que retorna
+        # None; nesse caso o raster já foi registrado por track_open.
+        if image is not None:
+            tracked.append(image)
+        return image
 
     def track_convert(*args, **kwargs):
         image = convert(*args, **kwargs); tracked.append(image); return image

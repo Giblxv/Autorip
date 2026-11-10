@@ -204,6 +204,12 @@ def main():
         assert data == (ROOT / 'autorip' / (name + '.py')).read_bytes(), name + ' mudou'
         shared[name] = hashlib.sha256(data).hexdigest()
     cases = fixtures(args.fixtures.resolve(), args.icc.resolve() if args.icc else None)
+    rgb = next(c for c in cases if c['name'] == 'rgb_icc_90mp')
+    cases.append(dict(rgb, name='large_output_rgb_90mp', width_cm=25.4, phases=['job']))
+    if args.icc:
+        cases.append(dict(rgb, name='output_icc_rgb_90mp', phases=['job'],
+                          settings=dict(rgb['settings'], icc_path=str(args.icc.resolve())),
+                          output_profile_sha256=sha(args.icc)))
     report = dict(baseline_ref=commit, repeat=args.repeat, seed=args.seed, aa_control=args.aa,
                   python=platform.python_version(), pillow=Image.__version__, numpy=np.__version__,
                   cpu_affinity=sorted(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else None,
