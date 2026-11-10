@@ -46,6 +46,21 @@ rede autorizado; o ambiente de desenvolvimento em nuvem não alcança sua LAN
 automaticamente. Não foi feita conexão à impressora ou enviado arquivo nesta
 verificação.
 
+Para localizar a porta no Windows, abra o PrintExp/NWReceive no modo de recepção
+e consulte os listeners desses processos no PowerShell:
+
+```powershell
+$printExpIds = @(Get-Process -Name 'PrintExp*', 'NWReceive*' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
+Get-NetTCPConnection -State Listen | Where-Object { $_.OwningProcess -in $printExpIds } | Select-Object OwningProcess, LocalAddress, LocalPort
+Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' } | Select-Object InterfaceAlias, IPAddress
+```
+
+Use o IP da interface conectada à mesma rede do computador que enviará os
+arquivos. `0.0.0.0` e `::` são endereços de escuta, não o IP a configurar no
+cliente; `127.0.0.1` e `::1` restringem aquela escuta ao próprio computador. Se não
+aparecer um listener, confirme o modo de recepção e o nome real do processo.
+Essas consultas não enviam dados nem identificam o protocolo dos trabalhos.
+
 Após identificar o protocolo, o cliente poderá transmitir em blocos, limitar
 tempo de conexão/envio e registrar confirmações. Reenvio automático de uma
 transferência incerta precisa considerar duplicação de trabalhos. Até essa

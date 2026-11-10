@@ -1,0 +1,97 @@
+{
+  "Testes": {
+    "conclusion": "success",
+    "databaseId": 42758268347,
+    "headSha": "200907dc0b9d50af26e3ca499f487f27c57f65df",
+    "name": "Testes",
+    "status": "completed",
+    "url": "https://github.com/Giblxv/Autorip/actions/runs/42758268347",
+    "jobs": [
+      {
+        "name": "Testes ubuntu-latest / Python 3.10",
+        "conclusion": "success",
+        "url": "https://github.com/Giblxv/Autorip/actions/runs/42758268347/job/129637638707",
+        "steps": [
+          {
+            "name": "Executar regress\u00f5es",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "name": "Testes windows-2022 / Python 3.10",
+        "conclusion": "success",
+        "url": "https://github.com/Giblxv/Autorip/actions/runs/42758268347/job/129637639011",
+        "steps": [
+          {
+            "name": "Executar regress\u00f5es",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "name": "Testes ubuntu-latest / Python 3.12",
+        "conclusion": "success",
+        "url": "https://github.com/Giblxv/Autorip/actions/runs/42758268347/job/129637639026",
+        "steps": [
+          {
+            "name": "Executar regress\u00f5es",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "name": "Testes windows-2022 / Python 3.12",
+        "conclusion": "success",
+        "url": "https://github.com/Giblxv/Autorip/actions/runs/42758268347/job/129637639038",
+        "steps": [
+          {
+            "name": "Executar regress\u00f5es",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "name": "Regress\u00e3o 15x ${{ matrix.os }} / Python 3.12",
+        "conclusion": "skipped",
+        "url": "https://github.com/Giblxv/Autorip/actions/runs/42758268347/job/129637640281",
+        "steps": []
+      }
+    ]
+  },
+  "Build Windows": {
+    "conclusion": "success",
+    "databaseId": 42758268337,
+    "headSha": "200907dc0b9d50af26e3ca499f487f27c57f65df",
+    "name": "Build Windows",
+    "status": "completed",
+    "url": "https://github.com/Giblxv/Autorip/actions/runs/42758268337",
+    "jobs": [
+      {
+        "name": "build",
+        "conclusion": "success",
+        "url": "https://github.com/Giblxv/Autorip/actions/runs/42758268337/job/129637638758",
+        "steps": [
+          {
+            "name": "Run regression tests before Windows packaging",
+            "conclusion": "success"
+          },
+          {
+            "name": "Smoke test do executavel empacotado",
+            "conclusion": "success"
+          },
+          {
+            "name": "Smoke test installed executable",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "name": "release",
+        "conclusion": "skipped",
+        "url": "https://github.com/Giblxv/Autorip/actions/runs/42758268337/job/129639094571",
+        "steps": []
+      }
+    ]
+  }
+}

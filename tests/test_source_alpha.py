@@ -47,8 +47,9 @@ def test_alpha_completo_e_transparencia_preservados(kind, intent, bpc):
         source.close(); expected.close()
 
 
-@pytest.mark.parametrize('kind', ['RGBA', 'palette'])
-@pytest.mark.parametrize('failure', [None, 'apply', 'rgba', 'alpha', 'putalpha'])
+@pytest.mark.parametrize('kind,failure', [('RGBA', None), ('RGBA', 'apply')] +
+    [(kind, failure) for kind in ('PA', 'palette')
+     for failure in (None, 'apply', 'rgba', 'alpha', 'putalpha')])
 def test_temporarios_fechados_inclusive_com_traceback_retido(monkeypatch, kind, failure):
     source = profiled_image(kind)
     rip = Rip(Settings())

@@ -4,6 +4,10 @@ Base: `dd490f9`, após a [preparação reutilizável das tiras](SOURCE-PREPARATI
 Esta etapa reduz a compilação repetida dos perfis embutidos nas artes. Não muda
 a transformação de saída, o tratamento de transparência, o filtro ou a geometria.
 
+Continuação: [RGBA direto](DIRECT-RGBA-ICC.md) separa os contextos
+RGB e RGBA para eliminar rasters intermediários. Os números abaixo descrevem
+a etapa histórica, em que esses dois modos ainda compartilhavam o contexto RGB.
+
 ## Cache e isolamento
 
 Antes, cada arquivo com ICC embutido passava por `profileToProfile`, que cria uma

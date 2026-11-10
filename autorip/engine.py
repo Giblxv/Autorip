@@ -69,8 +69,9 @@ class Rip:
     @staticmethod
     def _build_source_transform(embedded, mode, intent, flags):
         profile = ImageCms.ImageCmsProfile(io.BytesIO(embedded))
+        output_mode = "RGBA" if mode == "RGBA" else "RGB"
         return ImageCms.buildTransform(profile, ImageCms.createProfile("sRGB"), mode,
-                                       "RGB", renderingIntent=intent, flags=flags)
+                                       output_mode, renderingIntent=intent, flags=flags)
 
     def _source_transform(self, embedded, mode):
         flags = ImageCms.Flags.BLACKPOINTCOMPENSATION if self.s.black_point_comp else 0
@@ -102,8 +103,12 @@ class Rip:
         if not embedded:
             return source.convert("RGBA")
         try:
-            mode = "RGB" if source.mode in ("RGBA", "P", "PA") else "L" if source.mode == "LA" else source.mode
+            mode = "RGB" if source.mode in ("P", "PA") else "L" if source.mode == "LA" else source.mode
             transform = self._source_transform(embedded, mode)
+            if source.mode == "RGBA":
+                # LittleCMS/Pillow preservam o alfa em RGBA -> RGBA. Não crie
+                # dois rasters RGB e outro canal A para restaurá-lo depois.
+                return ImageCms.applyTransform(source, transform)
             if source.mode in ("RGBA", "P", "PA"):
                 color = source.convert("RGB")
             elif source.mode == "LA":
