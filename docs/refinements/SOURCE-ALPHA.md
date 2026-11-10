@@ -2,6 +2,10 @@
 
 Base de comparação: `feb3214`. Implementação: `7718ba1`.
 
+Continuação em validação: [conversão direta RGBA](DIRECT-RGBA-ICC.md). As medições
+abaixo continuam documentando esta etapa histórica e não devem ser somadas ou
+multiplicadas pelos resultados posteriores.
+
 A restauração do alfa copiava a fonte RGBA inteira antes de extrair um único
 canal. Além disso, os dois rasters RGB intermediários permaneciam vivos durante
 a criação do RGBA final e a restauração do alfa. Agora RGBA, LA e PA usam

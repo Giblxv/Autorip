@@ -245,7 +245,7 @@ def main():
     if args.suite == 'rgba-direct':
         from rip_rgba_candidates import CANDIDATES as proposals
     if args.suite in ('input-icc','source-alpha','rgba-direct') and not args.icc:
-        parser.error('--suite input-icc/source-alpha exige --icc com um perfil CMYK válido')
+        parser.error('Esta suíte exige --icc com um perfil CMYK válido')
     if args.repeats<5 or args.rounds_without_gain<15:parser.error('Minimos: 5 repeticoes e 15 rodadas sem ganho')
     work=args.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)
     previous_report = json.loads((work/'report.json').read_text()) if args.resume else None
@@ -272,6 +272,9 @@ def main():
         if rip.icc_error:raise RuntimeError(rip.icc_error)
     report={'base_commit':subprocess.check_output(['git','rev-parse',args.baseline_ref or 'HEAD'],cwd=ROOT,text=True).strip(),
             'python':platform.python_version(),'platform':platform.platform(),'cpu_count':os.cpu_count(),
+            'cpu_affinity':sorted(os.sched_getaffinity(0)) if hasattr(os,'sched_getaffinity') else None,
+            'benchmark_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            'correctness_case_count':len(cases),'timed_case_count':len(timed),
             'icc_used':bool(args.icc),'suite':args.suite,'repeats':args.repeats,'required_without_gain':args.rounds_without_gain,
             'acceptance':{'minimum_speedup':1.015,'bootstrap_low_minimum':1.005,'max_case_slowdown':1.06,
                           'memory_alternative_reduction':.08,'peak_limit_mib':512},

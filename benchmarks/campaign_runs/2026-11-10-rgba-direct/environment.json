@@ -1,0 +1,21 @@
+{
+  "python": "3.12.14",
+  "pillow": "13.0.0",
+  "numpy": "2.3.5",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "local_pytest": {
+    "passed": 757,
+    "seconds": 76.8,
+    "log": "pytest.log"
+  },
+  "implementation_commit": "ac8166a0e4d3a49caae1599cf3bb242a6fba7b73",
+  "baseline_ref": "b5b02285175b244c42bda848b836b422593878c6",
+  "source_sha256": {
+    "autorip/engine.py": "7f45a56f1136f7a631c7c5889cd85503c7f55eb075bbe7a959cbbb2434a5e05f",
+    "autorip/prt.py": "a2506d539e9c1da492b12732b81bb4b088d4faf85229b73caa313fec4076b008",
+    "autorip/morph.py": "1dd8e43f0382eddc2f2a71e9256875ae4d746ec06c49603f38b10b82a8b97c2f"
+  },
+  "icc_sha256": "a86396b8ca0b1799096359fec6ac79e39db454fed71ba6dd2eed24d53506d6a5",
+  "calendar_activated": false,
+  "printer_connection_tested": false
+}
