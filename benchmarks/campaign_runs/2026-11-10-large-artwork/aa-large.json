@@ -1,0 +1,380 @@
+{
+  "baseline_ref": "95a8ea5483403301d9501b478cd15299f30d16a9",
+  "repeat": 3,
+  "seed": 521,
+  "aa_control": true,
+  "python": "3.12.14",
+  "pillow": "13.0.0",
+  "numpy": "2.5.4",
+  "cpu_affinity": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "sampling": "Fresh independent process for every side/trial; randomized order; first job per Rip",
+  "scope": "Rip.process + optional two published JPEG previews; imports/init/verification excluded from time",
+  "shared_modules_sha256": {
+    "config": "28c84c0c6795d80e5c04d291fbe60d87160228e35aa993253848b62508ab6ab5",
+    "imaging": "3e5bf53befa3769aa8150bfd52ac44653dd1b0cb0e04172d5214a7ce093fbcd6",
+    "prt": "a2506d539e9c1da492b12732b81bb4b088d4faf85229b73caa313fec4076b008",
+    "morph": "1dd8e43f0382eddc2f2a71e9256875ae4d746ec06c49603f38b10b82a8b97c2f"
+  },
+  "benchmark_sha256": "d9b800d61b034385c392b5bd292c48d7b529d9aa122955f9a67502881ada87d4",
+  "scenarios": {
+    "rgb_icc_90mp/job": {
+      "source": {
+        "name": "rgb_icc_90mp",
+        "path": "/workspace/autorip-review/large-artwork/fixtures/rgb_icc_90mp.png",
+        "mode": "RGB",
+        "source_size": [
+          10000,
+          9000
+        ],
+        "source_sha256": "2f59d6f90b6d62897c20d2a8a9e01077a7a4c35de96bf6acc5d0abcefa029ebc",
+        "source_bytes": 9485078,
+        "width_cm": 5.08,
+        "phases": [
+          "rip",
+          "preview",
+          "job"
+        ],
+        "settings": {
+          "label_enabled": false,
+          "margin_top_in": 0.05,
+          "margin_bottom_in": 0.05
+        },
+        "profile_sha256": "87367d56ad2547ccf32bdbca2ef65d2906409f57388e6a1c209dc4a35ea77336"
+      },
+      "phase": "job",
+      "baseline_seconds": 9.166495505000057,
+      "candidate_seconds": 9.228485251995153,
+      "speedup": 0.9932827820273437,
+      "cpu_speedup": 1.0024752682719573,
+      "peak_rss_mib": [
+        1133.41015625,
+        1136.81640625
+      ],
+      "samples": [
+        [
+          {
+            "seconds": 9.612735651004186,
+            "cpu_seconds": 14.222655551,
+            "peak_rss_mib": 1133.3984375,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          },
+          {
+            "seconds": 8.447517596003308,
+            "cpu_seconds": 12.738785112,
+            "peak_rss_mib": 1133.41015625,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          },
+          {
+            "seconds": 9.166495505000057,
+            "cpu_seconds": 13.440934468,
+            "peak_rss_mib": 1178.20703125,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          }
+        ],
+        [
+          {
+            "seconds": 9.493556499000988,
+            "cpu_seconds": 13.407746697999999,
+            "peak_rss_mib": 1136.81640625,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          },
+          {
+            "seconds": 9.228485251995153,
+            "cpu_seconds": 13.862996204,
+            "peak_rss_mib": 1133.6484375,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          },
+          {
+            "seconds": 8.952013911002723,
+            "cpu_seconds": 13.332206676,
+            "peak_rss_mib": 1174.85546875,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          }
+        ]
+      ],
+      "outputs": {
+        "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+        "metadata": {
+          "n_rows": 2400,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 2.286,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": false
+        },
+        "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+        "preview_size": [
+          220,
+          198
+        ]
+      }
+    },
+    "cmyk_icc_30mp/rip": {
+      "source": {
+        "name": "cmyk_icc_30mp",
+        "path": "/workspace/autorip-review/large-artwork/fixtures/cmyk_30mp.tif",
+        "mode": "CMYK",
+        "source_size": [
+          6000,
+          5000
+        ],
+        "source_sha256": "0dafacd573ceb3d1428c4f62db5552c50a6beb3fc077149d6417f02250786fb1",
+        "source_bytes": 121410662,
+        "width_cm": 5.08,
+        "phases": [
+          "rip",
+          "preview",
+          "job"
+        ],
+        "settings": {
+          "label_enabled": false,
+          "margin_top_in": 0.05,
+          "margin_bottom_in": 0.05
+        },
+        "profile_sha256": "1c94ec3204ca645220eb339498ce0de59c2dda1ee87fecded7633f51637513c8"
+      },
+      "phase": "rip",
+      "baseline_seconds": 4.193284196000604,
+      "candidate_seconds": 3.5929074570012745,
+      "speedup": 1.167100529636357,
+      "cpu_speedup": 1.1738719871223702,
+      "peak_rss_mib": [
+        400.9609375,
+        401.0625
+      ],
+      "samples": [
+        [
+          {
+            "seconds": 4.193284196000604,
+            "cpu_seconds": 7.1900714169999995,
+            "peak_rss_mib": 400.90625,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              }
+            }
+          },
+          {
+            "seconds": 3.9710897490003845,
+            "cpu_seconds": 7.172439204000001,
+            "peak_rss_mib": 400.9609375,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              }
+            }
+          },
+          {
+            "seconds": 4.394728257997485,
+            "cpu_seconds": 7.410708859,
+            "peak_rss_mib": 401.34375,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              }
+            }
+          }
+        ],
+        [
+          {
+            "seconds": 3.5929074570012745,
+            "cpu_seconds": 6.12508987,
+            "peak_rss_mib": 400.6875,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              }
+            }
+          },
+          {
+            "seconds": 3.980805735998729,
+            "cpu_seconds": 6.3530834380000005,
+            "peak_rss_mib": 401.0625,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              }
+            }
+          },
+          {
+            "seconds": 3.236218849000579,
+            "cpu_seconds": 5.749766867,
+            "peak_rss_mib": 401.10546875,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              }
+            }
+          }
+        ]
+      ],
+      "outputs": {
+        "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+        "metadata": {
+          "n_rows": 2240,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 2.1166666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": false
+        }
+      }
+    }
+  },
+  "source_sha256": {
+    "engine": [
+      "a609fb11624e35d54f80275c7b6931d4b7b815bbfd212a7ba78d2699812811b5",
+      "a609fb11624e35d54f80275c7b6931d4b7b815bbfd212a7ba78d2699812811b5"
+    ],
+    "server": [
+      "31e974f9d0f540508fec627672e5afa98229e4f1d43fedfd01adc744a8fb2eca",
+      "31e974f9d0f540508fec627672e5afa98229e4f1d43fedfd01adc744a8fb2eca"
+    ]
+  },
+  "complete": true
+}

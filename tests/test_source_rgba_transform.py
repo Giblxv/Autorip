@@ -113,8 +113,11 @@ def test_perfil_cinza_real_preserva_cor_e_alfa(mode, intent, bpc):
 
 @pytest.mark.parametrize('intent', range(4))
 @pytest.mark.parametrize('bpc', [False, True])
-def test_transformacao_in_place_preserva_alfa_e_todos_os_pixels(intent, bpc):
+@pytest.mark.parametrize('pattern', ['varied', 'flat'])
+def test_transformacao_in_place_preserva_alfa_e_todos_os_pixels(intent, bpc, pattern):
     data = np.random.default_rng(713).integers(0, 256, (37, 256, 4), dtype=np.uint8)
+    if pattern == 'flat':
+        data[..., :3] = (100, 150, 200)
     data[..., 3] = np.arange(256, dtype=np.uint8)[None, :]
     with Image.fromarray(data, 'RGBA') as shared:
         source = shared.copy()
