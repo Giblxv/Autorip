@@ -16,9 +16,12 @@ from PIL import Image, ImageCms
 def smoke(executable, expected_version):
     with tempfile.TemporaryDirectory(prefix="autorip-smoke-") as folder:
         home = Path(folder)
+        mark=home / "smoke-watermark.png"
+        Image.new("RGBA",(128,128),(230,40,70,127)).save(mark)
         config = dict(auto_mode=False, offline_mode=True, auto_update=False,
                       label_enabled=False, dpi_x=720, dpi_y=2400,
-                      margin_top_in=0, margin_bottom_in=0, poll_seconds=.25)
+                      margin_top_in=0, margin_bottom_in=0, poll_seconds=.25,
+                      watermark_path=str(mark), watermark_opacity=.35)
         (home / "autorip.json").write_text(json.dumps(config), encoding="utf-8")
         env = dict(os.environ, AUTORIP_HOME=str(home), AUTORIP_NOBROWSER="1")
         # O bootloader Windows pode manter stdout válido quando o chamador o
@@ -63,10 +66,12 @@ def smoke(executable, expected_version):
                 embedded = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
                 # Um controle sem ICC e duas artes com o mesmo perfil exercitam
                 # a primeira compilação e a reutilização dentro do executável.
+                jobs=[]
                 for name, profile in [("smoke", b""), ("icc-first", embedded), ("icc-reused", embedded)]:
                     image = io.BytesIO()
                     artwork.save(image, format="PNG", icc_profile=profile)
                     job = api(f"/api/upload?name={name}.png&width=2.54", raw=image.getvalue())
+                    jobs.append(job["id"])
                     deadline = time.monotonic() + 60
                     while time.monotonic() < deadline:
                         state = api("/api/state")
@@ -87,11 +92,14 @@ def smoke(executable, expected_version):
                     raise RuntimeError("Executavel nao publicou três PRTs completos")
                 if len({path.read_bytes() for path in files}) != 1:
                     raise RuntimeError("Os PRTs sem ICC e com o mesmo perfil sRGB divergiram")
+                previews=[(home / "thumbs" / (job_id + ".jpg")).read_bytes() for job_id in jobs]
+                if len(set(previews)) != 1 or not previews[0]:
+                    raise RuntimeError("Prévias com a mesma marca divergiram entre trabalhos")
                 api("/api/shutdown", {})
                 process.wait(timeout=20)
                 if process.returncode:
                     raise RuntimeError(f"Executavel encerrou com codigo {process.returncode}")
-                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, três uploads, PRTs 2.54 cm idênticos sem ICC/com ICC repetido e encerramento.")
+                print(f"Smoke test aprovado: AutoRIP {expected_version}, login, três uploads, PRTs 2.54 cm idênticos sem ICC/com ICC repetido, prévias idênticas com marca e encerramento.")
             except BaseException:
                 print(logs()[-5000:])
                 raise

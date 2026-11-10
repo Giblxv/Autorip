@@ -179,3 +179,5 @@ python benchmarks/verify_rip_campaign.py --work-dir /tmp/input-icc-campaign --ic
 Esta suíte exige `--icc` para produzir e avaliar a fonte CMYK. Não substitui a
 bateria anterior: acrescenta arquivos com perfil embutido à verificação. As
 campanhas históricas continuam registradas com suas bases e cenários originais.
+
+Continuação: [conclusão dos trabalhos com marcas preparadas reutilizadas nas prévias](WATERMARK-CACHE.md).

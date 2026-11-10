@@ -5,6 +5,7 @@ from urllib.parse import urlparse, parse_qs, urlencode
 from dataclasses import asdict
 from contextlib import contextmanager
 from . import __version__
+from .watermarks import WatermarkCache
 from .config import Settings
 from .engine import Rip, MAX_INPUT_PIXELS
 from .prt import read_header
@@ -135,6 +136,7 @@ class App:
         self.s = Settings.load(self.cfg_path, base=self.home)
         self.s.validate()
         self.rip = Rip(self.s)
+        self._watermark_cache = WatermarkCache()
         self.auto = self.s.auto_mode
         self.jobs, self.log_lines, self.tokens = [], [], set()
         self.q = queue.Queue()
@@ -921,7 +923,10 @@ class App:
             wm = settings.watermark_path
             if wm and os.path.exists(wm):                           # marca d'agua do cliente
                 # A orientação da marca não era aplicada; preserve essa regra.
-                w = _load_thumbnail(wm, (im.width // 2, im.height // 2), orient=False)
+                bounds = (im.width // 2, im.height // 2)
+                cache = getattr(self, "_watermark_cache", None)
+                w = (cache.get(wm, bounds, _load_thumbnail) if cache is not None
+                     else _load_thumbnail(wm, bounds, orient=False))
                 a = w.getchannel("A").point(lambda v: int(v * settings.watermark_opacity)); w.putalpha(a)
                 bg.alpha_composite(w, ((im.width - w.width) // 2, (im.height - w.height) // 2))
             rgb = bg.convert("RGB")
