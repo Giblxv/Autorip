@@ -10,7 +10,7 @@ from .watermarks import WatermarkCache
 from .layout import LayoutItem, inspect_image, layout_to_svg, sheet_height
 from .nesting import nest_layout, utilization
 from .config import Settings
-from .engine import Rip, MAX_INPUT_PIXELS
+from .engine import Rip
 from .prt import read_header
 from .prints import PrintCatalog
 from .watcher import EXTS, _signature, _stable_files
@@ -18,11 +18,12 @@ from .paths import (ProcessLock, safe_filename, move_unique, next_available_path
                     read_archive_marker, remove_archive_marker, write_archive_marker,
                     file_sha256, find_marked_output, source_signature_matches, write_json_atomic)
 from . import integrations, agent, updater
-from PIL import Image, ImageDraw, ImageOps
+from PIL import ImageDraw, ImageOps
+from .imaging import Image
 import segno
 
 # Uploads de arte nao possuem teto artificial; permanecem protegidos por
-# Content-Length valido, espaco livre em disco, validacao Pillow e limite de pixels.
+# Content-Length valido, espaco livre em disco e validacao do formato pelo Pillow.
 MAX_UPLOAD_BYTES = None
 MAX_MANUAL_PENDING_BYTES = None
 MIN_FREE_DISK_BYTES = 128 * 1024 * 1024
@@ -116,10 +117,8 @@ def _save_thumbnail_atomic(image, destination):
     _write_thumbnail_atomic(_encode_thumbnail(image), destination)
 
 
-def _load_thumbnail(path, bounds, *, orient=True, max_pixels=None):
+def _load_thumbnail(path, bounds, *, orient=True):
     with Image.open(path) as source:
-        if max_pixels is not None and source.width * source.height > max_pixels:
-            raise ValueError("Imagem acima do limite da miniatura.")
         # A orientação PNG/TIFF pode estar disponível somente após o load.
         source.load()
         orientation = source.getexif().get(274, 1) if orient else 1
@@ -453,8 +452,6 @@ class App:
             try:
                 handler._save_request_body(temporary, MAX_UPLOAD_BYTES)
                 with Image.open(temporary) as image:
-                    if image.width * image.height > MAX_INPUT_PIXELS:
-                        raise ValueError(f"Imagem acima do limite de {MAX_INPUT_PIXELS:,} pixels.")
                     image.verify()
                 # Persista a medida ANTES de tornar a imagem visível à recuperação.
                 write_json_atomic(request_path, {"version": 1, "width_cm": width,
@@ -572,8 +569,6 @@ class App:
                 raise ValueError(f"Não foi possível ler as dimensões de {name}.") from exc
             if before != _signature(source):
                 raise ValueError("Uma arte mudou durante a leitura; tente novamente.")
-            if info.width_px * info.height_px > MAX_INPUT_PIXELS:
-                raise ValueError("Uma arte excede o limite de pixels do RIP.")
             w = requested_width if requested_width is not None else min(info.width_cm, width - 2 * margin)
             h = w * info.height_cm / info.width_cm
             for copy in range(quantity):
@@ -977,7 +972,7 @@ class App:
             by_name = os.path.join(thumbs, "by_name"); os.makedirs(by_name, exist_ok=True)
             if os.path.islink(by_name):
                 return ""
-            im = _load_thumbnail(path, (size, size), max_pixels=MAX_INPUT_PIXELS)
+            im = _load_thumbnail(path, (size, size))
             bg = Image.new("RGBA", im.size, (255, 255, 255, 255)); d = ImageDraw.Draw(bg)
             for y in range(0, im.height, 10):                       # xadrez: mostra a transparencia (= area do branco)
                 for x in range(0, im.width, 10):

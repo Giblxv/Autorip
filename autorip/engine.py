@@ -7,14 +7,14 @@ import tempfile
 import threading
 from collections import OrderedDict
 import numpy as np
-from PIL import Image, ImageCms, ImageDraw, ImageFont, ImageOps
+from PIL import ImageCms, ImageDraw, ImageFont, ImageOps
+from .imaging import Image
 from scipy import ndimage as ndi
 from .config import Settings
 from .prt import PrtWriter, plane_bytes_for, HEADER_SIZE
 from .paths import publish_unique_file
 from . import morph
 
-MAX_INPUT_PIXELS = 80_000_000
 MIN_FREE_DISK_BYTES = 128 * 1024 * 1024  # reserva para logs, journal e sistema
 RENDER_WORKERS_MAX = 4
 STRIP = 512  # reduz o pico de memoria em folhas largas
@@ -154,9 +154,6 @@ class Rip:
         """Carrega RGBA independente e libera os buffers de origem antes do render."""
         with Image.open(path) as opened:
             try:
-                # EXIF transpose decodifica os pixels; valide o cabecalho antes disso.
-                if opened.width * opened.height > MAX_INPUT_PIXELS:
-                    raise ValueError(f"Imagem excede o limite de {MAX_INPUT_PIXELS:,} pixels; reduza a arte antes do RIP.")
                 if opened.width <= 0 or opened.height <= 0:
                     raise ValueError("A imagem precisa ter largura e altura maiores que zero.")
                 orientation = opened.getexif().get(274, 1)

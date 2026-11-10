@@ -118,14 +118,3 @@ def test_duas_miniaturas_usam_uma_codificacao_e_os_mesmos_bytes(app,sample_png,m
     root=Path(app.home)/'thumbs'
     assert (root/'one-encode.jpg').read_bytes()==encoded[0]
     assert (root/'by_name'/'one-encode-output.jpg').read_bytes()==encoded[0]
-
-
-def test_limite_e_validado_antes_de_carregar_pixels(tmp_path,monkeypatch):
-    class Header:
-        width=10000;height=10000
-        def __enter__(self):return self
-        def __exit__(self,*args):pass
-        def load(self):pytest.fail('Decodificou imagem acima do limite')
-    monkeypatch.setattr(server_module.Image,'open',lambda _:Header())
-    with pytest.raises(ValueError,match='limite'):
-        server_module._load_thumbnail(tmp_path/'input.png',(220,220),max_pixels=80_000_000)

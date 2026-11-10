@@ -1,5 +1,8 @@
 # Miniaturas: menos cópias, codificação única e carregamento sob demanda
 
+Continuação na v0.8.18: [remoção do teto de pixels das artes](INPUT-PIXELS.md).
+Os limites de entrada citados abaixo descrevem a etapa histórica.
+
 Base: `57aea5b`, após a [admissão com vaga reservada](ADMISSION.md).
 Esta etapa otimiza geração e consulta de miniaturas. Não altera o renderizador
 de PRT, a estabilidade de entrada ou as janelas de espera das etapas anteriores.

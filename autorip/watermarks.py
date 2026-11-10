@@ -5,7 +5,7 @@ import stat
 import threading
 import time
 
-from PIL import Image
+from .imaging import Image
 
 MAX_WATERMARK_CACHE_ENTRIES = 16
 MAX_WATERMARK_CACHE_BYTES = 1024 * 1024

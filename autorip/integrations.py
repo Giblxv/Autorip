@@ -9,8 +9,7 @@ import threading
 import urllib.error
 import urllib.parse
 import urllib.request
-from PIL import Image
-from .engine import MAX_INPUT_PIXELS
+from .imaging import Image
 from .paths import publish_unique_file, safe_filename
 
 IMG = (".png", ".tif", ".tiff", ".jpg", ".jpeg")
@@ -215,8 +214,6 @@ def _download_attachment(url, path, headers, timeout=120, allow_loopback=False):
     if total == 0:
         raise ValueError("Anexo Trello vazio.")
     with Image.open(path) as image:
-        if image.width * image.height > MAX_INPUT_PIXELS:
-            raise ValueError("Imagem Trello acima do limite de pixels.")
         image.verify()
     return total
 

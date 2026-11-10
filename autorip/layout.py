@@ -12,7 +12,7 @@ import os
 from dataclasses import asdict, dataclass
 from typing import Iterable
 
-from PIL import Image
+from .imaging import Image
 
 MAX_SHEET_WIDTH_CM = 58.0
 DEFAULT_MARGIN_CM = 0.20

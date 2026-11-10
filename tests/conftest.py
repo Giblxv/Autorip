@@ -2,6 +2,8 @@ import json
 import os
 import sys
 import time
+import struct
+import zlib
 from pathlib import Path
 
 import pytest
@@ -10,6 +12,33 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+
+@pytest.fixture(scope="session")
+def large_artwork_png(tmp_path_factory):
+    """PNG válido de 400 MP, 1 bit, gerado em streaming para ler só metadados.
+
+    Os testes de admissão não decodificam este raster. Os testes do motor e da
+    prévia interrompem no decoder, antes da alocação de um RGBA gigante.
+    """
+    path = tmp_path_factory.mktemp("large-artwork") / "large.png"
+    with path.open("wb") as target:
+        target.write(b"\x89PNG\r\n\x1a\n")
+
+        def chunk(kind, data):
+            target.write(struct.pack(">I", len(data)) + kind + data)
+            target.write(struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff))
+
+        chunk(b"IHDR", struct.pack(">IIBBBBB", 20000, 20000, 1, 0, 0, 0, 0))
+        compressor = zlib.compressobj(level=1)
+        row = b"\0" * 2501  # filtro 0 e 20.000 pixels em 2.500 bytes
+        for _ in range(20000):
+            data = compressor.compress(row)
+            if data:
+                chunk(b"IDAT", data)
+        chunk(b"IDAT", compressor.flush())
+        chunk(b"IEND", b"")
+    return path
 
 
 @pytest.fixture
