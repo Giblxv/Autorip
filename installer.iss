@@ -1,6 +1,6 @@
 ; AutoRIP - instalador (Inno Setup 6). Compile com: ISCC installer.iss  (build_windows.bat ja faz isso)
 #define AppName "AutoRIP"
-#define AppVersion "0.8.15"
+#define AppVersion "0.8.16"
 #define AppExe "AutoRIP.exe"
 
 [Setup]
@@ -55,6 +55,8 @@ Name: "desktopicon"; Description: "{cm:TaskDesktop}"; GroupDescription: "{cm:Add
 Name: "autostart"; Description: "{cm:TaskAutoStart}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
+Source: "installer_assets\mobile-android.bmp"; DestName: "mobile-android.bmp"; Flags: dontcopy noencryption
+Source: "installer_assets\mobile-ios-guide.bmp"; DestName: "mobile-ios-guide.bmp"; Flags: dontcopy noencryption
 Source: "dist\AutoRIP\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion createallsubdirs
 
 [Icons]
@@ -72,6 +74,9 @@ Filename: "{app}\{#AppExe}"; Description: "{cm:RunApp}"; Flags: postinstall nowa
 var
   FoldersPage: TInputDirWizardPage;
   IccPage: TInputFileWizardPage;
+  MobileAppsPage: TWizardPage;
+  AndroidQrImage, IosQrImage: TBitmapImage;
+  AndroidQrLabel, IosQrLabel, MobileAppsNote: TNewStaticText;
 
 procedure InitializeWizard;
 begin
@@ -95,6 +100,48 @@ begin
 
   IccPage := CreateInputFilePage(FoldersPage.ID, CustomMessage('PgIccTitle'), CustomMessage('PgIccDesc'), CustomMessage('PgIccSub'));
   IccPage.Add(CustomMessage('PgIcc'), 'Perfis ICC|*.icc;*.icm|Todos os arquivos|*.*', '.icc');
+
+  ExtractTemporaryFile('mobile-android.bmp');
+  ExtractTemporaryFile('mobile-ios-guide.bmp');
+  MobileAppsPage := CreateCustomPage(IccPage.ID, 'Aplicativos móveis', 'Escaneie um QR para baixar o APK Android ou consultar as instruções para iPhone/iPad.');
+
+  AndroidQrLabel := TNewStaticText.Create(WizardForm);
+  AndroidQrLabel.Parent := MobileAppsPage.Surface;
+  AndroidQrLabel.SetBounds(10, 6, (MobileAppsPage.SurfaceWidth div 2) - 20, 28);
+  AndroidQrLabel.Caption := 'Android - baixar APK';
+  AndroidQrLabel.Alignment := taCenter;
+  AndroidQrLabel.Font.Style := [fsBold];
+  AndroidQrLabel.Font.Color := $1A1A1A;
+
+  IosQrLabel := TNewStaticText.Create(WizardForm);
+  IosQrLabel.Parent := MobileAppsPage.Surface;
+  IosQrLabel.SetBounds((MobileAppsPage.SurfaceWidth div 2) + 10, 6, (MobileAppsPage.SurfaceWidth div 2) - 20, 28);
+  IosQrLabel.Caption := 'iPhone/iPad - instruções';
+  IosQrLabel.Alignment := taCenter;
+  IosQrLabel.Font.Style := [fsBold];
+  IosQrLabel.Font.Color := $1A1A1A;
+
+  AndroidQrImage := TBitmapImage.Create(WizardForm);
+  AndroidQrImage.Parent := MobileAppsPage.Surface;
+  AndroidQrImage.SetBounds((MobileAppsPage.SurfaceWidth div 4) - 90, 38, 180, 180);
+  AndroidQrImage.Stretch := True;
+  AndroidQrImage.Center := True;
+  AndroidQrImage.Bitmap.LoadFromFile(ExpandConstant('{tmp}\mobile-android.bmp'));
+
+  IosQrImage := TBitmapImage.Create(WizardForm);
+  IosQrImage.Parent := MobileAppsPage.Surface;
+  IosQrImage.SetBounds((MobileAppsPage.SurfaceWidth * 3 div 4) - 90, 38, 180, 180);
+  IosQrImage.Stretch := True;
+  IosQrImage.Center := True;
+  IosQrImage.Bitmap.LoadFromFile(ExpandConstant('{tmp}\mobile-ios-guide.bmp'));
+
+  MobileAppsNote := TNewStaticText.Create(WizardForm);
+  MobileAppsNote.Parent := MobileAppsPage.Surface;
+  MobileAppsNote.SetBounds(10, 226, MobileAppsPage.SurfaceWidth - 20, 54);
+  MobileAppsNote.Caption := 'Android 0.2.0: prévia assinada com chave de teste; APK otimizado instala separado. iPhone/iPad: o QR abre o guia; ainda não há IPA assinado para distribuição.';
+  MobileAppsNote.Alignment := taCenter;
+  MobileAppsNote.WordWrap := True;
+  MobileAppsNote.Font.Color := $1A1A1A;
 end;
 
 function JsonEscape(const S: String): String;

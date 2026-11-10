@@ -1,0 +1,39 @@
+name: Flutter iOS Client Checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile_ios/**'
+      - '.github/workflows/mobile-ios.yml'
+  pull_request:
+    paths:
+      - 'mobile_ios/**'
+      - '.github/workflows/mobile-ios.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  flutter-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: stable
+          cache: true
+      - name: Resolve locked dependencies
+        working-directory: mobile_ios
+        run: flutter pub get --enforce-lockfile
+      - name: Analyze Dart
+        working-directory: mobile_ios
+        run: flutter analyze --fatal-infos
+      - name: Run tests
+        working-directory: mobile_ios
+        run: flutter test

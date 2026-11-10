@@ -1,20 +1,24 @@
 {
   "name": "autorip-mobile",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Cliente Android do painel AutoRIP com endpoint interno configurável",
   "scripts": {
     "cap:sync": "cap sync android",
     "android:debug": "cap sync android && cd android && ./gradlew assembleDebug",
+    "android:optimized": "cap sync android && cd android && ./gradlew assembleOptimized",
     "android:release": "cap sync android && cd android && ./gradlew assembleRelease",
-    "android:install": "cap sync android && cd android && ./gradlew assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk"
+    "android:install": "cap sync android && cd android && ./gradlew assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk",
+    "build": "esbuild src/app.js --bundle --platform=browser --target=es2020 --outfile=public/app.js"
   },
   "dependencies": {
+    "@capacitor-mlkit/barcode-scanning": "^6.2.0",
     "@capacitor/android": "^6.2.3",
     "@capacitor/core": "^6.2.3"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.3",
+    "esbuild": "^0.25.0",
     "typescript": "^7.0.2"
   }
 }

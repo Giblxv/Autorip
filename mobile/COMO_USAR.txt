@@ -7,21 +7,24 @@ IMPORTANTE:
 - O APK não executa o RIP sozinho.
 - O processamento continua sendo feito pelo computador onde o AutoRIP está instalado.
 - O computador servidor precisa permanecer ligado e conectado à mesma rede do telefone.
-- O APK desta release é uma versão DEBUG para validação inicial e não é assinado para publicação em loja.
+- Esta release é uma prévia de teste; os APKs usam chave debug e não são assinados para publicação em loja.
 
 1. BAIXAR E INSTALAR
 --------------------
 
-1. Baixe o arquivo app-debug.apk na release do GitHub.
+1. Na página da release, escolha `AutoRIP-Mobile-debug.apk` para o app padrão ou `AutoRIP-Mobile-optimized.apk` para a variante R8 de teste.
 2. No telefone, abra o arquivo APK.
 3. Se o Android solicitar, autorize a instalação de aplicativos desta fonte.
 4. Conclua a instalação e abra o aplicativo AutoRIP.
 
 Release:
-https://github.com/Giblxv/Autorip/releases/tag/mobile-v0.1.0
+https://github.com/Giblxv/Autorip/releases/tag/mobile-v0.2.0
 
 APK direto:
-https://github.com/Giblxv/Autorip/releases/download/mobile-v0.1.0/app-debug.apk
+https://github.com/Giblxv/Autorip/releases/download/mobile-v0.2.0/AutoRIP-Mobile-debug.apk
+
+APK otimizado de teste:
+https://github.com/Giblxv/Autorip/releases/download/mobile-v0.2.0/AutoRIP-Mobile-optimized.apk
 
 2. PREPARAR O COMPUTADOR SERVIDOR
 ---------------------------------
@@ -69,7 +72,7 @@ O telefone e o computador precisam estar na mesma rede Wi-Fi ou LAN.
 ----------------------------
 
 1. Abra o AutoRIP Mobile.
-2. Informe o endereço do servidor, incluindo a porta.
+2. Use **Escanear QR code** no painel do computador; ou informe manualmente o endereço do servidor, incluindo a porta.
 3. Exemplo:
 
 http://192.168.1.50:8765
