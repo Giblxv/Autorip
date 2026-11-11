@@ -1,0 +1,26 @@
+{
+  "utc": "2026-11-11T17:54:01.290126+00:00",
+  "accepted": false,
+  "fresh_workers": 462,
+  "all_outputs_and_source_hashes_identical": true,
+  "geomean_speedup": 0.9699464418980726,
+  "bootstrap_95_low": 0.9071892874511283,
+  "narrow_long": {
+    "baseline_seconds": 0.024190088002796983,
+    "candidate_seconds": 0.02202153599864687,
+    "speedup": 1.0984741484101457,
+    "paired_median_speedup": 1.0808557996858108,
+    "bootstrap_95_low": 0.8726818243071122,
+    "bootstrap_95_high": 1.4466120835946104,
+    "peak_rss_mib": [
+      54.578125,
+      52.3046875
+    ]
+  },
+  "reason": "Neither prespecified global nor narrow-specific rule met: confidence interval does not confirm a gain; broad case medians also exceed slowdown tolerance.",
+  "second_battery_run": false,
+  "aa_run": false,
+  "reason_no_further_batteries": "First independent battery failed the prespecified qualification rules.",
+  "production_changed": false,
+  "resume_consecutive_without_gain": 3
+}

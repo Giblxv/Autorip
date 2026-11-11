@@ -1,0 +1,205 @@
+[
+  {
+    "candidate": "cmyk-normalize-inplace",
+    "hash": "06ac7fcac296560e9b1336eb1c67b146c1bb7fb84cd77a9578dc5ea06166550c",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "threshold-narrow-fallback",
+    "hash": "47a05a68b0f6d86452e591b3ec92d0bb5269c9fb1d75d7b0b39c1d3b9be828b8",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "threshold-padding-bound",
+    "hash": "782a927dfdc6be2b3e45a78f90c2ee938ba4aff349dd9725b45b659bf93a6aaa",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "alpha-buffer-normalize",
+    "inapplicable": true,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "density-private-buffer",
+    "hash": "e101a84efa3f2cafa263659fafc31d51189ec0961b9fefab51b401ed300a40ae",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-validate-minmax",
+    "hash": "8526e1930ee974cd6195f7a6bb3aba4dbb006042465ec12720107be5403fbdd4",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-tail-empty",
+    "hash": "ff136872d0100b0a3b9332f0114ddff7c7057ef06ce4ce651a307b7821e386ca",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "writer-reuse-buffer",
+    "hash": "da6c2a591ecedfe7ef7541d3ba8d6c98743b7886c7e751cbbaa222f32cffac5b",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "writer-zero-plane",
+    "hash": "766a591b31077d61f86c67ce87c7a78c0f4f9d929d79689b10fd5503d060dc10",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "edt-convert-scale",
+    "hash": "7a46f0dbc449c8b07ef1bef8f6fbf3b30738137a2334b5ce67108b528a760683",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-validate-unsigned",
+    "hash": "3387b479769b81a4063b350da8dd149f6d32df33c390e012ef577040b38283fe",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-validate-max8",
+    "hash": "98cfc7005580f523305249677c4b327e61478f5064d373c0ff8fd95bf46c7e00",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-validate-mask8",
+    "hash": "21b17c56349fb0555522fbef9d81de4e2213c4755ca3efac4b76b5b587d4df2c",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-validate-or8",
+    "hash": "7d21f2c01e5791ade9c3e7bd3a873c20a067bb8c5f417c1e222b42c852753c14",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-tail-zero",
+    "hash": "67de493d3f679138a040c2e03123fc2587305fa85f836594c0a48bbde6984ad6",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-tail-ufunc",
+    "hash": "42b1954e0ba7050c13a87a53067657f2044869480668a681be935761ebc29eee",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-pair-lut",
+    "hash": "735fac715d8f20c297a24da2bce7646de34480484312b460d80ad385e190d107",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-einsum",
+    "hash": "74cbbe90b1651fbf9a007db09e8a906cdbe9eb959c307f3c29296c5de2a0a2a3",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "pack-accumulator",
+    "hash": "1773a16951b7a7345825a5a3300aca9e5a9b903b49415c11992cf352b2d93bec",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "writer-identity-cache",
+    "hash": "d695bfe87a28895a6fd4f0e8e7d53f1de62a00123bb5315f06b58482c3077edc",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "writer-planar-layout",
+    "hash": "57626acd07d099a78ccf9ccbbc2977de568b60a5635e69691fb786338fd1648d",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "writer-sparse-empty",
+    "hash": "91bb307d50f452a0f94eb8353f0b02275435a4acaa3cf98fcc6525845576ef88",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "ink-identity-limit",
+    "hash": "9769c4660cd02be41d80c17d52227c667d1baeabbbaebda6bf2ccce3d76f2ba3",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "ink-multiplier-cache",
+    "hash": "aa6cbeafb61f4229e411bd97784f8b4f2a8c5ffb3b5a09fa67968b2ca018118a",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "alpha-multiply-ufunc",
+    "hash": "29da8bcdd5b6175480199fdeb5ce38910e27d5ffda627a748d3123c7dd8d697b",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "threshold-indices32",
+    "hash": "532fd9071494abe9129f4c96543c7d5809a8c721b9fa5a82b8af264e11dc9b94",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "threshold-direct-index",
+    "hash": "2db84feb14ace970683a465bcd4a05abd5cdd39ed68ac7299d4182ce8997a84e",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "threshold-power-two",
+    "hash": "a44e8085b4c579ec94b48a21d522a6bdfcfbb4df16a6822dd4633db5c3c29cd3",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "white-no-fill-assignment",
+    "hash": "dde1eb6e82ad40f3095e78ae25e56202cc4b08351f05abae267a146fddfca837",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "close-padding-buffer",
+    "hash": "070005916a88e35bf2fdb81a8680d0c0d8b1f1e7bff6303eb2c3ef3865ca75bf",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "edt-coordinate-cache",
+    "hash": "96eceb6d7392d6dbfd28eab52107ec1e0d8003b5f5d21bf930626afd32acacba",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "edt-hypot",
+    "hash": "b6a10bce72c675b489c9b27a32b1b83d9c52f0e41f266cde320be889d6a9a253",
+    "micro_mismatch": "dilate-physical-boundary",
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "memory-budget-384",
+    "hash": "05ca8b17d5069f3950b7121777830ca4d24644703026bbfbe47e959cd978d7ff",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  },
+  {
+    "candidate": "memory-budget-256",
+    "hash": "4b18e0b14daef98344412580e48ba7229e4e034748696f3e7c1308cd61b90d6f",
+    "micro_mismatch": null,
+    "counted_in_campaign": false
+  }
+]
