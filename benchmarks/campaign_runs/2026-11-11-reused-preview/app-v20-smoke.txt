@@ -1,0 +1,1 @@
+Smoke test aprovado: AutoRIP 0.8.20, login, planejamento de duas peças e arte de 400 MP, assets, três uploads com alfa variável, PRTs 2.54 cm idênticos sem ICC/com ICC repetido, prévias idênticas com marca e encerramento.

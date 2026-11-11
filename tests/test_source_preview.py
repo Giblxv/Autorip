@@ -1,6 +1,5 @@
 """Reutilize o decode sem compartilhar pixels mutáveis nem publicar jobs incompletos."""
 from pathlib import Path
-import gc
 import time
 
 import numpy as np
@@ -34,6 +33,10 @@ def test_previa_capturada_e_identica_a_leitura_independente(tmp_path, mode, form
         source.load()
         with ImageOps.exif_transpose(source) as oriented:
             expected = oriented.convert('RGBA')
+    # O context manager fecha o arquivo, mas o mmap TIFF pertence ao raster.
+    # Libere a referência-oráculo; a prévia real fica aberta durante o rename.
+    source.close()
+    oriented.close()
     expected.thumbnail((220, 197))
     preview = server._SourcePreview((220, 197))
     readonly = []
@@ -52,13 +55,8 @@ def test_previa_capturada_e_identica_a_leitura_independente(tmp_path, mode, form
         # A prévia não depende da vida útil nem das alterações futuras do RIP.
         processed.close()
         assert actual.tobytes() == expected.tobytes()
-        if actual is preview.image:
-            preview.take().close()
-        else:
-            actual.close()
-        expected.close()
-        gc.collect()
         path.rename(path.with_name('renamed.' + format.lower()))
+        assert actual.tobytes() == expected.tobytes()
     finally:
         processed.close(); preview.close(); actual.close(); expected.close()
 

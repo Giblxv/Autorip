@@ -39,5 +39,13 @@
     "expected_version": "0.8.19",
     "production_commit": "5780e37"
   },
-  "extra_tiff_regenerated_identical_sha256": true
+  "extra_tiff_regenerated_identical_sha256": true,
+  "integration_baseline": {
+    "commit": "23d4c106bfb2adf10e69292f9d71182b88284b60",
+    "version": "0.8.20",
+    "full_pillow13_passed": 1016,
+    "full_log": "full-guarded-pillow13.txt",
+    "app_smoke": "app-v20-smoke.txt",
+    "scope": "Before subsequent 25-round engine refinement; production source matches guarded preview implementation"
+  }
 }
