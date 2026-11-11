@@ -1,0 +1,75 @@
+{
+  "repeat": 5,
+  "fixture": {
+    "width": 4096,
+    "height": 3072
+  },
+  "median_seconds": {
+    "load_source": 0.1280567779995181,
+    "prepare_resampling": 0.03111965799871541,
+    "prt_write_pack": 0.012026149001030717,
+    "render_total": 0.3360320329993556,
+    "thresholds": 0.0051746070057561155,
+    "to_cmyk": 0.01750967999942077,
+    "total": 0.28054034400156524,
+    "unattributed": 0.0,
+    "white_morphology": 0.15146595999976853
+  },
+  "samples": [
+    {
+      "load_source": 0.1277572049984883,
+      "prepare_resampling": 0.029375643000093987,
+      "render_total": 0.34944973600431695,
+      "prt_write_pack": 0.012370677999570034,
+      "to_cmyk": 0.01599319100023422,
+      "thresholds": 0.0051746070057561155,
+      "white_morphology": 0.1602345509982115,
+      "total": 0.27656635899984394,
+      "unattributed": 0.0
+    },
+    {
+      "load_source": 0.12813434400050028,
+      "prepare_resampling": 0.03569253899877367,
+      "render_total": 0.3360320329993556,
+      "prt_write_pack": 0.012026149001030717,
+      "to_cmyk": 0.017941062000318198,
+      "thresholds": 0.005761806000009528,
+      "white_morphology": 0.15146595999976853,
+      "total": 0.28054034400156524,
+      "unattributed": 0.0
+    },
+    {
+      "load_source": 0.1280567779995181,
+      "prepare_resampling": 0.029112677999364678,
+      "render_total": 0.32239854900035425,
+      "prt_write_pack": 0.010843013000339852,
+      "to_cmyk": 0.01750967999942077,
+      "thresholds": 0.002632752002682537,
+      "white_morphology": 0.14380082899879199,
+      "total": 0.27127272300094774,
+      "unattributed": 0.0
+    },
+    {
+      "load_source": 0.12789059100032318,
+      "prepare_resampling": 0.03111965799871541,
+      "render_total": 0.35400550099984684,
+      "prt_write_pack": 0.01177286600068328,
+      "to_cmyk": 0.020198001999233384,
+      "thresholds": 0.007056727996314294,
+      "white_morphology": 0.16106142300122883,
+      "total": 0.2821862199998577,
+      "unattributed": 0.0
+    },
+    {
+      "load_source": 0.1335978269999032,
+      "prepare_resampling": 0.033948069998587016,
+      "render_total": 0.3306541230012954,
+      "prt_write_pack": 0.012754204000884783,
+      "to_cmyk": 0.015464664000319317,
+      "thresholds": 0.0037945230051263934,
+      "white_morphology": 0.14864212600332394,
+      "total": 0.2844517060002545,
+      "unattributed": 0.0
+    }
+  ]
+}
