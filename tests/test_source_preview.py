@@ -1,5 +1,6 @@
 """Reutilize o decode sem compartilhar pixels mutáveis nem publicar jobs incompletos."""
 from pathlib import Path
+import gc
 import time
 
 import numpy as np
@@ -55,6 +56,8 @@ def test_previa_capturada_e_identica_a_leitura_independente(tmp_path, mode, form
             preview.take().close()
         else:
             actual.close()
+        expected.close()
+        gc.collect()
         path.rename(path.with_name('renamed.' + format.lower()))
     finally:
         processed.close(); preview.close(); actual.close(); expected.close()
