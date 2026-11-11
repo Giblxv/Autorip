@@ -39,3 +39,8 @@ AUTORIP_PYTHON=.venv/bin/python node benchmarks/benchmark_panel_jobs.cjs --basel
 Requer Playwright e Chromium. O script aceita `AUTORIP_CHROMIUM` para usar um navegador instalado. O ZIP e o manifesto preservam os HTMLs e scripts medidos. O aplicativo nativo Android abre este painel no servidor; nenhuma nova dependência ou atualização de APK é necessária para receber a página atualizada.
 
 A investigação do RIP foi pausada após sete hipóteses sem ganho sobre `cab0b05`, sem contar a rodada parcial 8. O contador reinicia após estas duas melhorias validadas. As sequências anteriores permanecem separadas.
+
+
+A campanha final terminou às 20:12:54 de São Paulo com 25 hipóteses consecutivas sem novo ganho validado; verificação independente: 30 PRTs idênticos e cadeia de hashes/checkout conferidos. [Campanha final](../../benchmarks/campaign_runs/2026-11-11-large-io/final-programs/README.md).
+
+As propostas de orçamento de 384 e 256 MiB alteraram o PRT no cenário de arte larga com alfa e foram rejeitadas antes da cronometragem. O orçamento de produção foi preservado. As outras 23 hipóteses não confirmaram ganho pelos critérios da campanha. Nenhuma proposta adicional foi aplicada.

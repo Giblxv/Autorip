@@ -29,3 +29,8 @@ A campanha anterior sobre `7095fe0` foi interrompida após 20 rejeições, sem a
 
 
 A main recebeu depois o PR #63, com cache LRU de até 16 retículas imutáveis. Esse cache foi incorporado antes da campanha final combinada. As 15 hipóteses concluídas sobre RGB nativo sem esse cache ficam arquivadas separadamente em `pre-noise-cache`; a rodada parcial 16 não conta. As 25 repetições de regressão do PR #64 verificam estabilidade, não equivalem a 25 hipóteses de desempenho.
+
+
+A campanha final terminou às 20:12:54 de São Paulo com 25 hipóteses consecutivas sem novo ganho validado; verificação independente: 30 PRTs idênticos e cadeia de hashes/checkout conferidos. [Campanha final](../../benchmarks/campaign_runs/2026-11-11-large-io/final-programs/README.md).
+
+As propostas de orçamento de 384 e 256 MiB alteraram o PRT no cenário de arte larga com alfa e foram rejeitadas antes da cronometragem. O orçamento de produção foi preservado. As outras 23 hipóteses não confirmaram ganho pelos critérios da campanha. Nenhuma proposta adicional foi aplicada.

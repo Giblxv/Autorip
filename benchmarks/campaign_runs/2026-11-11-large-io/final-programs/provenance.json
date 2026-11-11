@@ -1,0 +1,16 @@
+{
+  "base_commit": "b902b94bc9630fdbce743f2be24571874dadf502",
+  "stopped_local": "2026-11-11T20:12:54.736658-03:00",
+  "panel_sha256": "554aa3e2666d2bb5f6b12124de6f5cf13468013d0f8c6e782668dcc16e8a403b",
+  "zip_sha256": "130bf36869da125657624260c5fe9b18df026f78f1b0781a2f606a1b7bd421a5",
+  "script_sha256": {
+    "rip_wide_candidates.py.txt": "f3594f5d0b05fc044a01f083a61251ca96ed7694e6a29235baf66253f7d52c6f",
+    "rip_candidates.py.txt": "f92738aa2249e926b5128f345895f6c962038c30454603898d5d2cf1aea5992c",
+    "rip_io_candidates.py.txt": "efad7d47883916b4436de6e7100a7d2359bcd921946ac3219ba7e3f64583afbf",
+    "rip_campaign.py.txt": "5c7357ac87f7ff584e2881eb4706f63e9b6114e92f5c01e074fdd2932326d04a"
+  },
+  "icc_sha256": "a86396b8ca0b1799096359fec6ac79e39db454fed71ba6dd2eed24d53506d6a5",
+  "snapshot_entries": 84,
+  "memory_metric": "tracemalloc, not whole native RSS",
+  "old_streaks_not_added": true
+}
