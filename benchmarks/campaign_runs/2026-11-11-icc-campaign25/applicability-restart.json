@@ -1,0 +1,8 @@
+{
+  "checkpoint_utc": "2026-11-11T14:21:33.895932+00:00",
+  "completed_rounds": 13,
+  "interrupted_candidate": "parallel-threshold-500k",
+  "interrupted_round_counted": false,
+  "reason": "No worker-count change for this corpus: cases either fail the 3*512 row condition, lie outside the newly enabled area interval, or are forced to one CPU (flat ICC case). Excluded before measurement completes.",
+  "retained_leader_hash": "b8535523d721c5c485efa3af296d5fc334a02cab88463ae152f8deca68da1c83"
+}

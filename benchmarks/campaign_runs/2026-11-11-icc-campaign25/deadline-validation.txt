@@ -1,0 +1,4 @@
+{"stop_reason": "deadline", "message": "Prazo da campanha atingido; rodada incompleta n\u00e3o contabilizada"}
+
+Deadline interrupted initialization without counting a round or changing production files
+Past deadlines and deadlines without a timezone rejected

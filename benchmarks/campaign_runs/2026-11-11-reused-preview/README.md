@@ -46,5 +46,8 @@ originais com SHA256 idêntico.
 
 `validation.json` identifica testes e smokes dos protótipos. A suíte completa de
 1.013 testes antecede o guard; os 209 focados posteriores o incluem. A validação
-final do código a integrar é registrada separadamente após a campanha de 25 rodadas.
+final inclui 1.016 testes locais completos, smoke do App 0.8.20, matriz de testes
+Linux/Windows e smokes do executável/instalador Windows. A
+[campanha final com ICC/RGBA](../2026-11-11-icc-campaign25/README.md) encerrou com
+25 recusas consecutivas e 23 PRTs idênticos na verificação independente.
 O smoke local usa Python, e não substitui os smokes do executável/instalador Windows.

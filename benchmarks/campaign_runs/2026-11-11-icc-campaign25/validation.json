@@ -1,0 +1,271 @@
+{
+  "targeted_tests": {
+    "passed": 98,
+    "log": "targeted-tests.txt"
+  },
+  "unchanged_runtime_since": "438e090a4b72c39efaea52b50f6c682ed259d47c",
+  "integration_ci": [
+    {
+      "id": 43036354684,
+      "sha": "f9626d9c797583f7d56e431a8683f57449ab1634",
+      "url": "https://github.com/Giblxv/Autorip/actions/runs/43036354684",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Testes windows-2022 / Python 3.12",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Baixar reposit\u00f3rio",
+              "conclusion": "success"
+            },
+            {
+              "name": "Configurar Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Instalar depend\u00eancias de teste",
+              "conclusion": "success"
+            },
+            {
+              "name": "Executar regress\u00f5es",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Configurar Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Baixar reposit\u00f3rio",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "name": "Testes windows-2022 / Python 3.10",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Baixar reposit\u00f3rio",
+              "conclusion": "success"
+            },
+            {
+              "name": "Configurar Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Instalar depend\u00eancias de teste",
+              "conclusion": "success"
+            },
+            {
+              "name": "Executar regress\u00f5es",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Configurar Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Baixar reposit\u00f3rio",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "name": "Testes ubuntu-latest / Python 3.10",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Baixar reposit\u00f3rio",
+              "conclusion": "success"
+            },
+            {
+              "name": "Configurar Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Instalar depend\u00eancias de teste",
+              "conclusion": "success"
+            },
+            {
+              "name": "Executar regress\u00f5es",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Configurar Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Baixar reposit\u00f3rio",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "name": "Testes ubuntu-latest / Python 3.12",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Baixar reposit\u00f3rio",
+              "conclusion": "success"
+            },
+            {
+              "name": "Configurar Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Instalar depend\u00eancias de teste",
+              "conclusion": "success"
+            },
+            {
+              "name": "Executar regress\u00f5es",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Configurar Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Baixar reposit\u00f3rio",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "name": "Regress\u00e3o 15x ${{ matrix.os }} / Python 3.12",
+          "conclusion": "skipped",
+          "steps": []
+        }
+      ]
+    },
+    {
+      "id": 43036354828,
+      "sha": "f9626d9c797583f7d56e431a8683f57449ab1634",
+      "url": "https://github.com/Giblxv/Autorip/actions/runs/43036354828",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "build",
+          "conclusion": "success",
+          "steps": [
+            {
+              "name": "Set up job",
+              "conclusion": "success"
+            },
+            {
+              "name": "Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Setup Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Conferir versao da tag e do instalador",
+              "conclusion": "skipped"
+            },
+            {
+              "name": "Install Python dependencies",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify PyInstaller availability",
+              "conclusion": "success"
+            },
+            {
+              "name": "Run regression tests before Windows packaging",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build one-file executable",
+              "conclusion": "success"
+            },
+            {
+              "name": "Smoke test do executavel empacotado",
+              "conclusion": "success"
+            },
+            {
+              "name": "Install Inno Setup",
+              "conclusion": "success"
+            },
+            {
+              "name": "Build installer",
+              "conclusion": "success"
+            },
+            {
+              "name": "Verify artifacts",
+              "conclusion": "success"
+            },
+            {
+              "name": "Smoke test installed executable",
+              "conclusion": "success"
+            },
+            {
+              "name": "Create release checksums",
+              "conclusion": "success"
+            },
+            {
+              "name": "Upload executable and installer",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Setup Python",
+              "conclusion": "success"
+            },
+            {
+              "name": "Post Checkout",
+              "conclusion": "success"
+            },
+            {
+              "name": "Complete job",
+              "conclusion": "success"
+            }
+          ]
+        },
+        {
+          "name": "release",
+          "conclusion": "skipped",
+          "steps": []
+        }
+      ]
+    }
+  ],
+  "archive_reproduction": {
+    "all_83_zip_entries_sha256_verified": true,
+    "independent_verifier_passed": true,
+    "identical_prt_cases": 23,
+    "checkout_checked": true
+  }
+}
