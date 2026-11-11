@@ -254,6 +254,7 @@ def main():
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--baseline-ref',help='Commit/tag Git da base; leitura sem checkout')
     parser.add_argument('--deadline',help='Prazo ISO 8601 com fuso, por exemplo 2026-11-11T22:00:00-03:00')
+    parser.add_argument('--exclude',nargs='*',default=[],help='Hipóteses excluídas antes da campanha')
     args=parser.parse_args()
     if args.deadline:
         try:
@@ -271,6 +272,12 @@ def main():
         proposals=CANDIDATES
     if args.suite == 'rgba-direct':
         from rip_rgba_candidates import CANDIDATES as proposals
+    unknown = set(args.exclude)-{p[0] for p in proposals}
+    if unknown:
+        parser.error('Hipóteses desconhecidas em --exclude: '+', '.join(sorted(unknown)))
+    proposals = [p for p in proposals if p[0] not in args.exclude]
+    if not proposals:
+        parser.error('Nenhuma hipótese disponível após --exclude')
     if args.suite in ('input-icc','source-alpha','rgba-direct') and not args.icc:
         parser.error('Esta suíte exige --icc com um perfil CMYK válido')
     if args.repeats<5 or args.rounds_without_gain<15:parser.error('Minimos: 5 repeticoes e 15 rodadas sem ganho')
@@ -314,6 +321,7 @@ def main():
     report['deadline_utc'] = datetime.fromtimestamp(DEADLINE, timezone.utc).isoformat() if DEADLINE else None
     report.setdefault('started_at_utc', started_at)
     report['unique_candidate_per_leader'] = True
+    report['excluded_candidates'] = args.exclude
     index=len(report['rounds']);cursor=0;skips=0;accepted_hashes={digest(initial)}
     accepted_hashes.update(r['candidate_hash'] for r in report['rounds'] if r['accepted'])
     if report['rounds']:
