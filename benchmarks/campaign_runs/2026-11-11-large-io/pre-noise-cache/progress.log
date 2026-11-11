@@ -1,0 +1,24 @@
+/workspace/Autorip/.venv/lib/python3.12/site-packages/PIL/Image.py:1134: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+  warnings.warn(
+/workspace/Autorip/.venv/lib/python3.12/site-packages/PIL/Image.py:1134: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+  warnings.warn(
+Traceback (most recent call last):
+  File "/workspace/Autorip/benchmarks/rip_campaign.py", line 487, in <module>
+    main()
+  File "/workspace/Autorip/benchmarks/rip_campaign.py", line 426, in main
+    measurement=timed_pair(reference_rips,candidate_rips,timed,output,args.repeats)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Autorip/benchmarks/rip_campaign.py", line 278, in timed_pair
+    start=time.perf_counter();render(rip,c,output)
+                              ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Autorip/benchmarks/rip_campaign.py", line 197, in render
+    info=rip.process(str(case['path']),str(output),width_cm=case['width'],
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/autorip-review/large-io-2026-11-11/final-native/run/leader_modules/engine.py", line 411, in process
+    planes_full = future.result()
+                  ^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py", line 451, in result
+    self._condition.wait(timeout)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/threading.py", line 355, in wait
+    waiter.acquire()
+KeyboardInterrupt

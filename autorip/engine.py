@@ -79,28 +79,31 @@ class Rip:
                 self.icc_error = f"Perfil ICC indisponivel ou invalido: {exc}"
 
     @staticmethod
-    def _build_source_transform(embedded, mode, intent, flags):
+    def _build_source_transform(embedded, mode, intent, flags, output_mode="RGBA"):
         profile = ImageCms.ImageCmsProfile(io.BytesIO(embedded))
         return ImageCms.buildTransform(profile, ImageCms.createProfile("sRGB"), mode,
-                                       "RGBA", renderingIntent=intent, flags=flags)
+                                       output_mode, renderingIntent=intent, flags=flags)
 
-    def _source_transform(self, embedded, mode):
+    def _source_transform(self, embedded, mode, output_mode="RGBA"):
         flags = ImageCms.Flags.BLACKPOINTCOMPENSATION if self.s.black_point_comp else 0
         intent = self.s.intent
+        arguments = (mode, intent, flags)
+        if output_mode != "RGBA":
+            arguments += (output_mode,)
         if MAX_SOURCE_TRANSFORMS <= 0 or len(embedded) > MAX_SOURCE_PROFILE_BYTES:
-            return self._build_source_transform(embedded, mode, intent, flags)
+            return self._build_source_transform(embedded, *arguments)
         # Cada thread possui suas transformações: mantém o cache de pixels do
         # LittleCMS sem compartilhar estado mutável entre trabalhos simultâneos.
         local = self._source_transforms
         if not hasattr(local, "cache"):
             local.cache = OrderedDict()
             local.profile_bytes = 0
-        key = (bytes(embedded), mode, intent, flags)
+        key = (bytes(embedded), *arguments)
         cached = local.cache.get(key)
         if cached is not None:
             local.cache.move_to_end(key)
             return cached
-        transform = self._build_source_transform(key[0], mode, intent, flags)
+        transform = self._build_source_transform(*key)
         local.cache[key] = transform
         local.profile_bytes += len(key[0])
         while (len(local.cache) > MAX_SOURCE_TRANSFORMS
@@ -167,8 +170,36 @@ class Rip:
         except Exception as exc:
             raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc
 
-    def _load_source(self, path, source_ready=None):
-        """Entrega um RGBA privado, com arquivo fechado e demais rasters liberados."""
+    # Referências estáveis preservam hooks de carregadores/conversores personalizados.
+    _builtin_source_rgba = _source_rgba
+
+    def _source_rgb(self, source, *, in_place=False):
+        """RGB sem chave de cor: core privado e ICC sem expansão para RGBA."""
+        if source.mode != "RGB" or "transparency" in source.info:
+            raise ValueError("O caminho RGB exige uma origem opaca sem chave de cor.")
+        embedded = source.info.get("icc_profile")
+        try:
+            transform = self._source_transform(embedded, "RGB", "RGB") if embedded else None
+        except Exception as exc:
+            raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc
+        reuse = in_place and not source.readonly
+        rgb = source if reuse else source.copy()
+        try:
+            if transform is not None:
+                try:
+                    ImageCms.applyTransform(rgb, transform, inPlace=True)
+                except Exception as exc:
+                    raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc
+            # O wrapper não mantém ImageFile/descritor vivo e compartilha só o core
+            # privado. O carregador fecha a origem antes de entregar o raster.
+            return rgb._new(rgb.im) if reuse else rgb
+        except BaseException:
+            if rgb is not source:
+                rgb.close()
+            raise
+
+    def _load_source(self, path, source_ready=None, *, native_opaque=False):
+        """Entrega RGBA ou, quando solicitado, RGB opaco privado com arquivo fechado."""
         im = None
         with Image.open(path) as opened:
             try:
@@ -196,7 +227,11 @@ class Rip:
                     source_dpi_x, source_dpi_y = _safe_source_dpi(raw_dpi_x), _safe_source_dpi(raw_dpi_y)
                     if orientation in (5, 6, 7, 8):
                         source_dpi_x, source_dpi_y = source_dpi_y, source_dpi_x
-                    im = self._source_rgba(source, in_place=True)
+                    builtin_converter = getattr(self._source_rgba, "__func__", None) is Rip._builtin_source_rgba
+                    if native_opaque and source.mode == "RGB" and not has_alpha and builtin_converter:
+                        im = self._source_rgb(source, in_place=True)
+                    else:
+                        im = self._source_rgba(source, in_place=True)
                 finally:
                     if source is not opened and source is not im:
                         source.close()
@@ -207,11 +242,13 @@ class Rip:
                     opened.close()
         return im, has_alpha, source_dpi_x, source_dpi_y
 
+    _builtin_load_source = _load_source
+
     @staticmethod
     def _prepare_resampling(im, n_dots, art_rows):
         # Pillow repete esta conversão da imagem inteira em cada resize RGBA.
         # Mantenha o atalho 1:1: converter e voltar pode quantizar cores com alfa.
-        if (n_dots, art_rows) == im.size:
+        if im.mode == "RGB" or (n_dots, art_rows) == im.size:
             return im
         prepared = im.convert("RGBa")
         im.close()
@@ -294,8 +331,11 @@ class Rip:
         out_path = os.path.realpath(out_path)
         out_dir = os.path.dirname(out_path)
         os.makedirs(out_dir, exist_ok=True)
-        im, has_alpha, source_dpi_x, source_dpi_y = (self._load_source(png_path) if source_ready is None
-                                                  else self._load_source(png_path, source_ready=source_ready))
+        loader = self._load_source
+        load_options = {"source_ready": source_ready} if source_ready is not None else {}
+        if getattr(loader, "__func__", None) is Rip._builtin_load_source:
+            load_options["native_opaque"] = True
+        im, has_alpha, source_dpi_x, source_dpi_y = loader(png_path, **load_options)
         try:
             w_cm = width_cm if width_cm is not None else (im.width / source_dpi_x * 2.54)
             if not np.isfinite(w_cm) or w_cm <= 0:
@@ -420,12 +460,14 @@ class Rip:
                 strip = strip.convert("RGBA")
             if s.mirror:
                 strip = strip.transpose(Image.FLIP_LEFT_RIGHT)
-            arr = np.asarray(strip)
-            if arr[..., 3].any():
-                alpha = arr[..., 3].astype(np.float32) / 255.0
-                rgb = Image.fromarray(arr[..., :3], "RGB")
+            opaque = strip.mode == "RGB"
+            arr = None if opaque else np.asarray(strip)
+            if opaque or arr[..., 3].any():
+                alpha = None if opaque else arr[..., 3].astype(np.float32) / 255.0
+                rgb = strip if opaque else Image.fromarray(arr[..., :3], "RGB")
                 cmyk = self._to_cmyk(rgb)
-                cmyk *= alpha[..., None]  # tinta somente onde há arte, sem duplicar CMYK
+                if not opaque:
+                    cmyk *= alpha[..., None]  # tinta somente onde há arte, sem duplicar CMYK
                 o = r0 - a0
                 thresholds = self._thresholds(h, n_dots, a0)
                 color_thresholds = thresholds[o:o + (r1 - r0)]
@@ -441,7 +483,7 @@ class Rip:
                 del color_thresholds, thresholds, cmyk, rgb, arr, strip
                 if s.white_enabled:
                     full_alpha = np.zeros((h, n_dots), np.float32)
-                    full_alpha[o:o + (r1 - r0)] = alpha
+                    full_alpha[o:o + (r1 - r0)] = 1.0 if opaque else alpha
                     del alpha
                     lvl = self._white_levels(full_alpha, a0)
                     for pidx in s.white_planes:

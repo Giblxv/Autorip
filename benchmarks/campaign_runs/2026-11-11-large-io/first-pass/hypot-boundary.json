@@ -1,0 +1,38 @@
+{
+  "candidate": "edt-hypot",
+  "excluded": true,
+  "reason": "different-public-dilation-at-physical-boundary",
+  "dpi": [
+    720,
+    2400
+  ],
+  "mask_shape": [
+    13,
+    19
+  ],
+  "foreground": [
+    6,
+    9
+  ],
+  "radius_mm": 0.08819444444444444,
+  "differing_pixels": [
+    [
+      1,
+      7
+    ],
+    [
+      1,
+      11
+    ],
+    [
+      11,
+      7
+    ],
+    [
+      11,
+      11
+    ]
+  ],
+  "baseline_bundle": "6caf3b6018008f3fad10c0ced8e410312ab5d701dd74d34afc89b5a7fc8f5d0a",
+  "counted_in_campaign": false
+}

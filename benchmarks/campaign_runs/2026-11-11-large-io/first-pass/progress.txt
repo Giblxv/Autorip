@@ -1,0 +1,14 @@
+/workspace/Autorip/.venv/lib/python3.12/site-packages/PIL/Image.py:1134: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+  warnings.warn(
+/workspace/Autorip/.venv/lib/python3.12/site-packages/PIL/Image.py:1134: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+  warnings.warn(
+{"round": 17, "candidate": "writer-sparse-empty", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 17}
+{"round": 18, "candidate": "ink-identity-limit", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 18}
+{"round": 19, "candidate": "ink-multiplier-cache", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 19}
+{"round": 20, "candidate": "alpha-multiply-ufunc", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 20}
+{"round": 21, "candidate": "threshold-indices32", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 21}
+{"round": 22, "candidate": "threshold-direct-index", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 22}
+{"round": 23, "candidate": "threshold-power-two", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 23}
+{"round": 24, "candidate": "white-no-fill-assignment", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 24}
+{"round": 25, "candidate": "close-padding-buffer", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 25}
+{"complete": true, "rounds": 25, "accepted": 0, "consecutive_without_gain": 25}

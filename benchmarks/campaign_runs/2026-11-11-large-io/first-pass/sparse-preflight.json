@@ -1,0 +1,105 @@
+{
+  "valid_cases": [
+    {
+      "width": 1,
+      "pattern": [
+        0,
+        0
+      ],
+      "sha256": "4e725c946f5215d83d40d175af20765c843d8c00f971f0c2746b46b6f2fcd064"
+    },
+    {
+      "width": 1,
+      "pattern": [
+        3,
+        0
+      ],
+      "sha256": "4ce37f2df6323c12f0801006cff41dca76dcdb87a8a26c95eb7b0aef16868d9f"
+    },
+    {
+      "width": 1,
+      "pattern": [
+        0,
+        3,
+        0
+      ],
+      "sha256": "976458f41ed98aebe10d0ab0c13973f5d3dfea150a46e45e7a76ed75c5f4c280"
+    },
+    {
+      "width": 1,
+      "pattern": [
+        0,
+        3
+      ],
+      "sha256": "48ba3b45bef625f27418afee6652d0834e15d21c7891964655d6d2854b58544f"
+    },
+    {
+      "width": 37,
+      "pattern": [
+        0,
+        0
+      ],
+      "sha256": "a54c9b13155698eecf000207cf68697ff1688d94384a45dd1b24ec2653e7f833"
+    },
+    {
+      "width": 37,
+      "pattern": [
+        3,
+        0
+      ],
+      "sha256": "0a38477732198cf70b363b0d361f24b4d1f690b6c7c79e942525a8a962243537"
+    },
+    {
+      "width": 37,
+      "pattern": [
+        0,
+        3,
+        0
+      ],
+      "sha256": "1c1f5ba66e0735bf36afcb5e27570a180f4550eb719ecae351cb582dec9e60f9"
+    },
+    {
+      "width": 37,
+      "pattern": [
+        0,
+        3
+      ],
+      "sha256": "9d650467f6f5659928d40052afe481ca14dc022a7ee48be4a6b679627258e888"
+    },
+    {
+      "width": 5669,
+      "pattern": [
+        0,
+        0
+      ],
+      "sha256": "e82eab64787f22bfcd643d2d1f9877d543b2fdff86af50126ebaff74bd2bbc71"
+    },
+    {
+      "width": 5669,
+      "pattern": [
+        3,
+        0
+      ],
+      "sha256": "da11197fe6241043d9fcb62ca99bf24e55675e6516db46c4dd2dbcd139498f10"
+    },
+    {
+      "width": 5669,
+      "pattern": [
+        0,
+        3,
+        0
+      ],
+      "sha256": "1c6387c8da25453194b25faa09c6426ecb61b25f9641a6d6dc0cebc49db4300b"
+    },
+    {
+      "width": 5669,
+      "pattern": [
+        0,
+        3
+      ],
+      "sha256": "d2b4966e0e5b14b1deba9ef1ebf764969acd1bbc8d0bfbe29b5cd98a3d87b2ae"
+    }
+  ],
+  "invalid_cases_rejected": 3,
+  "counted_in_campaign": false
+}
