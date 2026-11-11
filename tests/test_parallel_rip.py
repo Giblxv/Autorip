@@ -20,7 +20,7 @@ def artwork(tmp_path):
 
 def test_workers_respeitam_a_afinidade_do_processo(monkeypatch):
     monkeypatch.setattr(engine.os, 'cpu_count', lambda: 16)
-    monkeypatch.setattr(engine.os, 'sched_getaffinity', lambda _: {1, 3, 5})
+    monkeypatch.setattr(engine.os, 'sched_getaffinity', lambda _: {1, 3, 5}, raising=False)
     assert engine._available_cpu_count() == 3
 
 
