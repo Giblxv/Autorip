@@ -59,6 +59,9 @@ def load(bundle,folder,index):
 
 
 def make_cases(folder,icc,suite="standard"):
+    large_io = suite == 'large-io'
+    if large_io:
+        suite = 'rgba-direct'
     rng=np.random.default_rng(20261109)
     h,w=216,288
     data=rng.integers(0,256,(h,w,4),dtype=np.uint8)
@@ -151,6 +154,19 @@ def make_cases(folder,icc,suite="standard"):
             image.save(path, icc_profile=bytes(embedded), dpi=(100, 200))
             image.close()
             cases.append(case(name, path, width=1.27))
+    if large_io:
+        for item in cases:
+            item['timed'] = item['name'] in ('alpha', 'large_source', 'wide_alpha',
+                                            'icc_two_cpu', 'rgba_gamma')
+        cases.extend([
+            case('output_opaque_large', rgb, width=8, white_enabled=False, mirror=False),
+            case('output_unaligned', source, width=3.97, white_enabled=False),
+            case('output_blank_margins', sparse_path, margin_top_in=2, margin_bottom_in=2,
+                 white_fill_holes_mm=0),
+            case('output_many_white_planes', source, white_planes=list(range(4, 12))),
+            case('output_ink_limits', rgb, timed=False,
+                 ink_limit={'C': 70, 'M': 65, 'Y': 80, 'K': 90}),
+        ])
     return cases
 
 
@@ -196,6 +212,34 @@ def micro_correct(original,candidate):
         for view in (a,a[:,::-1],a.astype(np.int16)):
             if not np.array_equal(original['prt'].pack2(view,pb),candidate['prt'].pack2(view,pb)):
                 return 'pack2-padding-strides'
+    # Limites públicos e views: uma candidata não pode ganhar omitindo validação.
+    for dtype in (np.uint8, np.uint16, np.uint64, np.int8, np.int16, np.int64):
+        for values in ([0, 1, 2, 3], [0, 1, 2, 4], [0, 1, 2, np.iinfo(dtype).max]):
+            plane = np.array([values], dtype=dtype)
+            before = plane.copy()
+            for array in (plane, plane[:, ::-1]):
+                outcomes = []
+                for module in (original, candidate):
+                    try:
+                        outcomes.append(('ok', module['prt'].pack2(array, 2).tobytes()))
+                    except ValueError:
+                        outcomes.append(('invalid',))
+                if outcomes[0] != outcomes[1] or not np.array_equal(plane, before):
+                    return 'pack2-validation-or-mutation'
+        if np.issubdtype(dtype, np.signedinteger):
+            try:
+                candidate['prt'].pack2(np.full((2, 4), -1, dtype=dtype), 1)
+            except ValueError:
+                pass
+            else:
+                return 'pack2-negative-levels'
+    for dtype in (np.float32, np.float64, bool, complex, object):
+        try:
+            candidate['prt'].pack2(np.zeros((2, 4), dtype=dtype), 1)
+        except ValueError:
+            pass
+        else:
+            return 'pack2-noninteger-levels'
     for dx,dy in ((300,300),(720,2400),(72,9600)):
         masks=[rng.random((23,37))>.4,np.zeros((1,1),bool),np.ones((13,19),bool)]
         for mm in (0,.01,.1,.3):
@@ -250,7 +294,7 @@ def main():
     parser.add_argument('--rounds-without-gain',type=int,default=15)
     parser.add_argument('--repeats',type=int,default=7)
     parser.add_argument('--apply',action='store_true')
-    parser.add_argument('--suite',choices=['standard','extended','input-icc','source-alpha','rgba-direct'],default='standard')
+    parser.add_argument('--suite',choices=['standard','extended','input-icc','source-alpha','rgba-direct','large-io'],default='standard')
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--baseline-ref',help='Commit/tag Git da base; leitura sem checkout')
     parser.add_argument('--deadline',help='Prazo ISO 8601 com fuso, por exemplo 2026-11-11T22:00:00-03:00')
@@ -272,13 +316,15 @@ def main():
         proposals=CANDIDATES
     if args.suite == 'rgba-direct':
         from rip_rgba_candidates import CANDIDATES as proposals
+    if args.suite == 'large-io':
+        from rip_io_candidates import CANDIDATES as proposals
     unknown = set(args.exclude)-{p[0] for p in proposals}
     if unknown:
         parser.error('Hipóteses desconhecidas em --exclude: '+', '.join(sorted(unknown)))
     proposals = [p for p in proposals if p[0] not in args.exclude]
     if not proposals:
         parser.error('Nenhuma hipótese disponível após --exclude')
-    if args.suite in ('input-icc','source-alpha','rgba-direct') and not args.icc:
+    if args.suite in ('input-icc','source-alpha','rgba-direct','large-io') and not args.icc:
         parser.error('Esta suíte exige --icc com um perfil CMYK válido')
     if args.repeats<5 or args.rounds_without_gain<15:parser.error('Minimos: 5 repeticoes e 15 rodadas sem ganho')
     work=args.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)
