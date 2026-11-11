@@ -9,6 +9,27 @@ import tempfile
 from rip_campaign import ROOT, FILES, digest, load, make_cases, micro_correct, render, new_rip
 
 
+def verify_round_history(report):
+    """Confere o alvo real da campanha, resets e hipóteses únicas por líder."""
+    assert report['complete']
+    required=report.get('required_without_gain',15)
+    assert isinstance(required,int) and required>=15
+    count=0
+    seen=set()
+    for index,record in enumerate(report['rounds'],1):
+        assert record['round']==index
+        assert record['reason'] not in ('exception','infrastructure-error')
+        if report.get('unique_candidate_per_leader'):
+            key=(record['leader_before'],record['candidate_hash'])
+            assert key not in seen
+            seen.add(key)
+        count=0 if record['accepted'] else count+1
+        assert record['consecutive_without_gain']==count
+    assert count>=required and count==report['consecutive_without_gain']
+    assert not any(r['accepted'] for r in report['rounds'][-required:])
+    return count
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work-dir',type=Path,required=True)
@@ -17,19 +38,21 @@ def main():
     args=parser.parse_args()
     work=args.work_dir.resolve()
     report=json.loads((work/'report.json').read_text())
-    assert report['complete']
-    count=0
-    for record in report['rounds']:
-        assert record['reason'] not in ('exception','infrastructure-error')
-        count=0 if record['accepted'] else count+1
-        assert record['consecutive_without_gain']==count
-    assert count>=15 and count==report['consecutive_without_gain']
-    assert not any(r['accepted'] for r in report['rounds'][-15:])
+    count=verify_round_history(report)
     current={key:(work/'final_modules'/f'{key}.py').read_text() for key in FILES}
     if args.check_checkout:
         checkout={key:(ROOT/path).read_text() for key,path in FILES.items()}
         assert digest(checkout)==digest(current)
     initial={key:(work/'initial'/f'{key}.py').read_text() for key in FILES}
+    leader=digest(initial)
+    for record in report['rounds']:
+        assert record['leader_before']==leader
+        folder=work/f"round-{record['round']:03}-{record['candidate']}"
+        candidate={key:(folder/f'{key}.py').read_text() for key in FILES}
+        assert digest(candidate)==record['candidate_hash']
+        if record['accepted']:
+            leader=record['candidate_hash']
+    assert leader==report['leader_hash']
     assert digest(current)==report['leader_hash']
     with tempfile.TemporaryDirectory(prefix='autorip-verify-') as folder:
         folder=Path(folder)
@@ -46,6 +69,7 @@ def main():
             assert a==b,case['name']
             hashes[case['name']]={'baseline':a,'final':b,'equal':True}
     result={'rounds':len(report['rounds']),'consecutive_without_gain':count,
+            'required_without_gain':report.get('required_without_gain',15),
             'accepted':sum(r['accepted'] for r in report['rounds']),
             'icc_sha256':hashlib.sha256(args.icc.read_bytes()).hexdigest() if args.icc else None,
             'final_source_hash':digest(current),'checkout_checked':args.check_checkout,'prt_sha256':hashes}

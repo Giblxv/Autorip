@@ -1,0 +1,51 @@
+{
+  "base_commit": "e4728c776c303d2d079c8c2da5e62e092fd032c8",
+  "exploratory_candidate_commit": "5780e3795fce5bebd51c7cc1358f620d7f01aa78",
+  "guarded_candidate_commit": "2e72e588c5c1e1629ef322232ac266e666f81bfe",
+  "isolated_workers": 284,
+  "all_outputs_identical": true,
+  "source_hashes_verified": true,
+  "tests": [
+    {
+      "log": "focused-pillow13.txt",
+      "passed": 218,
+      "production_commit": "5780e37"
+    },
+    {
+      "log": "full-pillow13.txt",
+      "passed": 1013,
+      "production_commit": "5780e37"
+    },
+    {
+      "log": "focused-pillow12.txt",
+      "passed": 206,
+      "production_commit": "5780e37"
+    },
+    {
+      "log": "readonly-guard-pillow13.txt",
+      "passed": 209,
+      "production_commit": "2e72e58"
+    },
+    {
+      "log": "readonly-guard-pillow12.txt",
+      "passed": 209,
+      "production_commit": "2e72e58"
+    }
+  ],
+  "final_integration_validation": "Recorded separately after the final refinement campaign; these are prototype test runs",
+  "app_smoke": {
+    "log": "app-smoke.txt",
+    "runtime": "Source Python launcher, not Windows executable",
+    "expected_version": "0.8.19",
+    "production_commit": "5780e37"
+  },
+  "extra_tiff_regenerated_identical_sha256": true,
+  "integration_baseline": {
+    "commit": "23d4c106bfb2adf10e69292f9d71182b88284b60",
+    "version": "0.8.20",
+    "full_pillow13_passed": 1016,
+    "full_log": "full-guarded-pillow13.txt",
+    "app_smoke": "app-v20-smoke.txt",
+    "scope": "Before subsequent 25-round engine refinement; production source matches guarded preview implementation"
+  }
+}

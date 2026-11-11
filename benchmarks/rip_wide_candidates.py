@@ -48,11 +48,13 @@ def estimated_pixel(bundle,value):
 
 
 def fewer_wide(bundle,limit):
-    before='''        fd, tmp_path = tempfile.mkstemp('''
     if 'workers = min(workers,' in bundle['engine']:return None
-    return change(bundle,'engine',before,f'''        if n_dots >= 4096:
-            workers = min(workers, {limit})
-        fd, tmp_path = tempfile.mkstemp(''')
+    found=re.search(r'(?m)^([ ]*)fd, tmp_path = tempfile.mkstemp\(',bundle['engine'])
+    if found is None:return None
+    indent=found.group(1)
+    after=(f'{indent}if n_dots >= 4096:\n'
+           f'{indent}    workers = min(workers, {limit})\n'+found.group(0))
+    return change(bundle,'engine',found.group(0),after)
 
 
 def opaque_alpha(bundle):

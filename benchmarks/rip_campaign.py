@@ -1,10 +1,11 @@
-"""Campanha adaptativa: termina após 15 hipóteses testadas sem ganho aceito.
+"""Campanha adaptativa com sequência de recusas e prazo absoluto opcionais.
 
 Não publica nem faz merge. --apply grava somente engine.py, prt.py e morph.py.
 Hipóteses não aplicáveis não contam como rodadas. Os PRTs devem ser idênticos
 à base inicial em todos os cenários; cada aceite zera a sequência de recusas.
 """
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import importlib.util
 import json
@@ -27,6 +28,17 @@ from autorip.config import Settings
 from rip_candidates import CANDIDATES
 
 FILES={'engine':'autorip/engine.py','prt':'autorip/prt.py','morph':'autorip/morph.py'}
+DEADLINE = None
+REPORT_PATH = None
+
+
+class CampaignDeadline(Exception):
+    pass
+
+
+def check_deadline():
+    if DEADLINE is not None and time.time() >= DEADLINE:
+        raise CampaignDeadline('Prazo da campanha atingido; rodada incompleta não contabilizada')
 
 
 def digest(bundle):
@@ -152,10 +164,12 @@ def new_rip(module,case):
 
 
 def render(rip,case,output,checksum=False):
+    check_deadline()
     original_cpu=os.cpu_count
     try:
         if case.get('cpu_limit'):os.cpu_count=lambda:case['cpu_limit']
-        info=rip.process(str(case['path']),str(output),width_cm=case['width'])
+        info=rip.process(str(case['path']),str(output),width_cm=case['width'],
+                         control=check_deadline if DEADLINE is not None else None)
     finally:os.cpu_count=original_cpu
     path=Path(info['output_path'])
     try:
@@ -228,6 +242,8 @@ def peak(rips,cases,output):
 
 
 def main():
+    global DEADLINE, REPORT_PATH
+    started_at = datetime.now(timezone.utc).isoformat()
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--work-dir',type=Path,required=True)
     parser.add_argument('--icc',type=Path)
@@ -237,17 +253,36 @@ def main():
     parser.add_argument('--suite',choices=['standard','extended','input-icc','source-alpha','rgba-direct'],default='standard')
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--baseline-ref',help='Commit/tag Git da base; leitura sem checkout')
+    parser.add_argument('--deadline',help='Prazo ISO 8601 com fuso, por exemplo 2026-11-11T22:00:00-03:00')
+    parser.add_argument('--exclude',nargs='*',default=[],help='Hipóteses excluídas antes da campanha')
     args=parser.parse_args()
+    if args.deadline:
+        try:
+            deadline = datetime.fromisoformat(args.deadline)
+            if deadline.tzinfo is None or deadline.utcoffset() is None:
+                raise ValueError('Informe o fuso horário no prazo')
+            DEADLINE = deadline.timestamp()
+        except ValueError as error:
+            parser.error(str(error))
+        if DEADLINE <= time.time():
+            parser.error('O prazo informado já terminou')
     if args.suite in ('extended','input-icc','source-alpha','rgba-direct'):
         from rip_wide_candidates import CANDIDATES as proposals
     else:
         proposals=CANDIDATES
     if args.suite == 'rgba-direct':
         from rip_rgba_candidates import CANDIDATES as proposals
+    unknown = set(args.exclude)-{p[0] for p in proposals}
+    if unknown:
+        parser.error('Hipóteses desconhecidas em --exclude: '+', '.join(sorted(unknown)))
+    proposals = [p for p in proposals if p[0] not in args.exclude]
+    if not proposals:
+        parser.error('Nenhuma hipótese disponível após --exclude')
     if args.suite in ('input-icc','source-alpha','rgba-direct') and not args.icc:
         parser.error('Esta suíte exige --icc com um perfil CMYK válido')
     if args.repeats<5 or args.rounds_without_gain<15:parser.error('Minimos: 5 repeticoes e 15 rodadas sem ganho')
     work=args.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)
+    REPORT_PATH = work/'report.json'
     previous_report = json.loads((work/'report.json').read_text()) if args.resume else None
     if args.resume:
         initial={k:(work/'initial'/f'{k}.py').read_text() for k in FILES}
@@ -283,22 +318,30 @@ def main():
         if previous_report.get('suite','standard') != args.suite:
             raise RuntimeError('Suite diferente da campanha persistida')
         report=previous_report
+    report['deadline_utc'] = datetime.fromtimestamp(DEADLINE, timezone.utc).isoformat() if DEADLINE else None
+    report.setdefault('started_at_utc', started_at)
+    report['unique_candidate_per_leader'] = True
+    report['excluded_candidates'] = args.exclude
     index=len(report['rounds']);cursor=0;skips=0;accepted_hashes={digest(initial)}
     accepted_hashes.update(r['candidate_hash'] for r in report['rounds'] if r['accepted'])
     if report['rounds']:
         last=report['rounds'][-1]['candidate']
         cursor=next(i+1 for i,c in enumerate(proposals) if c[0]==last)
+    tested = {(r['leader_before'], r['candidate_hash']) for r in report['rounds']}
     def save():
         report['leader_hash']=digest(leader)
         temporary=work/'report.tmp';temporary.write_text(json.dumps(report,indent=2));temporary.replace(work/'report.json')
     while report['consecutive_without_gain']<args.rounds_without_gain:
+        check_deadline()
         name,hypothesis,proposal=proposals[cursor%len(proposals)];cursor+=1
         bundle=proposal(leader)
-        if bundle is None or bundle==leader:
+        key = (digest(leader), digest(bundle)) if bundle is not None else None
+        if bundle is None or bundle==leader or key in tested:
             skips+=1
             if skips>len(proposals)*2:raise RuntimeError('Sem hipoteses aplicaveis suficientes; nao declarar convergencia')
             continue
         skips=0;index+=1
+        tested.add(key)
         record={'round':index,'candidate':name,'hypothesis':hypothesis,'leader_before':digest(leader),
                 'candidate_hash':digest(bundle),'accepted':False}
         directory=work/f'round-{index:03}-{name}'
@@ -330,20 +373,32 @@ def main():
                 memory_safe=max(candidate_peak.values())<=512
                 memory_only=memory_gain and measurement['geomean_speedup']>=.99 and stable
                 if (fastest or memory_only) and stable and memory_safe and digest(bundle) not in accepted_hashes:
-                    # Confirmação independente antes de alterar o líder.
+                    # Segunda bateria e controle A/A antes de alterar o líder.
                     (work/'status.json').write_text(json.dumps({'round':index,'candidate':name,'phase':'confirmation'}))
                     confirmation=timed_pair(reference_rips,candidate_rips,timed,output,args.repeats)
                     record['confirmation']=confirmation
                     confirmed_speed=(confirmation['geomean_speedup']>1.015 and confirmation['bootstrap_95_low']>1.005)
                     confirmed_memory=(memory_gain and confirmation['geomean_speedup']>=.99)
                     confirmed_stable=all(s['speedup']>=1/1.06 for s in confirmation['scenarios'].values())
+                    noise_stable = False
                     if (confirmed_speed or confirmed_memory) and confirmed_stable:
+                        (work/'status.json').write_text(json.dumps({'round':index,'candidate':name,'phase':'aa-control'}))
+                        aa = timed_pair(reference_rips,reference_rips,timed,output,args.repeats)
+                        record['aa_control'] = aa
+                        noise_stable = (.985 <= aa['geomean_speedup'] <= 1.015
+                                        and all(1/1.03 <= s['speedup'] <= 1.03 for s in aa['scenarios'].values()))
+                        record['aa_control_stable'] = noise_stable
+                    if (confirmed_speed or confirmed_memory) and confirmed_stable and noise_stable:
                         leader=bundle;accepted_hashes.add(digest(bundle));record['accepted']=True
                         record['reason']='confirmed-speed' if confirmed_speed else 'confirmed-memory'
                         report['consecutive_without_gain']=0
                         if args.apply:
                             for key,path in FILES.items():(ROOT/path).write_text(leader[key])
-                if not record['accepted']:record['reason']='no-confirmed-gain-or-regression'
+                if not record['accepted']:
+                    record['reason']=('inconclusive-aa-noise' if record.get('aa_control_stable') is False
+                                      else 'no-confirmed-gain-or-regression')
+        except CampaignDeadline:
+            raise
         except Exception as error:
             record['reason']='infrastructure-error';record['failure']=f'{type(error).__name__}: {error}'
             (work/'error.json').write_text(json.dumps(record,indent=2))
@@ -353,14 +408,28 @@ def main():
         report['rounds'].append(record);save()
         print(json.dumps({k:record.get(k) for k in ('round','candidate','accepted','reason','failure','consecutive_without_gain')}),flush=True)
     report['complete']=True
+    report['stop_reason']='consecutive-without-gain'
     report['accepted_count']=sum(r['accepted'] for r in report['rounds'])
     final=load(leader,work/'final_modules','final')
     final_rips={c['name']:new_rip(final['engine'],c) for c in timed}
     report['final_comparison']=timed_pair(baseline_rips,final_rips,timed,output,args.repeats)
     report['final_peak_mib']={'baseline':peak(baseline_rips,timed,output),'final':peak(final_rips,timed,output)}
+    report['stopped_at_utc'] = datetime.now(timezone.utc).isoformat()
     save()
     print(json.dumps({'complete':True,'rounds':index,'accepted':report['accepted_count'],
                       'consecutive_without_gain':report['consecutive_without_gain']}),flush=True)
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    try:
+        main()
+    except CampaignDeadline as error:
+        report = json.loads(REPORT_PATH.read_text()) if REPORT_PATH and REPORT_PATH.exists() else {'rounds':[],'consecutive_without_gain':0}
+        converged = report['consecutive_without_gain'] >= report.get('required_without_gain',float('inf'))
+        report.update(complete=converged,stop_reason='consecutive-without-gain' if converged else 'deadline',
+                      interrupted_round_counted=False,stopped_at_utc=datetime.now(timezone.utc).isoformat())
+        if converged:
+            report['final_validation_interrupted_by_deadline'] = True
+        if REPORT_PATH:
+            REPORT_PATH.write_text(json.dumps(report,indent=2)+'\n')
+        print(json.dumps({'stop_reason':'deadline','message':str(error)}),flush=True)

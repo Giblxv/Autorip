@@ -155,7 +155,7 @@ class Rip:
         except Exception as exc:
             raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc
 
-    def _load_source(self, path):
+    def _load_source(self, path, source_ready=None):
         """Entrega um RGBA privado, com arquivo fechado e demais rasters liberados."""
         im = None
         with Image.open(path) as opened:
@@ -171,6 +171,10 @@ class Rip:
                         # uma imagem inteira durante a transformação de cor.
                         opened.close()
                     source.load()
+                    if source_ready is not None:
+                        # A origem já está orientada, antes do ICC. O observador
+                        # pode lê-la durante a chamada, sem reter ou alterar o raster.
+                        source_ready(source)
                     has_alpha = source.mode in ("RGBA", "LA", "PA") or "transparency" in source.info
                     source_dpi = source.info.get("dpi", (DEFAULT_SOURCE_DPI, DEFAULT_SOURCE_DPI))
                     try:
@@ -268,14 +272,15 @@ class Rip:
         return [((top - h_rows) // 2, x0, lab), (top + art_rows + (bot - h_rows) // 2, x0, lab)]
 
     # ---------- job ----------
-    def process(self, png_path: str, out_path: str, width_cm: float = None, progress=None, before_publish=None, control=None):
+    def process(self, png_path: str, out_path: str, width_cm: float = None, progress=None, before_publish=None, control=None, source_ready=None):
         s = self.s
         if self.icc_error:
             raise RuntimeError(self.icc_error)
         out_path = os.path.realpath(out_path)
         out_dir = os.path.dirname(out_path)
         os.makedirs(out_dir, exist_ok=True)
-        im, has_alpha, source_dpi_x, source_dpi_y = self._load_source(png_path)
+        im, has_alpha, source_dpi_x, source_dpi_y = (self._load_source(png_path) if source_ready is None
+                                                  else self._load_source(png_path, source_ready=source_ready))
         try:
             w_cm = width_cm if width_cm is not None else (im.width / source_dpi_x * 2.54)
             if not np.isfinite(w_cm) or w_cm <= 0:
