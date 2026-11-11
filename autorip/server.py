@@ -120,6 +120,68 @@ def _save_thumbnail_atomic(image, destination):
     _write_thumbnail_atomic(_encode_thumbnail(image), destination)
 
 
+def _thumbnail_owned(image, bounds):
+    """Consome um wrapper próprio e entrega somente o raster da miniatura."""
+    result = None
+    try:
+        if image.mode in ("RGB", "L") and "transparency" not in image.info:
+            image.thumbnail(bounds, reducing_gap=OPAQUE_THUMBNAIL_REDUCING_GAP)
+            converted = image.convert("RGBA")
+            image.close()
+            image = converted
+        else:
+            if image.mode != "RGBA":
+                converted = image.convert("RGBA")
+                image.close()
+                image = converted
+            image.thumbnail(bounds)
+        result = image
+        return result
+    finally:
+        if image is not result:
+            image.close()
+
+
+class _SourcePreview:
+    """Miniatura privada por job, capturada antes do ICC e publicada só após o RIP."""
+    def __init__(self, bounds=(220, 220)):
+        self.bounds = bounds
+        self.image = None
+
+    def capture(self, source):
+        self.close()
+        # Outros modos precisam de uma expansão RGBA completa antes do resize.
+        # Retê-los junto à origem aumentaria o pico de RAM; preserve o fallback.
+        if source.mode not in ("RGB", "RGBA", "L") or "transparency" in source.info:
+            return
+        image = None
+        try:
+            # _new cria apenas um wrapper sobre o core carregado. thumbnail e
+            # convert alocam a saída; nenhuma operação escreve nos pixels da origem.
+            image = _thumbnail_owned(source._new(source.im), self.bounds)
+            if image.im is source.im:
+                # Uma RGBA já pequena não foi reduzida: solte a referência ao
+                # core que o carregador poderá transformar no próprio buffer.
+                independent = image.copy()
+                image.close()
+                image = independent
+            self.image = image
+        except Exception:
+            if image is not None:
+                image.close()
+            # A prévia é opcional. O caminho habitual poderá tentar novamente
+            # pelo arquivo depois do RIP, sem impedir a impressão.
+
+    def take(self):
+        image, self.image = self.image, None
+        return image
+
+    def close(self):
+        image = self.take()
+        if image is not None:
+            image.close()
+
+
 def _load_thumbnail(path, bounds, *, orient=True):
     image = result = None
     with Image.open(path) as source:
@@ -130,18 +192,7 @@ def _load_thumbnail(path, bounds, *, orient=True):
             image = ImageOps.exif_transpose(source) if orientation in (2, 3, 4, 5, 6, 7, 8) else source
             if image is not source:
                 source.close()
-            if image.mode in ("RGB", "L") and "transparency" not in image.info:
-                # Preserve filtro/reducing_gap, reduzindo antes da expansão RGBA.
-                image.thumbnail(bounds, reducing_gap=OPAQUE_THUMBNAIL_REDUCING_GAP)
-                converted = image.convert("RGBA")
-                image.close()
-                image = converted
-            else:
-                if image.mode != "RGBA":
-                    converted = image.convert("RGBA")
-                    image.close()
-                    image = converted
-                image.thumbnail(bounds)
+            image = _thumbnail_owned(image, bounds)
             result = image.copy() if image is source else image
             return result
         finally:
@@ -780,6 +831,7 @@ class App:
                       "name": job["name"], "output_dir": settings.output_folder,
                       "started_ns": time.time_ns(), "metadata_written": False,
                       "outbox_handled": False, "source_signature": list(source_signature or ())}
+            source_preview = _SourcePreview()
             try:
                 if source_signature is None:
                     raise FileNotFoundError("Arte da fila ausente ou insegura para processamento.")
@@ -803,9 +855,11 @@ class App:
                     if control and control["pause"].is_set():
                         raise JobPaused()
                 info = rip.process(path, out, width_cm, progress=prog,
-                                   before_publish=before_publish, control=control_check)
+                                   before_publish=before_publish, control=control_check,
+                                   source_ready=source_preview.capture)
                 out = info.pop("output_path")
             except JobPaused:
+                source_preview.close()
                 remove_archive_marker(path)
                 with self.lock:
                     cancelling = control["cancel"].is_set()
@@ -819,9 +873,11 @@ class App:
                 self._finish_output_use()
                 continue
             except JobCancelled:
+                source_preview.close()
                 self._cancel_job(job, path, move, settings, "Cancelado pelo operador.")
                 continue
             except Exception as e:
+                source_preview.close()
                 # Nao cria journal fantasma nem arquivamento pendente para uma
                 # entrada removida enquanto aguardava o worker.
                 archive_source = move and os.path.isfile(path) and not os.path.islink(path)
@@ -847,7 +903,8 @@ class App:
                 metadata_written = True
             except Exception as metadata_error:
                 self.log(f"Aviso: metadados auxiliares nao foram gravados ({type(metadata_error).__name__}).")
-            thumb = self._thumb(job["id"], path, output_name=os.path.splitext(os.path.basename(out))[0], settings=settings)
+            thumb = self._thumb(job["id"], path, output_name=os.path.splitext(os.path.basename(out))[0], settings=settings,
+                                prepared=source_preview.take())
             with self.lock:
                 job["thumb"] = thumb
                 job.update(status="pronto", progress=1.0, out=out)
@@ -983,7 +1040,8 @@ class App:
                         continue
 
     # ---- miniaturas ----
-    def _thumb(self, jid, path, output_name=None, settings=None, size=220):
+    def _thumb(self, jid, path, output_name=None, settings=None, size=220, prepared=None):
+        im = prepared
         try:
             settings = settings or self.s
             thumbs = os.path.join(self.home, "thumbs"); os.makedirs(thumbs, exist_ok=True)
@@ -992,7 +1050,8 @@ class App:
             by_name = os.path.join(thumbs, "by_name"); os.makedirs(by_name, exist_ok=True)
             if os.path.islink(by_name):
                 return ""
-            im = _load_thumbnail(path, (size, size))
+            if im is None:
+                im = _load_thumbnail(path, (size, size))
             bg = Image.new("RGBA", im.size, (255, 255, 255, 255)); d = ImageDraw.Draw(bg)
             for y in range(0, im.height, 10):                       # xadrez: mostra a transparencia (= area do branco)
                 for x in range(0, im.width, 10):
@@ -1015,6 +1074,9 @@ class App:
             return f"/api/thumb?id={jid}"
         except Exception:
             return ""
+        finally:
+            if im is not None:
+                im.close()
 
     def _write_output_metadata(self, prt_path, info):
         fields = ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_dots", "n_rows", "has_alpha")
