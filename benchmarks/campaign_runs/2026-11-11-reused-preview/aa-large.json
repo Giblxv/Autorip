@@ -1,0 +1,429 @@
+{
+  "baseline_ref": "e4728c776c303d2d079c8c2da5e62e092fd032c8",
+  "repeat": 3,
+  "seed": 719,
+  "aa_control": true,
+  "python": "3.12.14",
+  "pillow": "13.0.0",
+  "numpy": "2.5.4",
+  "cpu_affinity": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "sampling": "Fresh independent process for every side/trial; randomized order; first job per Rip",
+  "scope": "Rip.process + optional two published JPEG previews; imports/init/verification excluded from time",
+  "source_open_metric": "Pillow Image.open calls for the source; excludes internal OS opens",
+  "candidate_preview": "Capture loaded pre-ICC RGB/RGBA/opaque gray in job phase; fallback for other modes",
+  "shared_modules_sha256": {
+    "config": "28c84c0c6795d80e5c04d291fbe60d87160228e35aa993253848b62508ab6ab5",
+    "imaging": "3e5bf53befa3769aa8150bfd52ac44653dd1b0cb0e04172d5214a7ce093fbcd6",
+    "prt": "a2506d539e9c1da492b12732b81bb4b088d4faf85229b73caa313fec4076b008",
+    "morph": "1dd8e43f0382eddc2f2a71e9256875ae4d746ec06c49603f38b10b82a8b97c2f"
+  },
+  "benchmark_sha256": "db7454b4bf0f04f277cc1d2c8cc398482221b04661dad72b2ab3aa0b352adc16",
+  "scenarios": {
+    "rgb_icc_90mp/job": {
+      "source": {
+        "name": "rgb_icc_90mp",
+        "path": "/workspace/autorip-review/large-artwork/fixtures/rgb_icc_90mp.png",
+        "mode": "RGB",
+        "source_size": [
+          10000,
+          9000
+        ],
+        "source_sha256": "2f59d6f90b6d62897c20d2a8a9e01077a7a4c35de96bf6acc5d0abcefa029ebc",
+        "source_bytes": 9485078,
+        "width_cm": 5.08,
+        "phases": [
+          "rip",
+          "preview",
+          "job"
+        ],
+        "settings": {
+          "label_enabled": false,
+          "margin_top_in": 0.05,
+          "margin_bottom_in": 0.05
+        },
+        "profile_sha256": "87367d56ad2547ccf32bdbca2ef65d2906409f57388e6a1c209dc4a35ea77336"
+      },
+      "phase": "job",
+      "baseline_seconds": 5.681760282999676,
+      "candidate_seconds": 6.134584319999703,
+      "speedup": 0.9261850496497781,
+      "cpu_speedup": 0.9361143545219537,
+      "peak_rss_mib": [
+        739.69921875,
+        739.6796875
+      ],
+      "samples": [
+        [
+          {
+            "seconds": 6.5553460860001,
+            "cpu_seconds": 10.115801285,
+            "peak_rss_mib": 742.9453125,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          },
+          {
+            "seconds": 5.64154784099992,
+            "cpu_seconds": 9.177982643,
+            "peak_rss_mib": 739.19921875,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          },
+          {
+            "seconds": 5.681760282999676,
+            "cpu_seconds": 9.042103291,
+            "peak_rss_mib": 739.69921875,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          }
+        ],
+        [
+          {
+            "seconds": 7.071353586999976,
+            "cpu_seconds": 10.838493495,
+            "peak_rss_mib": 739.0859375,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          },
+          {
+            "seconds": 6.134584319999703,
+            "cpu_seconds": 9.80433918,
+            "peak_rss_mib": 739.82421875,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          },
+          {
+            "seconds": 5.416181192999829,
+            "cpu_seconds": 8.908424558,
+            "peak_rss_mib": 739.6796875,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+              "metadata": {
+                "n_rows": 2400,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.286,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+              "preview_size": [
+                220,
+                198
+              ]
+            }
+          }
+        ]
+      ],
+      "outputs": {
+        "prt_sha256": "e55abf5e0e979f54f028327b6b5f0e0096c07d217dade7c0ce337c4d30bb6696",
+        "metadata": {
+          "n_rows": 2400,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 2.286,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": false
+        },
+        "preview_sha256": "9c219af9e9fb22a03baf5684c483c6028d81bc1327be7cd101b36305ee2243e4",
+        "preview_size": [
+          220,
+          198
+        ]
+      }
+    },
+    "cmyk_icc_30mp/job": {
+      "source": {
+        "name": "cmyk_icc_30mp",
+        "path": "/workspace/autorip-review/large-artwork/fixtures/cmyk_30mp.tif",
+        "mode": "CMYK",
+        "source_size": [
+          6000,
+          5000
+        ],
+        "source_sha256": "0dafacd573ceb3d1428c4f62db5552c50a6beb3fc077149d6417f02250786fb1",
+        "source_bytes": 121410662,
+        "width_cm": 5.08,
+        "phases": [
+          "rip",
+          "preview",
+          "job"
+        ],
+        "settings": {
+          "label_enabled": false,
+          "margin_top_in": 0.05,
+          "margin_bottom_in": 0.05
+        },
+        "profile_sha256": "1c94ec3204ca645220eb339498ce0de59c2dda1ee87fecded7633f51637513c8"
+      },
+      "phase": "job",
+      "baseline_seconds": 3.3835438160003832,
+      "candidate_seconds": 3.2807710150000275,
+      "speedup": 1.0313258074185816,
+      "cpu_speedup": 1.026420112562155,
+      "peak_rss_mib": [
+        381.67578125,
+        381.44140625
+      ],
+      "samples": [
+        [
+          {
+            "seconds": 3.4575362390005466,
+            "cpu_seconds": 5.535265451,
+            "peak_rss_mib": 381.8203125,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "c5d1ca9606ead6629aebae9ab58e020bc682f259ebf7dfe27db86bc41d8c15f2",
+              "preview_size": [
+                220,
+                183
+              ]
+            }
+          },
+          {
+            "seconds": 3.202876381000351,
+            "cpu_seconds": 5.251866461,
+            "peak_rss_mib": 380.0546875,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "c5d1ca9606ead6629aebae9ab58e020bc682f259ebf7dfe27db86bc41d8c15f2",
+              "preview_size": [
+                220,
+                183
+              ]
+            }
+          },
+          {
+            "seconds": 3.3835438160003832,
+            "cpu_seconds": 5.3277892950000005,
+            "peak_rss_mib": 381.67578125,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "c5d1ca9606ead6629aebae9ab58e020bc682f259ebf7dfe27db86bc41d8c15f2",
+              "preview_size": [
+                220,
+                183
+              ]
+            }
+          }
+        ],
+        [
+          {
+            "seconds": 3.2807710150000275,
+            "cpu_seconds": 5.1906516929999995,
+            "peak_rss_mib": 381.44140625,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "c5d1ca9606ead6629aebae9ab58e020bc682f259ebf7dfe27db86bc41d8c15f2",
+              "preview_size": [
+                220,
+                183
+              ]
+            }
+          },
+          {
+            "seconds": 3.325117945999409,
+            "cpu_seconds": 5.377849739,
+            "peak_rss_mib": 382.01171875,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "c5d1ca9606ead6629aebae9ab58e020bc682f259ebf7dfe27db86bc41d8c15f2",
+              "preview_size": [
+                220,
+                183
+              ]
+            }
+          },
+          {
+            "seconds": 3.031327515999692,
+            "cpu_seconds": 5.01701777,
+            "peak_rss_mib": 380.06640625,
+            "source_opens": 2,
+            "outputs": {
+              "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+              "metadata": {
+                "n_rows": 2240,
+                "n_dots": 1440,
+                "width_cm": 5.08,
+                "height_cm": 2.1166666666666667,
+                "dpi_x": 720,
+                "dpi_y": 2400,
+                "has_alpha": false
+              },
+              "preview_sha256": "c5d1ca9606ead6629aebae9ab58e020bc682f259ebf7dfe27db86bc41d8c15f2",
+              "preview_size": [
+                220,
+                183
+              ]
+            }
+          }
+        ]
+      ],
+      "outputs": {
+        "prt_sha256": "63f6f3f57da87c19bb1b1ed19bd2d5c48f46fd087fa786a2c334ebd14d0dd405",
+        "metadata": {
+          "n_rows": 2240,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 2.1166666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": false
+        },
+        "preview_sha256": "c5d1ca9606ead6629aebae9ab58e020bc682f259ebf7dfe27db86bc41d8c15f2",
+        "preview_size": [
+          220,
+          183
+        ]
+      }
+    }
+  },
+  "source_sha256": {
+    "engine": [
+      "feb1177a110a2b648b4fde9cf36a0e590fd1f765087824df0f0ebff28d800301",
+      "feb1177a110a2b648b4fde9cf36a0e590fd1f765087824df0f0ebff28d800301"
+    ],
+    "server": [
+      "3acf0883b692df84515ef3c5442422dea3dc760b41a392e1d85eddd1cba2c9c9",
+      "3acf0883b692df84515ef3c5442422dea3dc760b41a392e1d85eddd1cba2c9c9"
+    ]
+  },
+  "complete": true
+}
