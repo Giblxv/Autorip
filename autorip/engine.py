@@ -23,6 +23,14 @@ _BYTES_PER_RENDER_PIXEL = 96  # planos, alpha, CMYK float e buffers temporários
 MAX_SOURCE_TRANSFORMS = 8
 MAX_SOURCE_PROFILE_BYTES = 2 * 1024 * 1024
 DEFAULT_SOURCE_DPI = 300.0
+def _available_cpu_count():
+    """Retorna CPUs utilizáveis pelo processo, respeitando afinidade quando disponível."""
+    reported = max(1, os.cpu_count() or 1)
+    try:
+        affinity = len(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        return reported
+    return max(1, min(reported, affinity))
 def _safe_source_dpi(value, default=DEFAULT_SOURCE_DPI):
     """Retorna um DPI finito e positivo; metadado ausente ou corrompido usa o padrão."""
     try:
@@ -302,7 +310,7 @@ class Rip:
             fill_rows = int(np.ceil(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
             choke_rows = int(np.ceil(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
             halo = 2 * fill_rows + choke_rows + 2
-            workers = (min(RENDER_WORKERS_MAX, os.cpu_count() or 1)
+            workers = (min(RENDER_WORKERS_MAX, _available_cpu_count())
                        if n_rows >= STRIP * 3 and n_dots * n_rows >= 1_000_000 else 1)
             available_rows = MAX_STRIP_MEMORY_BYTES // workers // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
             if workers > 1 and available_rows < 1:

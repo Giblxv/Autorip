@@ -18,6 +18,18 @@ def artwork(tmp_path):
     return path
 
 
+def test_workers_respeitam_a_afinidade_do_processo(monkeypatch):
+    monkeypatch.setattr(engine.os, 'cpu_count', lambda: 16)
+    monkeypatch.setattr(engine.os, 'sched_getaffinity', lambda _: {1, 3, 5})
+    assert engine._available_cpu_count() == 3
+
+
+def test_workers_usam_cpu_reportada_quando_afinidade_nao_existe(monkeypatch):
+    monkeypatch.setattr(engine.os, 'cpu_count', lambda: 2)
+    monkeypatch.delattr(engine.os, 'sched_getaffinity', raising=False)
+    assert engine._available_cpu_count() == 2
+
+
 @pytest.mark.parametrize('with_icc',[False,True])
 def test_paralelismo_preserva_bytes_ordem_e_progresso(tmp_path,monkeypatch,with_icc):
     path=artwork(tmp_path)
