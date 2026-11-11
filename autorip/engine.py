@@ -6,6 +6,7 @@ import shutil
 import tempfile
 import threading
 from collections import OrderedDict
+from functools import lru_cache
 import numpy as np
 from PIL import ImageCms, ImageDraw, ImageFont, ImageOps
 from .imaging import Image
@@ -40,6 +41,7 @@ def _safe_source_dpi(value, default=DEFAULT_SOURCE_DPI):
     return dpi if math.isfinite(dpi) and dpi > 0 else default
 
 
+@lru_cache(maxsize=16)
 def _blue_noise(h=256, w=256, sx=1.0, sy=None, seed=7):
     """Ruido azul aproximado (anisotropico para 720x2400): ruido branco passa-alta + ranking."""
     rng = np.random.default_rng(seed)
@@ -50,7 +52,9 @@ def _blue_noise(h=256, w=256, sx=1.0, sy=None, seed=7):
     order = np.argsort(hp.ravel())
     r = np.empty(h * w)
     r[order] = (np.arange(h * w) + 0.5) / (h * w)
-    return r.reshape(h, w)
+    noise = r.reshape(h, w)
+    noise.setflags(write=False)
+    return noise
 
 
 class Rip:

@@ -154,6 +154,17 @@ def test_resolucao_padrao_preserva_reticula_existente():
     assert np.array_equal(rip.noise, engine._blue_noise())
 
 
+def test_ruido_azul_reutiliza_cache_por_parametros():
+    engine._blue_noise.cache_clear()
+    first = engine._blue_noise(32, 48, sx=1.0, sy=2.0, seed=11)
+    second = engine._blue_noise(32, 48, sx=1.0, sy=2.0, seed=11)
+    different_seed = engine._blue_noise(32, 48, sx=1.0, sy=2.0, seed=12)
+    assert first is second
+    assert not np.array_equal(first, different_seed)
+    assert first.flags.writeable is False
+    assert engine._blue_noise.cache_info().hits >= 1
+
+
 @pytest.mark.parametrize("fmt", ["JPEG", "TIFF"])
 @pytest.mark.parametrize("orientation", [1, 6])
 @pytest.mark.parametrize("width_cm", [None, 2.54])
