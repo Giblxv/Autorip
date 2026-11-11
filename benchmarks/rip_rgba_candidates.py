@@ -7,9 +7,11 @@ def rgba_no_cache(bundle):
     if '        if mode == "RGBA":\n            flags |= ImageCms.Flags.NOCACHE\n' in bundle['engine']:
         return None
     before = '        output_mode = "RGBA" if mode == "RGBA" else "RGB"'
+    if before not in bundle['engine']:
+        before = '        profile = ImageCms.ImageCmsProfile(io.BytesIO(embedded))'
     after = '''        if mode == "RGBA":
             flags |= ImageCms.Flags.NOCACHE
-        output_mode = "RGBA" if mode == "RGBA" else "RGB"'''
+''' + before
     return change(bundle, 'engine', before, after)
 
 
