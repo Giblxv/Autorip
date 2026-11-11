@@ -35,8 +35,12 @@ def test_previa_capturada_e_identica_a_leitura_independente(tmp_path, mode, form
             expected = oriented.convert('RGBA')
     expected.thumbnail((220, 197))
     preview = server._SourcePreview((220, 197))
-    processed, *_ = Rip(Settings())._load_source(path, source_ready=preview.capture)
-    supported = mode in ('RGB', 'RGBA', 'L')
+    readonly = []
+    def capture(source):
+        readonly.append(bool(source.readonly))
+        preview.capture(source)
+    processed, *_ = Rip(Settings())._load_source(path, source_ready=capture)
+    supported = mode in ('RGB', 'RGBA', 'L') and not readonly[0]
     actual = preview.image if supported else server._load_thumbnail(path, (220, 197))
     try:
         assert (preview.image is not None) == supported
@@ -118,6 +122,17 @@ def test_chave_de_cor_mantem_fallback_sem_expandir_durante_o_rip(mode):
         preview = server._SourcePreview()
         preview.capture(source)
         assert preview.image is None and source.getpixel((0, 0)) is not None
+
+
+@pytest.mark.parametrize('mode', ['RGB', 'RGBA', 'L'])
+def test_raster_somente_leitura_mantem_previa_independente(mode):
+    with Image.new(mode, (769, 513)) as source:
+        source.readonly = 1
+        before, core = source.tobytes(), source.im
+        preview = server._SourcePreview()
+        preview.capture(source)
+        assert preview.image is None and source.readonly == 1
+        assert source.im is core and source.tobytes() == before
 
 
 @pytest.mark.parametrize('orientation', [1, 6])
