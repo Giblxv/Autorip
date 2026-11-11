@@ -118,3 +118,83 @@ def test_duas_miniaturas_usam_uma_codificacao_e_os_mesmos_bytes(app,sample_png,m
     root=Path(app.home)/'thumbs'
     assert (root/'one-encode.jpg').read_bytes()==encoded[0]
     assert (root/'by_name'/'one-encode-output.jpg').read_bytes()==encoded[0]
+
+
+@pytest.mark.parametrize('mode,fmt', [('RGB', 'PNG'), ('RGB', 'JPEG'), ('L', 'PNG'), ('L', 'JPEG')])
+@pytest.mark.parametrize('orientation', [1, 2, 6, 8])
+def test_previa_opaca_grande_preserva_filtro_e_reducao_em_duas_etapas(tmp_path, mode, fmt, orientation):
+    shape = (1089, 1537, 3) if mode == 'RGB' else (1089, 1537)
+    data = np.random.default_rng(321).integers(0, 256, shape, dtype=np.uint8)
+    path = tmp_path / ('large.' + fmt.lower())
+    exif = Image.Exif(); exif[274] = orientation
+    with Image.fromarray(data, mode) as source:
+        source.save(path, format=fmt, exif=exif)
+    before = path.read_bytes()
+    with Image.open(path) as source:
+        expected = ImageOps.exif_transpose(source).convert('RGBA')
+    expected.thumbnail((220, 197))
+    actual = server_module._load_thumbnail(path, (220, 197))
+    try:
+        assert actual.size == expected.size
+        assert actual.tobytes() == expected.tobytes()
+        assert path.read_bytes() == before
+    finally:
+        actual.close(); expected.close()
+
+
+@pytest.mark.parametrize('mode', ['L', 'RGB'])
+@pytest.mark.parametrize('orientation', [1, 6])
+def test_chave_de_transparencia_grande_preserva_alfa(tmp_path, mode, orientation):
+    shape = (1089, 1537, 3) if mode == 'RGB' else (1089, 1537)
+    data = np.random.default_rng(312).integers(0, 256, shape, dtype=np.uint8)
+    path = tmp_path / 'key.png'
+    exif = Image.Exif(); exif[274] = orientation
+    with Image.fromarray(data, mode) as source:
+        source.save(path, exif=exif, transparency=(0, 0, 0) if mode == 'RGB' else 0)
+    with Image.open(path) as source:
+        expected = ImageOps.exif_transpose(source).convert('RGBA')
+    expected.thumbnail((220, 197))
+    actual = server_module._load_thumbnail(path, (220, 197))
+    try:
+        assert actual.size == expected.size and actual.tobytes() == expected.tobytes()
+    finally:
+        actual.close(); expected.close()
+
+
+@pytest.mark.parametrize('mode,fmt', [('RGB', 'PNG'), ('RGBA', 'PNG'), ('CMYK', 'TIFF')])
+@pytest.mark.parametrize('orientation', [1, 6])
+def test_erro_na_previa_fecha_rasters_mesmo_com_traceback_retido(tmp_path, monkeypatch, mode, fmt, orientation):
+    path = tmp_path / ('failed.' + fmt.lower())
+    exif = Image.Exif(); exif[274] = orientation
+    with Image.new(mode, (513, 769)) as source:
+        source.save(path, format=fmt, exif=exif)
+    tracked = []
+    opened, transpose, convert = Image.open, ImageOps.exif_transpose, Image.Image.convert
+
+    def track_open(*args, **kwargs):
+        image = opened(*args, **kwargs); tracked.append(image); return image
+
+    def track_transpose(*args, **kwargs):
+        image = transpose(*args, **kwargs)
+        # O decoder TIFF também chama exif_transpose(in_place=True), que retorna
+        # None; nesse caso o raster já foi registrado por track_open.
+        if image is not None:
+            tracked.append(image)
+        return image
+
+    def track_convert(*args, **kwargs):
+        image = convert(*args, **kwargs); tracked.append(image); return image
+
+    def fail(*args, **kwargs):
+        raise RuntimeError('preview failure')
+
+    monkeypatch.setattr(Image, 'open', track_open)
+    monkeypatch.setattr(ImageOps, 'exif_transpose', track_transpose)
+    monkeypatch.setattr(Image.Image, 'convert', track_convert)
+    monkeypatch.setattr(Image.Image, 'thumbnail', fail)
+    with pytest.raises(RuntimeError, match='preview failure') as retained:
+        server_module._load_thumbnail(path, (220, 220))
+    assert retained.value.__traceback__ is not None and tracked
+    for image in tracked:
+        with pytest.raises(ValueError, match='closed'):
+            image.getpixel((0, 0))

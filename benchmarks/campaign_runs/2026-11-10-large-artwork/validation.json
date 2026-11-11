@@ -1,0 +1,45 @@
+{
+  "version": "0.8.19",
+  "source_sha256": {
+    "engine": "feb1177a110a2b648b4fde9cf36a0e590fd1f765087824df0f0ebff28d800301",
+    "server": "3acf0883b692df84515ef3c5442422dea3dc760b41a392e1d85eddd1cba2c9c9"
+  },
+  "tests": [
+    {
+      "log": "pytest-final-pillow13.txt",
+      "passed": 923,
+      "scope": "full"
+    },
+    {
+      "log": "pytest-pillow12.txt",
+      "passed": 915,
+      "scope": "full"
+    },
+    {
+      "log": "pytest-inplace-pillow13.txt",
+      "passed": 16,
+      "scope": "tests/test_source_rgba_transform.py -k in_place"
+    },
+    {
+      "log": "pytest-inplace-pillow12.txt",
+      "passed": 16,
+      "scope": "tests/test_source_rgba_transform.py -k in_place"
+    }
+  ],
+  "production_unchanged_between_tests": true,
+  "app_smoke": {
+    "version": "0.8.19",
+    "log": "app-smoke.txt",
+    "runtime": "Source Python launcher, not a Windows executable"
+  },
+  "real_decoded_90mp_smoke": "large-input-smoke.json",
+  "journal_test_wait_fix": {
+    "failed_run": "https://github.com/Giblxv/Autorip/actions/runs/42847710508",
+    "failure_log": "windows-prepackaging-failure.txt",
+    "scope": "Test now waits for archived file and removed manual folder within the original 10 seconds; production recovery unchanged",
+    "targeted_log": "journal-wait-validation.txt",
+    "targeted_rounds": 5,
+    "tests_per_round": 2,
+    "full_local_suite_scope": "923-test result precedes this test-only wait correction; production engine/server identical"
+  }
+}

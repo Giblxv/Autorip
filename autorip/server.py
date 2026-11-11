@@ -32,6 +32,9 @@ MAX_JSON_BYTES = 2 * 1024 * 1024
 MAX_PENDING_JOBS = 100
 MAX_JOB_HISTORY = 50
 MAX_STATE_HISTORY = 12
+# Até o Pillow 12, resize(RGBA) descartava reducing_gap ao converter para RGBa.
+# Preserve os mesmos pixels ao reduzir diretamente uma origem opaca.
+OPAQUE_THUMBNAIL_REDUCING_GAP = 2.0 if int(Image.__version__.split('.', 1)[0]) >= 13 else None
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 128
 SECRET_FIELDS = ("trello_key", "trello_token", "notion_token", "jira_token", "anthropic_key")
@@ -118,16 +121,33 @@ def _save_thumbnail_atomic(image, destination):
 
 
 def _load_thumbnail(path, bounds, *, orient=True):
+    image = result = None
     with Image.open(path) as source:
-        # A orientação PNG/TIFF pode estar disponível somente após o load.
-        source.load()
-        orientation = source.getexif().get(274, 1) if orient else 1
-        image = ImageOps.exif_transpose(source) if orientation in (2, 3, 4, 5, 6, 7, 8) else source
-        if image.mode != "RGBA":
-            image = image.convert("RGBA")
-        # RGBA já está no modo final: reduza antes de copiar o buffer grande.
-        image.thumbnail(bounds)
-        return image.copy() if image is source else image
+        try:
+            # A orientação PNG/TIFF pode estar disponível somente após o load.
+            source.load()
+            orientation = source.getexif().get(274, 1) if orient else 1
+            image = ImageOps.exif_transpose(source) if orientation in (2, 3, 4, 5, 6, 7, 8) else source
+            if image is not source:
+                source.close()
+            if image.mode in ("RGB", "L") and "transparency" not in image.info:
+                # Preserve filtro/reducing_gap, reduzindo antes da expansão RGBA.
+                image.thumbnail(bounds, reducing_gap=OPAQUE_THUMBNAIL_REDUCING_GAP)
+                converted = image.convert("RGBA")
+                image.close()
+                image = converted
+            else:
+                if image.mode != "RGBA":
+                    converted = image.convert("RGBA")
+                    image.close()
+                    image = converted
+                image.thumbnail(bounds)
+            result = image.copy() if image is source else image
+            return result
+        finally:
+            if image is not None and image is not source and image is not result:
+                image.close()
+            source.close()
 
 
 class App:

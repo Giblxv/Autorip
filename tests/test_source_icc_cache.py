@@ -80,7 +80,7 @@ def test_cache_frio_quente_preserva_pixels_e_prt(tmp_path,mode,intent,bpc):
     image.save(path,icc_profile=image.info['icc_profile'],dpi=(100,200))
     image.close()
     reference = engine.Rip(settings)
-    reference._source_rgba = lambda source: original_rgba(source,settings)
+    reference._source_rgba = lambda source, **kwargs: original_rgba(source,settings)
     baseline = reference.process(str(path),str(tmp_path/'old.PRT'),.75)
     for index in range(2):
         output = tmp_path / f'new-{index}.PRT'

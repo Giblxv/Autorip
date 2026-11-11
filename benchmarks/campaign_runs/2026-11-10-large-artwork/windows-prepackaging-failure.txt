@@ -1,0 +1,74 @@
+build	Run regression tests before Windows packaging	﻿2026-11-10T15:46:34.9826220Z ##[group]Run python -m pytest -q
+build	Run regression tests before Windows packaging	2026-11-10T15:46:34.9826529Z [36;1mpython -m pytest -q[0m
+build	Run regression tests before Windows packaging	2026-11-10T15:46:34.9857619Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+build	Run regression tests before Windows packaging	2026-11-10T15:46:34.9857897Z env:
+build	Run regression tests before Windows packaging	2026-11-10T15:46:34.9858114Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
+build	Run regression tests before Windows packaging	2026-11-10T15:46:34.9858466Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
+build	Run regression tests before Windows packaging	2026-11-10T15:46:34.9858997Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+build	Run regression tests before Windows packaging	2026-11-10T15:46:34.9859352Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+build	Run regression tests before Windows packaging	2026-11-10T15:46:34.9859666Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+build	Run regression tests before Windows packaging	2026-11-10T15:46:34.9859908Z ##[endgroup]
+build	Run regression tests before Windows packaging	2026-11-10T15:46:44.3498614Z ................................s....................................... [  7%]
+build	Run regression tests before Windows packaging	2026-11-10T15:46:49.7865365Z ........................................................................ [ 15%]
+build	Run regression tests before Windows packaging	2026-11-10T15:46:58.7211874Z ........................................................................ [ 23%]
+build	Run regression tests before Windows packaging	2026-11-10T15:47:18.6063969Z .............................................................F.......... [ 31%]
+build	Run regression tests before Windows packaging	2026-11-10T15:47:29.8092491Z ........................................................................ [ 39%]
+build	Run regression tests before Windows packaging	2026-11-10T15:47:35.0399447Z ........................................................................ [ 46%]
+build	Run regression tests before Windows packaging	2026-11-10T15:47:42.0975266Z ........................................................................ [ 54%]
+build	Run regression tests before Windows packaging	2026-11-10T15:47:44.2278339Z ........................................................................ [ 62%]
+build	Run regression tests before Windows packaging	2026-11-10T15:47:45.1568123Z ........................................................................ [ 70%]
+build	Run regression tests before Windows packaging	2026-11-10T15:47:46.4816084Z ........................................................................ [ 78%]
+build	Run regression tests before Windows packaging	2026-11-10T15:47:49.7007018Z ........................................................................ [ 85%]
+build	Run regression tests before Windows packaging	2026-11-10T15:48:04.9544416Z ........................................................................ [ 93%]
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0742211Z ..........................................................s              [100%]
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0742862Z ================================== FAILURES ===================================
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0743649Z ________________ test_journal_recupera_upload_manual_pendente _________________
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0743952Z
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0744115Z app = <autorip.server.App object at 0x000002717ADCC410>
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0744751Z sample_png = WindowsPath('C:/Users/runneradmin/AppData/Local/Temp/pytest-of-runneradmin/pytest-0/test_journal_recupera_upload_m0/amostra.png')
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0745191Z
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0745352Z     def test_journal_recupera_upload_manual_pendente(app, sample_png):
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0745682Z         folder = os.path.join(app.inbox, "interrompido")
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0745960Z         os.makedirs(folder)
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0746176Z         source = os.path.join(folder, "manual.png")
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0746505Z         with open(sample_png, "rb") as origin, open(source, "wb") as target:
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0746797Z             target.write(origin.read())
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0747061Z         output = os.path.join(app.s.output_folder, "manual.PRT")
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0747348Z         writer = PrtWriter(output, 300, 300, 1, 8)
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0747639Z         writer.write_block([np.zeros((1, 8), dtype=np.uint8)] * 12)
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0747899Z         writer.close()
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0748143Z         info = {"width_cm": 1.0, "height_cm": 1.0, "dpi_x": 300, "dpi_y": 300,
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0748443Z                 "n_rows": 1, "n_dots": 8, "has_alpha": True}
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0748811Z         write_archive_marker(source, {"phase": "success", "target": "done", "output": "manual.PRT",
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0749249Z                                       "output_dir": app.s.output_folder, "output_sha256": file_sha256(output),
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0749596Z                                       "job_id": "manual", "info": info,
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0751783Z                                       "metadata_written": False, "outbox_handled": False,
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0752115Z                                       "source_signature": _source_signature(source)})
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0752373Z
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0752535Z         deadline = time.monotonic() + 10
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0752817Z         archived = os.path.join(app.s.done_folder, "manual.png")
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0753154Z         while time.monotonic() < deadline and not os.path.exists(archived):
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0753449Z             time.sleep(0.05)
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0753631Z
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0753795Z         assert os.path.isfile(archived)
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0754017Z >       assert not os.path.exists(folder)
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0754257Z E       AssertionError: assert not True
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0754886Z E        +  where True = <built-in function _path_exists>('C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\test_journal_recupera_upload_m0\\autorip-home\\manual\\interrompido')
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0755590Z E        +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0756036Z E        +      where <module 'ntpath' (frozen)> = os.path
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0756234Z
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0756321Z tests\test_server.py:272: AssertionError
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0756590Z ============================== warnings summary ===============================
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0756858Z tests/test_source_alpha.py: 12 warnings
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0757096Z tests/test_source_rgba_transform.py: 16 warnings
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0757695Z   C:\hostedtoolcache\windows\Python\3.12.10\x64\Lib\site-packages\PIL\Image.py:1134: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0758444Z     warnings.warn(
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0758543Z
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0758724Z -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0759103Z =========================== short test summary info ===========================
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0759574Z FAILED tests/test_server.py::test_journal_recupera_upload_manual_pendente - AssertionError: assert not True
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0760342Z  +  where True = <built-in function _path_exists>('C:\\Users\\runneradmin\\AppData\\Local\\Temp\\pytest-of-runneradmin\\pytest-0\\test_journal_recupera_upload_m0\\autorip-home\\manual\\interrompido')
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0761008Z  +    where <built-in function _path_exists> = <module 'ntpath' (frozen)>.exists
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0761337Z  +      where <module 'ntpath' (frozen)> = os.path
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.0761622Z 1 failed, 920 passed, 2 skipped, 28 warnings in 95.37s (0:01:35)
+build	Run regression tests before Windows packaging	2026-11-10T15:48:11.2579420Z ##[error]Process completed with exit code 1.
