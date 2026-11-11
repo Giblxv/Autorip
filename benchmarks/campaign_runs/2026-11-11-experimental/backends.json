@@ -1,0 +1,28 @@
+{
+  "gpu": {
+    "cupy": false,
+    "cuda": false,
+    "numba": false,
+    "reason": "CuPy n\u00e3o instalado: No module named 'cupy'",
+    "available": false,
+    "error": "Backend CuPy/CUDA indispon\u00edvel; use a implementa\u00e7\u00e3o CPU."
+  },
+  "processpool": {
+    "count": 2,
+    "elapsed_seconds": 1.443129723000311,
+    "outputs": [
+      {
+        "source": "/tmp/autorip-processpool-bench-rep66on2/source-0.png",
+        "output_path": "/tmp/autorip-processpool-bench-rep66on2/out/source-0.PRT",
+        "n_rows": 8544,
+        "n_dots": 2458
+      },
+      {
+        "source": "/tmp/autorip-processpool-bench-rep66on2/source-1.png",
+        "output_path": "/tmp/autorip-processpool-bench-rep66on2/out/source-1.PRT",
+        "n_rows": 8544,
+        "n_dots": 2458
+      }
+    ]
+  }
+}
