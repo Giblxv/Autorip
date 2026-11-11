@@ -226,7 +226,10 @@ class Rip:
 
     def _thresholds(self, height, width, y0):
         ny, nx = self.noise.shape
-        return self.noise[np.ix_((np.arange(height) + y0) % ny, np.arange(width) % nx)]
+        phase = y0 % ny
+        ry, rx = (height + phase + ny - 1) // ny, (width + nx - 1) // nx
+        tiled = np.broadcast_to(self.noise[None, :, None, :], (ry, ny, rx, nx)).reshape(ry * ny, rx * nx)
+        return tiled[phase:phase + height, :width]
 
     def _halftone(self, v: np.ndarray, y0: int, thresholds=None) -> np.ndarray:
         """v = volume de tinta (0..1, 1 = tudo gota grande) -> niveis {0,1,3}.
