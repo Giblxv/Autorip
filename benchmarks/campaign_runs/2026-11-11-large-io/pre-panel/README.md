@@ -1,0 +1,1 @@
+7 hipóteses sem ganho adicional sobre cab0b05 (RGB nativo + cache de ruído). A rodada parcial 8 não conta. A campanha foi pausada para validar duas melhorias do painel: suspensão de polling oculto e reaproveitamento de cartões. Ambas passaram em provas de navegador; o contador da nova base começa do zero. Esta sequência não se soma à final.

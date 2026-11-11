@@ -17,14 +17,20 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
   const html=baseline?execFileSync('git',['show',baseline+':autorip/ui/index.html'],{cwd:path.join(__dirname,'..'),encoding:'utf8'}):null;
   browser=await chromium.launch({headless:true,...(process.env.AUTORIP_CHROMIUM?{executablePath:process.env.AUTORIP_CHROMIUM}:{}),args:process.env.AUTORIP_NO_SANDBOX==='1'?['--no-sandbox']:[]});
   const results=[];
-  async function test(name,fn,{timers=false}={}){
-   const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'}),errors=[];let closing=false;const originalRoute=page.route.bind(page);page.route=(pattern,handler)=>originalRoute(pattern,async route=>{try{await handler(route)}catch(error){if(!closing)throw error}});
+  async function test(name,fn,{timers=false,livePolling=false,initialHidden=false,viewport={width:1440,height:1000}}={}){
+   const page=await browser.newPage({viewport,reducedMotion:'reduce'}),errors=[];let closing=false;const originalRoute=page.route.bind(page);page.route=(pattern,handler)=>originalRoute(pattern,async route=>{try{await handler(route)}catch(error){if(!closing)throw error}});
    page.setDefaultTimeout(8000);page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
    if(html)await page.route(ready.url+'/',r=>r.fulfill({contentType:'text/html',body:html}));
-   await page.addInitScript(()=>{const original=window.setInterval;window.__intervals=[];window.setInterval=(...args)=>{const id=original(...args);__intervals.push(id);return id}});
+   await page.addInitScript(({initialHidden})=>{
+    const original=window.setInterval,clear=window.clearInterval;window.__intervals=[];window.__activeIntervals=new Set();
+    window.setInterval=(...args)=>{const id=original(...args);__intervals.push(id);__activeIntervals.add(id);return id};
+    window.clearInterval=id=>{__activeIntervals.delete(id);clear(id)};
+    window.__setPageHidden=hidden=>{Object.defineProperty(document,'hidden',{configurable:true,value:hidden});Object.defineProperty(document,'visibilityState',{configurable:true,value:hidden?'hidden':'visible'});document.dispatchEvent(new Event('visibilitychange'))};
+    if(initialHidden){Object.defineProperty(document,'hidden',{configurable:true,value:true});Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'})}
+   },{initialHidden});
    try{
     await page.goto(ready.url);
-    await page.evaluate(async()=>{for(const id of __intervals)clearInterval(id);token='queue-browser-token';await Promise.all([poll(true),pollPrints(true),pollHotFiles(true)])});
+    await page.evaluate(async live=>{if(!live)for(const id of __intervals)clearInterval(id);token='queue-browser-token';await Promise.all([poll(true),pollPrints(true),pollHotFiles(true)])},livePolling);
     await page.waitForFunction(()=>document.querySelectorAll('#hotFiles .hot-file').length===2&&document.querySelectorAll('#pq .pq').length===2);
     // Settle the anonymous startup state request before each controlled scenario.
     await page.evaluate(()=>poll(true));
@@ -122,6 +128,71 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
    await page.evaluate(()=>{window.inflight=pollPrints()});await started.promise;await page.evaluate(()=>{notify('teste');return shutdownApp()});closed=true;release.resolve();await page.evaluate(()=>inflight);
    await page.waitForTimeout(3300);await page.evaluate(n=>{window.__evidence={requestsAfterShutdown:n}},after);assert.equal(after,0);assert.equal(await page.locator('h1').innerText(),'AutoRIP encerrado');return{requestsAfterShutdown:after};
   },{timers:true});
+  const jobFixture=page=>page.evaluate(()=>{
+   window.__jobs=Array.from({length:100},(_,i)=>({id:'cache-'+i,name:'arte-'+i+'.png',status:i===0?'processando':'fila',progress:0}));
+   renderJobs(__jobs);window.__originalJobs=new Map([...document.querySelectorAll('#jobs .job')].map(row=>[row.dataset.jobId,row]));
+  });
+  for(const [device,viewport] of [['desktop',{width:1440,height:1000}],['mobile',{width:390,height:844}]]){
+   await test(`one progress update preserves ninety-nine ${device} job cards`,async page=>{
+    await jobFixture(page);
+    const evidence=await page.evaluate(async()=>{
+     const box=document.querySelector('#jobs');__originalJobs.get('cache-3').click();const focused=__originalJobs.get('cache-1').querySelector('[data-action="pause"]');focused.focus();
+     let touchedNodes=0;const observer=new MutationObserver(records=>{for(const r of records)touchedNodes+=r.addedNodes.length+r.removedNodes.length});observer.observe(box,{childList:true});
+     __jobs[0].progress=.37;renderJobs(__jobs);await Promise.resolve();observer.disconnect();
+     return{totalCards:box.querySelectorAll('.job').length,preservedCards:[...box.querySelectorAll('.job')].filter(row=>row===__originalJobs.get(row.dataset.jobId)).length,touchedNodes,focusedPreserved:document.activeElement===focused,selectedPreserved:box.querySelector('.selected')?.dataset.jobId==='cache-3',progress:box.querySelector('[data-job-id="cache-0"] [role="progressbar"]').getAttribute('aria-valuenow')};
+    });
+    await page.evaluate(e=>window.__evidence=e,evidence);assert(evidence.preservedCards>=99);assert(evidence.touchedNodes<=2);assert.equal(evidence.totalCards,100);assert(evidence.focusedPreserved);assert(evidence.selectedPreserved);assert.equal(evidence.progress,'37');return evidence;
+   },{viewport});
+  }
+  await test('job reordering keeps cards, selection and keyboard focus',async page=>{
+   await jobFixture(page);const evidence=await page.evaluate(()=>{const selected=__originalJobs.get('cache-3'),button=selected.querySelector('[data-action="pause"]');selected.click();button.focus();__jobs.reverse();renderJobs(__jobs);return{preservedCards:[...document.querySelectorAll('#jobs .job')].filter(row=>row===__originalJobs.get(row.dataset.jobId)).length,focused:document.activeElement===button,selected:document.querySelector('#jobs .selected')===selected}});
+   await page.evaluate(e=>window.__evidence=e,evidence);assert.equal(evidence.preservedCards,100);assert(evidence.focused);assert(evidence.selected);return evidence;
+  });
+  await test('changed job controls receive focus and completion notifies once',async page=>{
+   await jobFixture(page);const evidence=await page.evaluate(()=>{const row=__originalJobs.get('cache-0');row.click();row.querySelector('[data-action="pause"]').focus();__jobs[0].status='pausado';renderJobs(__jobs);const focusedAction=document.activeElement?.dataset.action;let notifications=0;celebrate=()=>notifications++;__jobs[0].status='pronto';renderJobs(__jobs);renderJobs(__jobs);__jobs[1].progress=.2;renderJobs(__jobs);return{focusedAction,notifications}});
+   assert.equal(evidence.focusedAction,'resume');assert.equal(evidence.notifications,1);return evidence;
+  });
+  await test('removed job cards are evicted before a matching id returns',async page=>{
+   await jobFixture(page);const evidence=await page.evaluate(()=>{const old=__originalJobs.get('cache-0');renderJobs(__jobs.slice(1));const removed=!old.isConnected;renderJobs(__jobs);return{removed,reusedEvictedCard:document.querySelector('[data-job-id="cache-0"]')===old,cards:document.querySelectorAll('#jobs .job').length}});assert(evidence.removed);assert(!evidence.reusedEvictedCard);assert.equal(evidence.cards,100);return evidence;
+  });
+  await test('locking discards cached job cards across sessions',async page=>{
+   await jobFixture(page);const evidence=await page.evaluate(()=>{const old=__originalJobs.get('cache-0');lockPanel();token='queue-browser-token-new';renderJobs(__jobs);return{reusedPriorSessionCard:document.querySelector('[data-job-id="cache-0"]')===old,oldCardConnected:old.isConnected}});assert(!evidence.reusedPriorSessionCard);assert(!evidence.oldCardConnected);return evidence;
+  });
+  for(const [device,viewport] of [['desktop',{width:1440,height:1000}],['mobile',{width:390,height:844}]]){
+   await test(`hidden ${device} skips fifty periodic API requests`,async page=>{
+    const counts={state:0,prints:0,'hot-files':0};page.on('request',r=>{const match=new URL(r.url()).pathname.match(/^\/api\/(state|prints|hot-files)$/);if(match)counts[match[1]]++});
+    await page.evaluate(async()=>{__setPageHidden(true);for(let tick=0;tick<30;tick++){await poll();if(tick%3===0)await Promise.all([pollPrints(),pollHotFiles()])}});
+    const evidence={simulatedStateTicks:30,simulatedListTicks:10,periodicRequests:Object.values(counts).reduce((a,b)=>a+b,0),counts};await page.evaluate(e=>window.__evidence=e,evidence);assert.equal(evidence.periodicRequests,0);return evidence;
+   },{viewport});
+  }
+  await test('visibility stops timers and resumes exactly one set',async page=>{
+   assert.equal(await page.evaluate(()=>__activeIntervals.size),3);
+   await page.evaluate(()=>__setPageHidden(true));assert.equal(await page.evaluate(()=>__activeIntervals.size),0);
+   const responses=Promise.all(['state','prints','hot-files'].map(resource=>page.waitForResponse(r=>new URL(r.url()).pathname==='/api/'+resource)));
+   await page.evaluate(()=>__setPageHidden(false));await responses;
+   await page.evaluate(()=>{__setPageHidden(false);__setPageHidden(false)});assert.equal(await page.evaluate(()=>__activeIntervals.size),3);
+   return{hiddenIntervals:0,resumedIntervals:3,immediateRefreshResources:3};
+  },{livePolling:true});
+  await test('a page opened hidden starts without periodic timers',async page=>{
+   const evidence=await page.evaluate(()=>({intervals:__activeIntervals.size,animationsPaused:document.body.classList.contains('tab-hidden')}));await page.evaluate(e=>window.__evidence=e,evidence);assert.equal(evidence.intervals,0);assert(evidence.animationsPaused);return evidence;
+  },{livePolling:true,initialHidden:true});
+  await test('explicit refreshes still complete while hidden',async page=>{
+   let requests=0;page.on('request',r=>{if(/^\/api\/(state|prints|hot-files)$/.test(new URL(r.url()).pathname))requests++});
+   await page.evaluate(async()=>{__setPageHidden(true);await Promise.all([poll(true),pollPrints(true),pollHotFiles(true)])});assert.equal(requests,3);return{explicitRequestsWhileHidden:requests};
+  });
+  await test('returning to a page discards a pending obsolete snapshot',async page=>{
+   const started=deferred(),release=deferred();let requests=0;
+   await page.evaluate(()=>{window.resurrected=0;window.observe=new MutationObserver(()=>{if([...document.querySelectorAll('#pq .nm')].some(n=>n.textContent.includes('obsolete')))resurrected++});observe.observe(document.querySelector('#pq'),{childList:true,subtree:true})});
+   await page.route('**/api/prints',async route=>{const data=await(await route.fetch()).json();requests++;if(requests===1){data[0].name='obsolete.PRT';started.resolve();await release.promise}await route.fulfill({json:data})});
+   await page.evaluate(()=>{window.inflight=pollPrints()});await started.promise;
+   await page.evaluate(()=>{__setPageHidden(true);__setPageHidden(false)});release.resolve();await page.evaluate(()=>inflight);
+   const evidence={requests,obsoleteRenders:await page.evaluate(()=>resurrected)};await page.evaluate(e=>window.__evidence=e,evidence);assert.equal(requests,2);assert.equal(evidence.obsoleteRenders,0);return evidence;
+  });
+  await test('visibility cannot restart a closed application',async page=>{
+   await page.route('**/api/shutdown',r=>r.fulfill({status:202,json:{ok:true}}));await page.evaluate(()=>shutdownApp());
+   let requests=0;page.on('request',r=>{if(/^\/api\/(state|prints|hot-files)$/.test(new URL(r.url()).pathname))requests++});
+   await page.evaluate(async()=>{__setPageHidden(true);__setPageHidden(false);await Promise.all([poll(),pollPrints(),pollHotFiles()])});assert.equal(requests,0);assert.equal(await page.evaluate(()=>__activeIntervals.size),0);return{requestsAfterShutdown:requests,intervalsAfterShutdown:0};
+  },{livePolling:true});
   const source=html||fs.readFileSync(path.join(__dirname,'../autorip/ui/index.html'),'utf8');const report={baseline:baseline||null,browser:browser.version(),uiSha256:crypto.createHash('sha256').update(source).digest('hex'),passed:results.every(r=>r.passed),cases:results.length,results};fs.writeFileSync(path.join(output,'browser-results.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));if(!report.passed&&!baseline)process.exitCode=1;
  }finally{if(browser)await browser.close();if(child.exitCode===null&&child.signalCode===null){const exited=new Promise(r=>child.once('exit',r));child.stdin.end(JSON.stringify({operation:'stop'})+'\n');await exited}lines.close()}
 })().catch(e=>{console.error(e);process.exit(1)});

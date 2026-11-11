@@ -240,14 +240,14 @@ body.tab-hidden *{animation-play-state:paused!important}
 <script>
 const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new Set(),first=true;
 let jobsKey="",printsKey="",hotKey="",noticeTimer,appClosed=false,cfgRequest=0;
-const apiRequests=new Set(),pollTimers=[],printRows=new Map(),hotRows=new Map();
+const apiRequests=new Set(),pollTimers=[],printRows=new Map(),hotRows=new Map(),jobRows=new Map();
 // Timer ticks share the current request. Explicit refreshes invalidate its snapshot
 // and coalesce into one subsequent request, including while that request is pending.
 function createPoller(task){let running=null,revision=0;return function run(force=false){
- if(appClosed)return Promise.resolve();if(force)revision++;if(running)return running;
+ if(appClosed||(!force&&document.hidden))return running||Promise.resolve();if(force)revision++;if(running)return running;
  running=(async()=>{try{let current;do{current=revision;await task(()=>current!==revision)}while(current!==revision&&!appClosed)}finally{running=null}})();return running;
 }}
-function lockPanel(){token="";jobsKey=printsKey=hotKey="";lastDone.clear();first=true;printRows.clear();hotRows.clear();resetThumbnails();
+function lockPanel(){token="";jobsKey=printsKey=hotKey="";lastDone.clear();first=true;printRows.clear();hotRows.clear();jobRows.clear();resetThumbnails();
  resetSheetPlanner();
  $("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";$("hotFiles").textContent="Faça login para listar os arquivos.";
  $("jobs").textContent="Faça login para ver seus trabalhos";$("ripCount").textContent="—";$("queuePreparing").textContent="";
@@ -277,7 +277,7 @@ async function api(path,opt={}){
 }
 async function shutdownApp(){if(appClosed||!confirm("Encerrar o AutoRIP no computador? O processamento e o painel serão fechados."))return;
  try{const r=await api("/api/shutdown",{method:"POST",body:"{}"});if(r.stale)return;if(!r.ok){actionFailed(r,"Não foi possível encerrar o AutoRIP.");return}
- appClosed=true;for(const timer of pollTimers)clearInterval(timer);clearTimeout(noticeTimer);for(const controller of apiRequests)controller.abort();resetThumbnails();printRows.clear();hotRows.clear();lastDone.clear();window._cfg=null;token="";
+ appClosed=true;stopPolling();clearTimeout(noticeTimer);for(const controller of apiRequests)controller.abort();resetThumbnails();printRows.clear();hotRows.clear();jobRows.clear();lastDone.clear();window._cfg=null;token="";
  document.body.classList.add("tab-hidden");document.body.innerHTML="<main style='padding:40px'><h1>AutoRIP encerrado</h1><p>Você pode fechar esta aba.</p></main>";
  }catch(e){notify("Não foi possível confirmar o encerramento. Verifique o servidor local.")}
 }
@@ -337,10 +337,18 @@ function renderJobs(items){
  const jobs=$("jobs"),scroll=jobs.scrollTop,selected=jobs.querySelector(".job.selected")?.dataset.jobId;
  const focused=jobs.contains(document.activeElement)?document.activeElement.closest(".job-actions button"):null;
  const focusedJob=focused?.closest(".job")?.dataset.jobId,focusedAction=focused?.dataset.action;
- const fragment=document.createDocumentFragment();let focusTarget=null,focusFallback=null;
+ const nodes=[];let focusTarget=null,focusFallback=null;
  const ids=new Set(items.map(j=>j.id));lastDone=new Set([...lastDone].filter(id=>ids.has(id)));
- if(!items.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";fragment.appendChild(empty)}
- items.slice().reverse().forEach(j=>{const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;if(j.id===selected)e.classList.add("selected");e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
+ for(const id of jobRows.keys())if(!ids.has(id))jobRows.delete(id);
+ if(!items.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";nodes.push(empty)}
+ items.slice().reverse().forEach(j=>{
+  const signature=JSON.stringify(j),entry=jobRows.get(j.id);
+  if(entry&&entry.signature===signature){
+   const e=entry.row;e.classList.toggle("selected",j.id===selected);nodes.push(e);
+   if(j.id===focusedJob){focusTarget=e.querySelector(`[data-action="${focusedAction}"]`);focusFallback=e.querySelector(".job-actions button")}
+   return;
+  }
+  const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;if(j.id===selected)e.classList.add("selected");e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
   if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;width:64px;height:64px;object-fit:contain;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
   const name=document.createElement("span");name.textContent=String(j.name||"");e.appendChild(name);
   const status=document.createElement("span");status.className="st "+(["fila","processando","pronto","erro"].includes(j.status)?j.status:"");status.textContent=String(j.status||"");e.appendChild(status);
@@ -353,8 +361,8 @@ function renderJobs(items){
    else if(["fila","processando"].includes(j.status))addAction("pause","Ⅱ Pausar","y");
    if(!["cancelando","pausando"].includes(j.status))addAction("cancel","✕ Cancelar","danger");
    e.appendChild(actions)}
-  fragment.appendChild(e);if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
- jobs.replaceChildren(fragment);pruneThumbnails();jobs.scrollTop=scroll;if(focusedJob)(focusTarget||focusFallback||jobs).focus({preventScroll:true});
+  nodes.push(e);jobRows.set(j.id,{signature,row:e});if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
+ reconcileRows(jobs,nodes);pruneThumbnails();jobs.scrollTop=scroll;if(focusedJob)(focusTarget||focusFallback||jobs).focus({preventScroll:true});
 }
 let lastLog="";
 function tagOf(m){const r=[[/^OK/,"ok","PRONTO"],[/^ERRO|falhou/i,"erro","ERRO"],[/^RIP/,"rip","RIP"],[/^Impresso/,"","IMPRESSO"],[/^Integra|^Trello|^Fila offline|^Agente/,"rede","REDE"],[/^Modo auto/,"rip","AUTO"],[/^Configura/,"","CONFIG"],[/^Removido/,"erro","FILA"]];
@@ -446,6 +454,14 @@ async function saveCfg(){if(!token){openCfg();return}const o={};for(const f of S
  o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=Number($("ink_"+c).value));
  const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});if(r.stale)return;$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok){await showCfg();poll(true)}}
 	initSheetPlanner();
-	document.addEventListener("visibilitychange",()=>document.body.classList.toggle("tab-hidden",appClosed||document.hidden));
-	poll();pollPrints();pollHotFiles();pollTimers.push(setInterval(poll,1000),setInterval(pollPrints,3000),setInterval(pollHotFiles,3000));
+function stopPolling(){for(const timer of pollTimers)clearInterval(timer);pollTimers.length=0}
+function syncPollingVisibility(){
+ const inactive=appClosed||document.hidden;document.body.classList.toggle("tab-hidden",inactive);
+ if(inactive){stopPolling();return}if(pollTimers.length)return;
+ // Invalidate a response captured before leaving the page and refresh once on return.
+ poll(true);pollPrints(true);pollHotFiles(true);
+ pollTimers.push(setInterval(poll,1000),setInterval(pollPrints,3000),setInterval(pollHotFiles,3000));
+}
+document.addEventListener("visibilitychange",syncPollingVisibility);
+syncPollingVisibility();
 </script></body></html>
