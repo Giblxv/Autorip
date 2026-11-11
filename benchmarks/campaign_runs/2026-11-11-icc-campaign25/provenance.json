@@ -1,0 +1,22 @@
+{
+  "base_commit": "23d4c106bfb2adf10e69292f9d71182b88284b60",
+  "production_tree_at_validation": "f9626d9c797583f7d56e431a8683f57449ab1634",
+  "script_sha256": {
+    "benchmarks/rip_campaign.py": "cd6c2a220a5f17bc93e5f07f8d472bce9c42ad4c545be24fe58606e231a20d02",
+    "benchmarks/rip_candidates.py": "f92738aa2249e926b5128f345895f6c962038c30454603898d5d2cf1aea5992c",
+    "benchmarks/rip_wide_candidates.py": "f3594f5d0b05fc044a01f083a61251ca96ed7694e6a29235baf66253f7d52c6f",
+    "benchmarks/rip_rgba_candidates.py": "8db460aea8fb48bb59fca18a46457b9dce971739b3d6c5419d9ec19009a2cfab",
+    "benchmarks/verify_rip_campaign.py": "42dee5e3ece79d871e41d16cf1aa6253d45837c358a9b6a4fb8146ba0fccb2a7",
+    "autorip/config.py": "28c84c0c6795d80e5c04d291fbe60d87160228e35aa993253848b62508ab6ab5",
+    "autorip/imaging.py": "3e5bf53befa3769aa8150bfd52ac44653dd1b0cb0e04172d5214a7ce093fbcd6",
+    "autorip/server.py": "8cbe466b4aeb119d69ea7ff3585d7357c780eaf1d58960771fd864b790db37c4"
+  },
+  "icc_sha256": "a86396b8ca0b1799096359fec6ac79e39db454fed71ba6dd2eed24d53506d6a5",
+  "final_bundle_sha256": "b8535523d721c5c485efa3af296d5fc334a02cab88463ae152f8deca68da1c83",
+  "zip_sha256": "25a04ab7b9d8712b900279df5b3c43c6f3366a18308982e6102f5f74887f2a51",
+  "previous_checkpoint_counted_in_final_streak": false,
+  "partial_round_counted": false,
+  "final_comparison": "Identical source on both sides (A/A), not a claimed engine speedup",
+  "memory": "tracemalloc peak; excludes untracked native RSS. Separate preview reports measure process VmHWM.",
+  "deadline_local": "2026-11-11T22:00:00-03:00"
+}

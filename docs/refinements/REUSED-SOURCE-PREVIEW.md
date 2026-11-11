@@ -45,7 +45,10 @@ O objeto Pillow não entra no journal, metadados JSON, integrações ou resposta
 O protótipo inicial passou com 1.013 testes completos no Pillow 13 e 206 focados
 no Pillow 12.3. Depois do guard de read-only, os 209 focados passaram nos dois.
 O smoke local do aplicativo também conferiu planejamento de 400 MP, três uploads,
-ICC, alfa e marca. A validação final do código a integrar é registrada ao encerrar.
+ICC, alfa e marca. A base final 0.8.20 passou em 1.016 testes locais completos
+e novo smoke do aplicativo. Os cinco testes posteriores do verificador e a
+correção do fechamento de mmap no oráculo dos testes passaram na matriz
+Linux/Windows, Python 3.10/3.12, além do executável e instalador Windows reais.
 
 `benchmarks/benchmark_reused_preview.py` compara processos novos, com ordem
 aleatória, a mesma afinidade e saídas conferidas. Mede `Rip.process` e as duas
@@ -105,3 +108,18 @@ de RSS. A impressão de 25,4 cm ficou empatada; render e saída ainda dominam.
 
 O modo direto da janela e o painel usam o mesmo worker do App. A CLI que produz
 somente PRT continua sem precisar da captura, com source_ready ausente.
+
+## Encerramento do refinamento
+
+Após aceitar esta melhoria, o contador foi zerado. A
+[campanha final com ICC/RGBA](../../benchmarks/campaign_runs/2026-11-11-icc-campaign25/README.md)
+terminou às 12:11:35 de 11/11/2026 em São Paulo, antes das 22h, com 25 hipóteses
+únicas consecutivas sem novo ganho validado. Não houve mudança adicional no
+motor. A verificação independente conferiu fontes, contagem e 23 PRTs idênticos.
+As nove recusas exploratórias anteriores e a proposta interrompida na retomada
+não foram somadas à sequência. Há também uma campanha standard independente
+preservada no repositório; os números das duas campanhas não são combinados.
+
+A conclusão vale para os critérios e cargas registrados, não demonstra máximo
+global de desempenho. O ganho desta versão é o reaproveitamento da prévia
+medido acima, e não a comparação final do motor com seu próprio código.
