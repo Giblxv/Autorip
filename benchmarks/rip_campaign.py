@@ -59,7 +59,8 @@ def load(bundle,folder,index):
 
 
 def make_cases(folder,icc,suite="standard"):
-    large_io = suite == 'large-io'
+    narrow_io = suite == 'large-io-v2'
+    large_io = suite in ('large-io', 'large-io-v2')
     if large_io:
         suite = 'rgba-direct'
     rng=np.random.default_rng(20261109)
@@ -167,6 +168,15 @@ def make_cases(folder,icc,suite="standard"):
             case('output_ink_limits', rgb, timed=False,
                  ink_limit={'C': 70, 'M': 65, 'Y': 80, 'K': 90}),
         ])
+    if narrow_io:
+        narrow_data = rng.integers(0, 256, (2048, 16, 4), dtype=np.uint8)
+        narrow_data[..., 3] = np.linspace(0, 255, 16, dtype=np.uint8)[None, :]
+        narrow_path = folder / 'narrow-long.png'
+        Image.fromarray(narrow_data, 'RGBA').save(narrow_path)
+        cases.extend([
+            case('narrow_long_output', narrow_path, width=7 / 720 * 2.54, white_enabled=False),
+            case('narrow_medium_output', source, width=111 / 720 * 2.54),
+        ])
     return cases
 
 
@@ -198,6 +208,10 @@ def micro_correct(original,candidate):
     for ratio in (.05,.4,.95):
         a=original['engine'].Rip(Settings(small_drop_ratio=ratio))
         b=candidate['engine'].Rip(Settings(small_drop_ratio=ratio))
+        for height,width in ((1,1),(17,7),(257,111),(1,301),(513,32),(17,255)):
+            for y0 in (0,253,-3):
+                if not np.array_equal(a._thresholds(height,width,y0),b._thresholds(height,width,y0)):
+                    return 'threshold-shape-or-phase'
         for y in (0,253,1025):
             t=a._thresholds(17,301,y)
             for values in (rng.random((17,301),dtype=np.float32),
@@ -241,10 +255,12 @@ def micro_correct(original,candidate):
         else:
             return 'pack2-noninteger-levels'
     for dx,dy in ((300,300),(720,2400),(72,9600)):
-        masks=[rng.random((23,37))>.4,np.zeros((1,1),bool),np.ones((13,19),bool)]
-        for mm in (0,.01,.1,.3):
+        point=np.zeros((13,19),bool);point[6,9]=True
+        masks=[rng.random((23,37))>.4,np.zeros((1,1),bool),np.ones((13,19),bool),point]
+        # sqrt(sum(square)) e hypot podem divergir por um ULP nesta fronteira.
+        for mm in (0,.01,.1,.3,.08819444444444444):
             for mask in masks:
-                for method in ('erode','close_holes'):
+                for method in ('dilate','erode','close_holes'):
                     a=getattr(original['morph'],method)(mask,mm,dx,dy)
                     b=getattr(candidate['morph'],method)(mask,mm,dx,dy)
                     if not np.array_equal(a,b):return f'{method}-physical-boundary'
@@ -294,7 +310,7 @@ def main():
     parser.add_argument('--rounds-without-gain',type=int,default=15)
     parser.add_argument('--repeats',type=int,default=7)
     parser.add_argument('--apply',action='store_true')
-    parser.add_argument('--suite',choices=['standard','extended','input-icc','source-alpha','rgba-direct','large-io'],default='standard')
+    parser.add_argument('--suite',choices=['standard','extended','input-icc','source-alpha','rgba-direct','large-io','large-io-v2'],default='standard')
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--baseline-ref',help='Commit/tag Git da base; leitura sem checkout')
     parser.add_argument('--deadline',help='Prazo ISO 8601 com fuso, por exemplo 2026-11-11T22:00:00-03:00')
@@ -316,7 +332,7 @@ def main():
         proposals=CANDIDATES
     if args.suite == 'rgba-direct':
         from rip_rgba_candidates import CANDIDATES as proposals
-    if args.suite == 'large-io':
+    if args.suite in ('large-io', 'large-io-v2'):
         from rip_io_candidates import CANDIDATES as proposals
     unknown = set(args.exclude)-{p[0] for p in proposals}
     if unknown:
@@ -324,7 +340,7 @@ def main():
     proposals = [p for p in proposals if p[0] not in args.exclude]
     if not proposals:
         parser.error('Nenhuma hipótese disponível após --exclude')
-    if args.suite in ('input-icc','source-alpha','rgba-direct','large-io') and not args.icc:
+    if args.suite in ('input-icc','source-alpha','rgba-direct','large-io','large-io-v2') and not args.icc:
         parser.error('Esta suíte exige --icc com um perfil CMYK válido')
     if args.repeats<5 or args.rounds_without_gain<15:parser.error('Minimos: 5 repeticoes e 15 rodadas sem ganho')
     work=args.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)

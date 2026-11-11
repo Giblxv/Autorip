@@ -269,7 +269,26 @@ def writer_sparse_empty(bundle):
                   '            self.f.truncate(actual_size)\n            # Publicar o arquivo somente apos sincronizar seus bytes com o disco.')
 
 
+def adaptive_thresholds(bundle, policy):
+    source = bundle['engine']
+    start = source.index('        ny, nx = self.noise.shape', source.index('    def _thresholds'))
+    end = source.index('\n    def _halftone', start)
+    predicate = 'width < nx' if policy == 'narrow' else 'ry * ny * rx * nx > 2 * max(1, height * width)'
+    body = f'''        ny, nx = self.noise.shape
+        phase = y0 % ny
+        ry, rx = (height + phase + ny - 1) // ny, (width + nx - 1) // nx
+        if {predicate}:
+            return self.noise[np.ix_((np.arange(height) + y0) % ny, np.arange(width) % nx)]
+        tiled = np.broadcast_to(self.noise[None, :, None, :], (ry, ny, rx, nx)).reshape(ry * ny, rx * nx)
+        return tiled[phase:phase + height, :width]
+'''
+    result = source[:start] + body + source[end:]
+    return dict(bundle, engine=result) if result != source else None
+
+
 CANDIDATES = [
+    ('threshold-narrow-fallback', 'Preservar broadcast em folhas largas e evitar expansão para larguras menores que a tela', lambda b: adaptive_thresholds(b, 'narrow')),
+    ('threshold-padding-bound', 'Usar indexação quando a expansão periódica alocaria mais do dobro da área pedida', lambda b: adaptive_thresholds(b, 'padding')),
     ('alpha-buffer-normalize', 'Normalizar alfa no buffer privado float32', alpha_inplace),
     ('density-private-buffer', 'Construir densidade de branco num buffer privado', density_buffer),
     ('pack-validate-minmax', 'Validar níveis com reduções min/max sem máscaras temporárias', lambda b: validation(b, 'minmax')),
