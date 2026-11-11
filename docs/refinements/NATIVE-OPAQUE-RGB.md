@@ -26,3 +26,6 @@ A suíte completa do protótipo passou 1084 testes no Pillow 13; a seleção de 
 [Relatórios brutos e decisão](../../benchmarks/campaign_runs/2026-11-11-opaque-rgb/). Os arquivos grandes não são versionados; `benchmark_reused_preview.py` gera os casos e `make_opaque_rgb_exif.py` acrescenta EXIF sem recodificar pixels.
 
 A campanha anterior sobre `7095fe0` foi interrompida após 20 rejeições, sem aceite. O contador reinicia sobre RGB nativo; nenhuma sequência de bases distintas é somada. A primeira passagem sobre `4326a12`, com 25 rejeições, também permanece separada. A campanha final será registrada com seu motivo real de parada, 25 rejeições consecutivas ou 22h de São Paulo.
+
+
+A main recebeu depois o PR #63, com cache LRU de até 16 retículas imutáveis. Esse cache foi incorporado antes da campanha final combinada. As 15 hipóteses concluídas sobre RGB nativo sem esse cache ficam arquivadas separadamente em `pre-noise-cache`; a rodada parcial 16 não conta. As 25 repetições de regressão do PR #64 verificam estabilidade, não equivalem a 25 hipóteses de desempenho.
