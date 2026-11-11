@@ -51,6 +51,10 @@ def test_previa_capturada_e_identica_a_leitura_independente(tmp_path, mode, form
         # A prévia não depende da vida útil nem das alterações futuras do RIP.
         processed.close()
         assert actual.tobytes() == expected.tobytes()
+        if actual is preview.image:
+            preview.take().close()
+        else:
+            actual.close()
         path.rename(path.with_name('renamed.' + format.lower()))
     finally:
         processed.close(); preview.close(); actual.close(); expected.close()
