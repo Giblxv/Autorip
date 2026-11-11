@@ -152,7 +152,8 @@ class _SourcePreview:
         self.close()
         # Outros modos precisam de uma expansão RGBA completa antes do resize.
         # Retê-los junto à origem aumentaria o pico de RAM; preserve o fallback.
-        if source.mode not in ("RGB", "RGBA", "L") or "transparency" in source.info:
+        if (source.readonly or source.mode not in ("RGB", "RGBA", "L")
+                or "transparency" in source.info):
             return
         image = None
         try:
