@@ -1,6 +1,6 @@
 """Novas hipóteses de alocação e escrita; usadas apenas na campanha large-io."""
 import re
-from rip_wide_candidates import normalize_inplace
+from rip_wide_candidates import normalize_inplace, clip_inplace_ufunc
 
 from rip_candidates import change
 
@@ -288,6 +288,7 @@ def adaptive_thresholds(bundle, policy):
 
 
 CANDIDATES = [
+    ('cmyk-clip-ufuncs', 'Comparar duas ufuncs no buffer CMYK com o custo de despacho de clip', clip_inplace_ufunc),
     ('cmyk-normalize-inplace', 'Normalizar CMYK no buffer privado float32 após preservar a origem RGB', normalize_inplace),
     ('threshold-narrow-fallback', 'Preservar broadcast em folhas largas e evitar expansão para larguras menores que a tela', lambda b: adaptive_thresholds(b, 'narrow')),
     ('threshold-padding-bound', 'Usar indexação quando a expansão periódica alocaria mais do dobro da área pedida', lambda b: adaptive_thresholds(b, 'padding')),

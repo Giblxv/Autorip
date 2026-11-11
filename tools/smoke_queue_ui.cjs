@@ -35,14 +35,14 @@ const root=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),'autorip-queue-
   await job.getByRole('button',{name:'Pausar arte-000.png',exact:true}).focus();
   const before=await page.locator('#jobs').evaluate(e=>e.scrollTop);
   assert(before>0);
-  await page.evaluate(()=>{window.queueMutations=0;window.queueObserver=new MutationObserver(records=>queueMutations+=records.filter(r=>r.target===document.getElementById('jobs')&&r.type==='childList').length);queueObserver.observe(document.getElementById('jobs'),{childList:true})});
+  await page.evaluate(()=>{window.queueMutations=0;window.queueTouchedNodes=0;window.queueObserver=new MutationObserver(records=>{for(const r of records)if(r.target===document.getElementById('jobs')&&r.type==='childList'){queueMutations++;queueTouchedNodes+=r.addedNodes.length+r.removedNodes.length}});queueObserver.observe(document.getElementById('jobs'),{childList:true})});
   await command('tick');await page.evaluate(()=>poll());
   await page.waitForFunction(id=>document.querySelector(`[data-job-id="${id}"] [role=progressbar]`).getAttribute('aria-valuenow')==='37',ready.first_id);
   assert.equal(await page.evaluate(()=>document.activeElement?.dataset.action),'pause');
   assert.equal(await page.evaluate(()=>document.activeElement.closest('.job').dataset.jobId),ready.first_id);
   assert.equal(await page.locator('#jobs .selected').getAttribute('data-job-id'),ready.first_id);
   assert(Math.abs(before-await page.locator('#jobs').evaluate(e=>e.scrollTop))<3);
-  assert.equal(await page.evaluate(()=>queueMutations),1);
+  assert.equal(await page.evaluate(()=>queueTouchedNodes),2);
   await page.evaluate(()=>window.queueCard=document.querySelector('#jobs .job'));
   await page.evaluate(()=>poll());
   assert(await page.evaluate(()=>queueCard===document.querySelector('#jobs .job')));

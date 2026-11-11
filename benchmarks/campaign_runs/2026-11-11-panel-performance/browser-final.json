@@ -1,0 +1,209 @@
+{
+  "baseline": null,
+  "browser": "156.0.8078.79",
+  "uiSha256": "554aa3e2666d2bb5f6b12124de6f5cf13468013d0f8c6e782668dcc16e8a403b",
+  "passed": true,
+  "cases": 36,
+  "results": [
+    {
+      "name": "authenticated lists remove all login placeholder nodes",
+      "passed": true
+    },
+    {
+      "name": "unchanged hot rows preserve nodes and focus",
+      "passed": true,
+      "preserved": true,
+      "polls": 20,
+      "childListMutations": 0
+    },
+    {
+      "name": "one changed hot row preserves its neighbour",
+      "passed": true
+    },
+    {
+      "name": "hot polling is single flight with one forced followup",
+      "passed": true,
+      "requests": 2,
+      "maximumInFlight": 1
+    },
+    {
+      "name": "old session 401 cannot clear new session: hot-files",
+      "passed": true
+    },
+    {
+      "name": "old session 401 cannot clear new session: prints",
+      "passed": true
+    },
+    {
+      "name": "old session 401 cannot clear new session: state",
+      "passed": true
+    },
+    {
+      "name": "old session data is discarded: hot-files",
+      "passed": true
+    },
+    {
+      "name": "old session data is discarded: prints",
+      "passed": true
+    },
+    {
+      "name": "printed 404 preserves authentication",
+      "passed": true
+    },
+    {
+      "name": "printed 500 preserves authentication",
+      "passed": true
+    },
+    {
+      "name": "delete 404 preserves authentication",
+      "passed": true
+    },
+    {
+      "name": "delete 500 preserves authentication",
+      "passed": true
+    },
+    {
+      "name": "network failure keeps session and reports failure",
+      "passed": true
+    },
+    {
+      "name": "settings response cannot repopulate a closed dialog",
+      "passed": true
+    },
+    {
+      "name": "current session 401 clears every private view",
+      "passed": true
+    },
+    {
+      "name": "unchanged print list makes no DOM writes",
+      "passed": true,
+      "polls": 20,
+      "domMutations": 0
+    },
+    {
+      "name": "changed print preserves neighbour and preview",
+      "passed": true
+    },
+    {
+      "name": "next print badge changes without replacing remaining row",
+      "passed": true
+    },
+    {
+      "name": "print reordering keeps existing nodes and keyboard focus",
+      "passed": true
+    },
+    {
+      "name": "unchanged prints update relative age without replacing rows",
+      "passed": true
+    },
+    {
+      "name": "forced refresh discards snapshot captured before mutation",
+      "passed": true
+    },
+    {
+      "name": "shutdown stops timers and ignores pending responses",
+      "passed": true,
+      "requestsAfterShutdown": 0
+    },
+    {
+      "name": "one progress update preserves ninety-nine desktop job cards",
+      "passed": true,
+      "totalCards": 100,
+      "preservedCards": 99,
+      "touchedNodes": 2,
+      "focusedPreserved": true,
+      "selectedPreserved": true,
+      "progress": "37"
+    },
+    {
+      "name": "one progress update preserves ninety-nine mobile job cards",
+      "passed": true,
+      "totalCards": 100,
+      "preservedCards": 99,
+      "touchedNodes": 2,
+      "focusedPreserved": true,
+      "selectedPreserved": true,
+      "progress": "37"
+    },
+    {
+      "name": "job reordering keeps cards, selection and keyboard focus",
+      "passed": true,
+      "preservedCards": 100,
+      "focused": true,
+      "selected": true
+    },
+    {
+      "name": "changed job controls receive focus and completion notifies once",
+      "passed": true,
+      "focusedAction": "resume",
+      "notifications": 1
+    },
+    {
+      "name": "removed job cards are evicted before a matching id returns",
+      "passed": true,
+      "removed": true,
+      "reusedEvictedCard": false,
+      "cards": 100
+    },
+    {
+      "name": "locking discards cached job cards across sessions",
+      "passed": true,
+      "reusedPriorSessionCard": false,
+      "oldCardConnected": false
+    },
+    {
+      "name": "hidden desktop skips fifty periodic API requests",
+      "passed": true,
+      "simulatedStateTicks": 30,
+      "simulatedListTicks": 10,
+      "periodicRequests": 0,
+      "counts": {
+        "state": 0,
+        "prints": 0,
+        "hot-files": 0
+      }
+    },
+    {
+      "name": "hidden mobile skips fifty periodic API requests",
+      "passed": true,
+      "simulatedStateTicks": 30,
+      "simulatedListTicks": 10,
+      "periodicRequests": 0,
+      "counts": {
+        "state": 0,
+        "prints": 0,
+        "hot-files": 0
+      }
+    },
+    {
+      "name": "visibility stops timers and resumes exactly one set",
+      "passed": true,
+      "hiddenIntervals": 0,
+      "resumedIntervals": 3,
+      "immediateRefreshResources": 3
+    },
+    {
+      "name": "a page opened hidden starts without periodic timers",
+      "passed": true,
+      "intervals": 0,
+      "animationsPaused": true
+    },
+    {
+      "name": "explicit refreshes still complete while hidden",
+      "passed": true,
+      "explicitRequestsWhileHidden": 3
+    },
+    {
+      "name": "returning to a page discards a pending obsolete snapshot",
+      "passed": true,
+      "requests": 2,
+      "obsoleteRenders": 0
+    },
+    {
+      "name": "visibility cannot restart a closed application",
+      "passed": true,
+      "requestsAfterShutdown": 0,
+      "intervalsAfterShutdown": 0
+    }
+  ]
+}

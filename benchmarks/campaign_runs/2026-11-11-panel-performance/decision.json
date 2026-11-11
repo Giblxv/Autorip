@@ -1,0 +1,23 @@
+{
+  "accepted": true,
+  "baseline": "cab0b05ee50ce48db393458c6961d81a8809bdee",
+  "ui_sha256": "554aa3e2666d2bb5f6b12124de6f5cf13468013d0f8c6e782668dcc16e8a403b",
+  "browser_cases": 36,
+  "fresh_browser_processes": 44,
+  "simulated_hidden_requests": {
+    "before": 50,
+    "after": 0
+  },
+  "progress_update_100_cards": {
+    "cards_preserved": 99,
+    "touched_nodes_before": 200,
+    "touched_nodes_after": 2
+  },
+  "correctness": "Byte-identical rendered jobs DOM in both batteries and A/A",
+  "scope": "Synchronous renderJobs plus forced layout; 100 synthetic cards without thumbnails, first 5 updates warmup; import/navigation/authentication excluded",
+  "limits": "Desktop Chromium and mobile viewport, not native Android/iOS hardware, battery or whole application latency",
+  "counter_reset": true,
+  "prior_completed_without_gain": 7,
+  "partial_round_not_counted": 8,
+  "zip_sha256": "72ff59c74e980abd8f4d65cbd76370b8545408716f33b784678ce5f2b7bdb614"
+}
