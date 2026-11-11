@@ -249,6 +249,26 @@ def conservative_memory(bundle, value):
     return dict(bundle, engine=source) if source != bundle['engine'] else None
 
 
+def writer_sparse_empty(bundle):
+    before = '        out = np.empty((rows, self.n_channels, self.pb), dtype=np.uint8)'
+    after = '''        first = arrays[0]
+        if np.issubdtype(first.dtype, np.integer):
+            signature = (first.__array_interface__["data"][0], first.strides, first.dtype.str)
+            if (all((plane.__array_interface__["data"][0], plane.strides, plane.dtype.str) == signature
+                    for plane in arrays[1:]) and not first.any()):
+                self.f.seek(rows * self.n_channels * self.pb, os.SEEK_CUR)
+                self.written += rows
+                return
+        out = np.empty((rows, self.n_channels, self.pb), dtype=np.uint8)'''
+    result = change(bundle, 'prt', before, after)
+    if result is None:
+        return None
+    # seek não estende o arquivo se o último bloco estiver vazio.
+    # flush/validação precedem truncate; fsync continua obrigatório depois dele.
+    return change(result, 'prt', '            # Publicar o arquivo somente apos sincronizar seus bytes com o disco.',
+                  '            self.f.truncate(actual_size)\n            # Publicar o arquivo somente apos sincronizar seus bytes com o disco.')
+
+
 CANDIDATES = [
     ('alpha-buffer-normalize', 'Normalizar alfa no buffer privado float32', alpha_inplace),
     ('density-private-buffer', 'Construir densidade de branco num buffer privado', density_buffer),
@@ -267,6 +287,7 @@ CANDIDATES = [
     ('pack-accumulator', 'Combinar bits em acumulador uint8 reutilizado', lambda b: packing(b, 'accumulator')),
     ('writer-identity-cache', 'Atalho para repetição do mesmo objeto de plano', writer_identity),
     ('writer-planar-layout', 'Comparar escrita por planos contíguos com cópia final intercalada', writer_layout),
+    ('writer-sparse-empty', 'Saltar blocos integralmente vazios e materializar o tamanho final antes de fsync', writer_sparse_empty),
     ('ink-identity-limit', 'Dispensar multiplicação quando os quatro limites são identidade', ink_identity),
     ('ink-multiplier-cache', 'Reutilizar escala CMYK conferindo a configuração a cada tira', ink_cache),
     ('alpha-multiply-ufunc', 'Aplicar alfa por ufunc com saída explícita', alpha_ufunc),
