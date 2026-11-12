@@ -499,7 +499,7 @@ def main():
     if args.resume:
         initial={k:(work/'initial'/f'{k}.py').read_text(encoding='utf-8') for k in FILES}
     elif args.baseline_ref:
-        initial={k:subprocess.check_output(['git','show',f'{args.baseline_ref}:{path}'],cwd=ROOT,text=True)
+        initial={k:subprocess.check_output(['git','show',f'{args.baseline_ref}:{path}'],cwd=ROOT,text=True,encoding='utf-8')
                  for k,path in FILES.items()}
     else:
         initial={k:(ROOT/path).read_text(encoding='utf-8') for k,path in FILES.items()}
