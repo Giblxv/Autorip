@@ -1,0 +1,50 @@
+from dataclasses import asdict
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import random
+import sys
+
+root=Path('/workspace/Autorip-campaign100')
+review=Path('/workspace/autorip-review/campaign100-2026-11-12')
+sys.path.insert(0,str(root))
+from autorip.layout import LayoutItem,layout_to_svg
+
+def load(path,name):
+    spec=importlib.util.spec_from_file_location('autorip._'+name,path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module
+old=load(review/'baseline-sheet.py','nest_old')
+new=load(root/'autorip/sheet_nesting.py','nest_new')
+checks=[]; avoided={}
+for count in (0,1,2,3,8,17,32):
+    for seed in range(8):
+        rng=random.Random(1200+seed)
+        items=[LayoutItem(str(i),f'{i}.png','',300,200,rng.uniform(1,15),rng.uniform(1,20),
+                          rotation=(i%4)*90,selected=i%3==0) for i in range(count)]
+        before=[asdict(x) for x in items]
+        for rotate in (False,True):
+            outputs=[];copies=[]
+            for module in (old,new):
+                calls=[0];original=module.asdict
+                def tracked(item):
+                    calls[0]+=1
+                    return original(item)
+                module.asdict=tracked
+                try:
+                    packed=module.nest(items,gap_cm=0 if seed%2 else .2,allow_rotation=rotate)
+                finally:
+                    module.asdict=original
+                assert module.check_layout(packed,gap_cm=0 if seed%2 else .2)
+                assert [asdict(x) for x in items]==before
+                payload=json.dumps([asdict(x) for x in packed],sort_keys=True)+layout_to_svg(packed)
+                outputs.append(hashlib.sha256(payload.encode()).hexdigest())
+                copies.append(calls[0])
+            assert outputs[0]==outputs[1],(count,seed,rotate)
+            checks.append(dict(count=count,seed=seed,rotate=rotate,sha256=outputs[0],copies=copies))
+            if count in (1,8,32) and seed==0 and rotate:avoided[str(count)]=copies
+result=dict(verified=True,case_count=len(checks),input_immutable=True,identical_layouts_and_svg=True,
+            candidate_clone_calls_examples=avoided,cases=checks)
+(review/'nesting-parity.json').write_text(json.dumps(result,indent=2)+'\n')
+print(json.dumps({k:v for k,v in result.items() if k!='cases'},indent=2))

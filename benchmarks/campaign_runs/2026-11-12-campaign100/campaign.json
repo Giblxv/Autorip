@@ -1,0 +1,39 @@
+{
+  "requested_at_utc": "2026-11-12T01:35:27+00:00",
+  "baseline_ref": "v0.8.24",
+  "deadline": "2026-11-12T22:00:00-03:00",
+  "deadline_utc": "2026-11-13T01:00:00+00:00",
+  "required_without_gain": 100,
+  "prefix_rounds": [
+    {
+      "round": 1,
+      "domain": "sheet-planning",
+      "accepted": true,
+      "consecutive_without_gain": 0,
+      "baseline_ref": "v0.8.24",
+      "candidate_sha256": "bee7ceaa3cfad47453f2ad3cc1c055f0c8992d5cf8690c431f3c71e092ba3a79",
+      "reason": "confirmed-work-reduction-and-one-piece-planning-speed",
+      "scope": "No general speed claim for larger sheets; A/A is noisy",
+      "equality_cases": 112,
+      "local_tests_passed": 1125,
+      "application_smoke": true,
+      "one_piece_confirmation_speedup": 1.6262876779875777,
+      "clone_calls_examples": {
+        "1": [
+          30,
+          0
+        ],
+        "8": [
+          240,
+          16
+        ],
+        "32": [
+          960,
+          192
+        ]
+      }
+    }
+  ],
+  "initial_rip_without_gain": 0,
+  "publication": "Only after criterion, independent audit, full regressions and exact-head CI; preserve concurrent main changes"
+}

@@ -93,7 +93,7 @@ def _order_key(name, item):
     return {"orig": 0, "area": -(w * h), "height": -h, "width": -w, "side": -max(w, h)}[name]
 
 
-def _pack_once(items, sheet_w, margin, gap, order, heuristic, allow_rot):
+def _pack_once(items, sheet_w, margin, gap, order, heuristic, allow_rot, height_limit=None):
     idx = sorted(range(len(items)), key=lambda i: (_order_key(order, items[i]), i)) if order != "orig" \
         else list(range(len(items)))
     inner_w = sheet_w - 2 * margin + gap          # o gap extra absorve a folga da ultima peca
@@ -123,6 +123,16 @@ def _pack_once(items, sheet_w, margin, gap, order, heuristic, allow_rot):
         _, x, y, w, h, rot = best
         free = _split_free(free, x, y, w, h)
         placed[i] = (x, y, rot)
+    if height_limit is not None:
+        # Use as mesmas coordenadas arredondadas de sheet_height antes de copiar
+        # os dataclasses. Candidatos sem melhora nunca seriam selecionados.
+        bottom = float(margin)
+        for i, item in enumerate(items):
+            _, y, rot = placed[i]
+            w, h = _dimensions(item)
+            bottom = max(bottom, round(margin + y, 6) + (w if rot else h))
+        if not round(bottom + float(margin), 6) < height_limit - EPS:
+            return None
     out = []
     for i, item in enumerate(items):
         x, y, rot = placed[i]
@@ -188,7 +198,7 @@ def nest(items: Iterable[LayoutItem], sheet_width_cm: float = MAX_SHEET_WIDTH_CM
         for order in ORDERS:
             for heuristic in HEURISTICS:
                 cand = _pack_once(base_items, float(sheet_width_cm), float(margin_cm), gap_cm,
-                                  order, heuristic, rot)
+                                  order, heuristic, rot, height_limit=best_h)
                 if cand is None:
                     continue
                 h = sheet_height(cand, margin_cm, gap_cm)
