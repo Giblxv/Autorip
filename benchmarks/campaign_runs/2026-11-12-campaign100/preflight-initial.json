@@ -1,0 +1,2564 @@
+{
+  "base_hash": "4931ab0acb27b5753a0a78e2aaef4dbd1ed5306096afc4b61ef9de1bec8dedd5",
+  "semantic_base": "69bd1777d518ab04f3c80a55f6c138ae193eb2e0fe61b542ef5708982522667c",
+  "historical_pairs": 177,
+  "historical_semantic_pairs": 123,
+  "correctness_cases": 30,
+  "timed_cases": 12,
+  "eligible": 268,
+  "eligible_tuning": 227,
+  "excluded": [
+    "edt-hypot",
+    "halftone-multiply",
+    "writer-identity-cache"
+  ],
+  "candidates": [
+    {
+      "name": "wide-limit-2",
+      "candidate_hash": "9470a0e1a2541f646d41f6198c1ac46275aac274fbd72b0737756a5c4b73325c",
+      "semantic_hash": "045372bfecc5a7d79a9f3c33ccc6a73ea5451ecfce480a30042bbdb1179d3dbd",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "pixel-estimate-80",
+      "candidate_hash": "f72ecaac80459fe6382d6817dc3d5533620766bf5993830efafe07274a0ba897",
+      "semantic_hash": "f68f39ab76c9725efe87199339471aa706b362d04af396faa4d210c37100e053",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "pixel-estimate-64",
+      "candidate_hash": "719521cf308d7bb91b33b25590f1c1831535674f747950894a7be1a6f15735f1",
+      "semantic_hash": "aabc648eb4be4bfa09aed4a7d964cbcbc83d58abdff92133eb14e716fda3bf5a",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "edt-transpose-wide",
+      "candidate_hash": "96229dfed9a710f55d4e0688fb9fa64613859f3af27528dd30b81aa14d7d0a18",
+      "semantic_hash": "71e19c4cd59595bb5f94447bfaf77015c0a38dda9743c71350eaeb2f544c3d02",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "parallel-threshold-500k",
+      "candidate_hash": "0dc8f7e2fcb83621eddd3c909281b8334d42d5a01b36828f965d6c6cb4bb6996",
+      "semantic_hash": "9a67151b9e7b05b804a3c0f0c84990b50e20da955f80a8a92d543acaf2679760",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "parallel-threshold-2m",
+      "candidate_hash": "0d49fb261358e5a5a5fe9fd606d34924f221fcd672a9332d7c06b845aa1427e5",
+      "semantic_hash": "0f2e63eb43e3d57771dcaac573967c8fedf0e3941b182ac102702c6e59388669",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "zero-halftone",
+      "candidate_hash": "945d6ad1b3b2b137ab9b13911023e063fd319b5f17a23a938068a8753cf19789",
+      "semantic_hash": "e6a6afaf62319434573adeb939fd5d17de68256d2ffb3112c2cb3255c8dc5882",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "subpixel-morph",
+      "candidate_hash": "7461944fbc0e5439dd81225d7da03d87ae23a7f9646fa79b9f12e7b292417371",
+      "semantic_hash": "4d554a847b89671cebc2bacd41ccdefb02140af882729bb80fdae347b8f53eae",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "pipeline-2",
+      "candidate_hash": "37f6b2d226ba11c7c921f1fc7507855947bd28809b3a1e41b7c84f06a3d25b32",
+      "semantic_hash": "c5f2233800816de29ac9ac91e9da3320db164aec5debb8e5d76a4e5e240551a0",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "pipeline-3",
+      "candidate_hash": "246697cbf7bc28a0a108c9b8d9e2744feb102a5223c79c5fd9213114cefb4521",
+      "semantic_hash": "372ee8c742dc34c634a4edf9e5fe752b3828e337c7c554c10b2aa1ec9c3fc88e",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "threshold-take",
+      "candidate_hash": "dde558ddf7334fbc177a3b1cb08c5b948a4bcc0cd981fd8d329fb0a408a59eab",
+      "semantic_hash": "09f5dfa5140bf84ce90b7fd9f5f5303a233e90b7126afdba6fd692a1ca1b67e0",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "threshold-tile",
+      "candidate_hash": "22582b56391a7c5cea59df2fe104b0fb4db66a5588477b09ee778076a72bb744",
+      "semantic_hash": "675f5d0d8a11c8722cad48a954be126eb61f22f297285df93d6db2c37f5003af",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "threshold-tile2d",
+      "candidate_hash": "2596a449746cad0e1e3739e1499d49394114273abced8f262b57f938033fcbdf",
+      "semantic_hash": "69bfa281079a699da77ea9b9893789d0e4aa585e8c219fc61212f970676d4653",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "pack-tree",
+      "candidate_hash": "9424b2cfc5cca3914a0a00cc010f180a39f1811756af1c6e0f4243e10cf78772",
+      "semantic_hash": "ad51df5842bdacdbcc450843e3497c37f0dc3d74d88bd18b4a27fb0d770dea64",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "pack-direct",
+      "candidate_hash": "372d06ba2f07d36d1a82a25aa5b34d321df4e96a36fc350fb6324dcec238d2c5",
+      "semantic_hash": "95a7e4a27a792ca28fd689a496eddd0e7f8c63538df5a2010d657ffb03828b0f",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "pack-dot",
+      "candidate_hash": "5020eaa369b4bde5d778a32fb2163c0b26569af1097cfa854a03018dcbbc9bdb",
+      "semantic_hash": "33da230c90cf5a6779c043e6da9b403217c9536615850bbc85eef00c33c3722e",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "pack-sum",
+      "candidate_hash": "48e02f4591ff844bb20feb1a02ef8a6fcd727b39de19fc173b137abbe6ed8163",
+      "semantic_hash": "a0cd80c9b2e858beec8adacc033331efc807c9cc97660219a4aada794d9c7511",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "pack-bits",
+      "candidate_hash": "b0821e8873002c699977c4889ff6b846bdafd735d2ec85db20f996288bda7bd6",
+      "semantic_hash": "39fc6d6f364b20b08051a275b5821badd24e6ff575350ddb06df9cae4cad7923",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "pack-u32",
+      "candidate_hash": "a532659255551216d45fb5b9dc08e5b69628761a61de85e4e33f9ad1a125deac",
+      "semantic_hash": "65aad8b9a065c68edd9043936ba711aa1e291f016f4bbe3a8e94e61d46aaec07",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "halftone-assign",
+      "candidate_hash": "8ab94b4edb0d8229e5a29b4777422657c53f155974f615f68bba73837b5ff810",
+      "semantic_hash": "b35cd7674d15dd3cab08ae38abd65cbe4039419900bf7f4651371f1449020438",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "halftone-bits",
+      "candidate_hash": "df8de6616c3702621db8d9a8367b759a12c184c4787681c1ad4881e1c5688459",
+      "semantic_hash": "508555cff5f031fbb2429a5c754ee469e702269f2ca72343b410fba26f7c8197",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "halftone-full",
+      "candidate_hash": "6a2817bdc1aa0a990cd013e9589625e7026cbcf91f45f7b2d50d47542b9577c1",
+      "semantic_hash": "eae7559d852fd0765c7b22766345e34d89569a92f6c69579ad21cc74d93608d9",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "channel-contiguous",
+      "candidate_hash": "28989bc543c52acb752680f0decc0e710038df67216aefd0905364c1f294d92c",
+      "semantic_hash": "db0adff8f0372017ad0e40336aa6877cc2094cc50856706c76e810dc5b9b892c",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "cmyk-lut",
+      "candidate_hash": "a5bf8c15f20810361c3bc86d79cb8f04c5d14b417db24bfd71b34a7bee00e82a",
+      "semantic_hash": "ef141ded7a1df4d9957a12ffd9522ea1d3220cb295e6e898117cf0705225607a",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "clip-redundant",
+      "candidate_hash": "5d2d41600a0c427f00d4f0c5e6eace487d3604b17914a2dd6b4906d899f3c3a8",
+      "semantic_hash": "6318d7efd8f426a418a2c5d240b9c4907d91a28c3547beb83578d15073d23c65",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "padding-explicit",
+      "candidate_hash": "fdeb2ba065289f1d7abd70abeae7e2aa8f742e12402b58d591af4efb9b3bca16",
+      "semantic_hash": "1e094ac6ec704ebef75fa5006769ac65231e4505f55936100fa438d647e55026",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "close-view",
+      "candidate_hash": "4b4bd8deb7b839fae5ad9bf6fc78e24213618c74c1c140fae435f667f1fa1fbb",
+      "semantic_hash": "1339c1f460ccfd4b26e15eec0247d17bc3c35b759205c0488bdaf21c61ef1999",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "squared-distances",
+      "candidate_hash": "d7f60a71ded254ae505ea12c4aa2fbc37b42077de28461c611452d8f4512a47a",
+      "semantic_hash": "83681c01f0b65b4440f8d5fbad96e3c5ccf2a603e0d979613fe6f36824edf6e3",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "cmyk-reciprocal",
+      "candidate_hash": "214fbbca71ca3ef49cef625285b909a9d661a893c36f0bff795786ea2772381f",
+      "semantic_hash": "adde884717b8b51a9ec1a7e6a66a7c99a32127d64de867b130b658489aeeb553",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "strip-256",
+      "candidate_hash": "32cd539a35b118b8689c50344a6a7aed0ecd49fe1a4ee191da6e168eb9d1d637",
+      "semantic_hash": "a4abc25dac3809c40369bab3c09af9b2a82d192f1a1a042a3f63771cd892fb32",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "strip-768",
+      "candidate_hash": "03e19594a17457e9b05c35488966443ddcc8e7edf4f7770abb3ef101ae443ce7",
+      "semantic_hash": "6de22ae4fe5d759ee7ebbef5b6c18cb5282aec117031913304a092ac59887be1",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "strip-1024",
+      "candidate_hash": "f2daaf6e5c149072ade9f38523f15c0bf48e0b74eebfb90470501122f227a849",
+      "semantic_hash": "39f454409fcdf28725fa4aebde15e82d9e773f0048f454630a1105c03c178852",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "strip-1536",
+      "candidate_hash": "1e1a6d2ffcd8f4224f37b9e16937ad8c16d2fdcddda5661e157619a34bb44fb9",
+      "semantic_hash": "aad60bf5a2a5da894bb7adcc149e363bca643aa7725020c44fb57188115ea08d",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "strip-2048",
+      "candidate_hash": "5a71899e0382e3b692ebca21d00f53e0c3f2f40e22fd98fb9e920be328601eaf",
+      "semantic_hash": "25319988f5bef6b5ed837ffc91ecb0afac5e90bf91a204a41ea16fe6c063f1f1",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "strip-384",
+      "candidate_hash": "eb6a681d20f53582fe59aba0956fec33f61e60ede3c51147985b0683b95874e6",
+      "semantic_hash": "1d92bde7b5cb44fafbae428ce850e43a2732dd9a36076750c37bd00748129a72",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "strip-640",
+      "candidate_hash": "6340354a56b24552803d44945c4753fbe8d3d9ae39d127f046cdafd934956996",
+      "semantic_hash": "55a759f1837725d5a95b44d95d0cd6e2334eff3e2d376da7dad61529d02e5458",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "strip-896",
+      "candidate_hash": "fbccf52c8c6b0aa4bf2e3bde03cb41bf18d9975e651c27ff5d221905169f37ce",
+      "semantic_hash": "64dd364ad85456e7390bb73caf5ab92b594ef5f66d9dfbe205f1be27d0042a07",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "strip-1280",
+      "candidate_hash": "caaee155c1e9a7d15882084b0b5fcf7d05287492eb408d05948a9d5648714a34",
+      "semantic_hash": "73285402f3b9791eef65e76ea6a3d17a1d2b9eb9e668c66a5537b89d51137f6e",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "strip-3072",
+      "candidate_hash": "164ec7ae824a6fbf941c2e8f8183703e9fac52dfefd19d5e75c07c2132311ab0",
+      "semantic_hash": "ee429511b166bbc89ec5f9dd8ffad4620bd351214be8657aadff1cfca314dfde",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "rgba-no-pixel-cache",
+      "candidate_hash": "6f026364d6c7da37b968e2636aa0645e194459922101b58a8447369281b08440",
+      "semantic_hash": "6d504f3ca78d62cb2615717c387f139256428a81f664600b6be8dd392add1818",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "rgba-copied-in-place",
+      "candidate_hash": "4ec6f240606cbf1997985a21e3cbbed47df5216e2b34e311a1eba8b69f3ee23e",
+      "semantic_hash": "190aa41b901096491cc06de650467de38a0f4d009d35f019cf7d6454799dfc9a",
+      "plan_hash": null,
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s384-t1000000",
+      "candidate_hash": "94e220159a42f86a93ff15123988d85d1fd9a58c5c54cc7ce17836468784dcc8",
+      "semantic_hash": "3734928a3d0dcfffcadbffa2fce1df2ad337f0650319a19e6c0e395956a5be43",
+      "plan_hash": "3b9a8e7b014e4c0a0da463462adc982f6ff03cc6b3eec404e930cc5e42329b68",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s384-t4000000",
+      "candidate_hash": "bb08f907e4fb301bf2daa0afaa359609744615e2f44a70efff96e70d92e344a9",
+      "semantic_hash": "17e92d288460529e3058d0ef4ef7ecda671537aa5ecf425f3db43b3c8150744a",
+      "plan_hash": "5d9ea70be6a1ce73ce139bcbeac049e72e239d003434ad96d137b191dc90e34f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s192-t2000000",
+      "candidate_hash": "dacaaa6182f4a671f2f7ec99abb3b362216bb69d37b6e1fe831d73294494f007",
+      "semantic_hash": "0395598cf29b864b799050b99cb50c7891b564f40fcd079ae684592625d6091f",
+      "plan_hash": "279afa53ba60fbf62c7261660196c6c834712b924faec757ed9ab48049a84167",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s1024-t2000000",
+      "candidate_hash": "f1eeabb86551631c59594aeda439ac0ca5b85be2e860c4947917343e77d79caa",
+      "semantic_hash": "da72a74d0b5d63934bd0f4ff0ef0fd2185a21286ee0c35b2ef568e1f05904cfa",
+      "plan_hash": "b888e5cf4205b678cc2ca73b3cc0eef310a2067a09357e9b74b06acead300cf5",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s320-t8000000",
+      "candidate_hash": "3edb35461ea3d7f3f79af3491d7a317325980a6cb551e4b638220ef4297a89e5",
+      "semantic_hash": "ed22a2c37a2b89b4518d6af06f630a3eb22f8c8ad49f3a10aae0b1539191703a",
+      "plan_hash": "036063f1472069d3128dcd289d38603fedae54a3674a5ac509586231d963fa37",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s96-t1000000",
+      "candidate_hash": "d3a408272a73e607faf44f94690ebdf366c584992a568b73a26cf65d57ecff39",
+      "semantic_hash": "5ad0daf33588f74617b93e8b7b1b763fc102ed374c45ab82a0ee9065800440de",
+      "plan_hash": "438c8234291c3e351ce56b63815042f8220210161c5547dd2332ea696582d1d3",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s384-t8000000",
+      "candidate_hash": "b72e1185decf86300fb22e06891b2fd7a80f90ac6728f5fd2db4387b2dd008c9",
+      "semantic_hash": "0ff3caff29d631ab1a49f3c3bc23c1ecafe60218b4a647b22bb34ee5fcb5621f",
+      "plan_hash": "8638fcb1eb0f2ef6e0607b2fa478a904b7eb9b27eab782041893b5e7e511a439",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s640-t1500000",
+      "candidate_hash": "1781da70640858d6c6cf6de5596f1489a6bdebb5ebe8defef65a611cf0893f74",
+      "semantic_hash": "e99815d2bcd5217f007deed4b7ff71e073a1735edc4a3d9cd7c4fb9082cb198c",
+      "plan_hash": "284419144ec0ed3e3d64654d43c14341279f2af2e93aa70a165a92b428f88416",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s192-t1500000",
+      "candidate_hash": "90512fa014dd1036ac84dde2a5c609c0222e3ba93600c3d66be9b8c27ae0de4e",
+      "semantic_hash": "1b786c9cea5723336987d5e559ace0a296eafa1a782deeb41348e102bdd21e17",
+      "plan_hash": "7535d8adb9dee5ad920c72a8578f8e3eef3ecf12d74844518a537953250b6cfc",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s1024-t8000000",
+      "candidate_hash": "1169200080db45780fdb6449508725c9f2fb0530130a63ca0d8fad874d39ae2a",
+      "semantic_hash": "3a9968531e77ce1768ea160027f07ae3e93f4855fe6f1c11f5d788e1b1c026b8",
+      "plan_hash": "74b415b1de363a0b9133a8cec2e1859d97d44407bf1d5abaa8d7c20a465612c7",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s640-t100000",
+      "candidate_hash": "fb5bda15ea135d33107def79ff974c2e197da0ccd8ed644c00e0f0167bdfce4a",
+      "semantic_hash": "aa5c94116d5958a2cb91449f7047e64ae751d81ff292a7a917a71e5d079644e7",
+      "plan_hash": "8c867a9e3937b00e4a69caa4051b71d55ad3cc0358f61ca6d94de65032eeb41c",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s128-t100000",
+      "candidate_hash": "14721deeaad193ae3bae8b5d0ca5ab809dc36a9a693926a4ee0603ee7cc7dbc2",
+      "semantic_hash": "f11d72b311a01525354bcf87534a3c95153298f29ac62f8e403ea3cf0ba26bac",
+      "plan_hash": "f3f200c45e972c7ea2c1d4ba2336298ae27bc0ad6b168ed99efd8b45db40085f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s384-t4000000",
+      "candidate_hash": "4d16d7c39c76487ba80dfea5afeed4cb1406ec47f9fdcfe4689d7ac746cd8eaa",
+      "semantic_hash": "0bfea7089eb8d355e034a5535f69a6863835a39d6778c01cb24b55246d6de33e",
+      "plan_hash": "a1e82523e1f70ffd6e6a7586375734a8a28ef51d7eedf1ea09ed32f2d0ca640f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s128-t100000",
+      "candidate_hash": "c576bb026ce8187cce1ccb52490344c10a037d0bf862bf7a0a56e3e6e4374ecd",
+      "semantic_hash": "08136f75821260ee4de43e544fbc8d9fd750aad868d26ad8b8e47ecd10d52222",
+      "plan_hash": "c2b3c39fed406e0684d3b486e11f9ce66bb9d41deeb3ce2c06bc1431519cdf9b",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s256-t2000000",
+      "candidate_hash": "c6471124ac3ce1cb08664adf9d09a982588b208e0e0f09c4e4a3b2dfdab2d38a",
+      "semantic_hash": "73a499527cae54126ab41d5539163252422031fd9ebdd3993abb75ffe6745b20",
+      "plan_hash": "ca7299d4680c01c477d1c500141673dd036d85d8997cb8e4227dd763b90b4d5d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s1024-t4000000",
+      "candidate_hash": "e4c2cec252eb2db8c9ba50128e6a0ef8904dc7b2bae982909732c31dc92954c7",
+      "semantic_hash": "9523e89e72c56821e639b79c1d9406e52c188eb13f3947fcbea5ee22df8f8c04",
+      "plan_hash": "caaeb82f95aed3f79ab4dc97eb513522ff975f669053c7231699789a6060d01c",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s64-t1500000",
+      "candidate_hash": "5836859da41835545404333b99e4a952d7ead53a00dbeac2562da43370bd4a18",
+      "semantic_hash": "9ffc91f9eca74cde9db4a770d18a823164968820fbc090620778fa58f085e33c",
+      "plan_hash": "e8e7f01966414c3cc32322ce04a5f3a7c62902ffa3f854d3ed603b1899481d10",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s384-t1500000",
+      "candidate_hash": "4f18311d79b0f82c62c735ad9f8229feaf4bd97d787154b04c298968b8cb7504",
+      "semantic_hash": "886b4a323c327b485fd30edc22520ac7f7a75fb64c97dd17f448b09370814ad3",
+      "plan_hash": "9cc5652ad96502fb5071faedb742e59ca2d3ae1f387d836b11dc61f398be8052",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s320-t1500000",
+      "candidate_hash": "c38845b5eada144d53f3db7733781acee5b061648a6a2983f3d24213d626af92",
+      "semantic_hash": "8d8b369911be34482ce4cd09b865ec655c4e177e9128ba32134e9559b6a5b6d1",
+      "plan_hash": "d5ccde90d73139c26007111346302d8afd871f92b335e5508e4f706e6e799b41",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s640-t12000000",
+      "candidate_hash": "380fab7c8ff8b05df1ef1ca6a52fc26347990270e739fceac28c0b096702eb0b",
+      "semantic_hash": "7ea23dbb4143aeab7ec59847a8441b01461dc67c563fa6d635250e2eb091ab59",
+      "plan_hash": "0a38b1e17a7a63ff457cd822c3c0f18a17619a0093e75381afd30815dd9d298d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s64-t12000000",
+      "candidate_hash": "7c4f15eb49d9c0617b8929d915aa6945b753a62dbec3ac3705c84b9db0a68923",
+      "semantic_hash": "ed9ba4e1f4580b5a827a156ce8b315be1ece26f2d53a003ba78e2e8cf49cd69e",
+      "plan_hash": "31bb2cc486feee9bf94ad5c067dca611e1482aaf02fe3c697243b8870248f02f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s640-t12000000",
+      "candidate_hash": "5ea430dd836467b888e3c93eb2fc596c275d349852cbdb8ffab0effd74095e7e",
+      "semantic_hash": "990bb386fbf38500731bb00049967d2d746f7aa4ba20b55f0df558cdc7cba7b2",
+      "plan_hash": "979ae5357046477ef4d2bd154fe88376ec29a58fdc1094042c54b8fd2b6e773d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s768-t100000",
+      "candidate_hash": "d76a8920bf14768f2c5ba2aa56358448c95048c2a3067edf7a3f75b66427ad86",
+      "semantic_hash": "db2de3630eb0a58c3c21a1f88bafa8fdfdeb09718346d67797e8d469b0b9f3b4",
+      "plan_hash": "e9a40c9d4989aef00c203899fb17562ac1acd5ba7660f160f82105d90c527afb",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s1536-t100000",
+      "candidate_hash": "3321224b457a2190e5f2579a63ee3db3fea94e67fc973ad5090b9900bd1e515c",
+      "semantic_hash": "85cf31167b85ed6009f33dc142358b6c4f5271b2b74e9f0385f3159d3656f820",
+      "plan_hash": "8827d8a1e7f0a1035a99106573aad12a23789e0604834a36587ba9797b2087f9",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s96-t4000000",
+      "candidate_hash": "1c91656e7a96c676c18e29330b9ef5abded02289355071ecfa72f92059174dc5",
+      "semantic_hash": "83fa422c44b70d885a5d5adf4566be663c0b1262526477d4f913b9d636f5e065",
+      "plan_hash": "c1d238359104b044779a7374436bfe7bfefb52838040fa9a2f58c0483ea7e5e9",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s256-t100000",
+      "candidate_hash": "547dd7604027f8076733f5942069ea69173ae489739b53f8d054d2dd049ea529",
+      "semantic_hash": "a26411e1b87bd399e6dc352e463686ceb55b49ed6cd5ca59763521f8b2588526",
+      "plan_hash": "5867048623b1c96a559e4ba062309e35e68ae4acef5a5e1d739e87af803df370",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s160-t12000000",
+      "candidate_hash": "2d39252601e22326d81e3b2a6704ce326755b072dc06fdee09e4839053134864",
+      "semantic_hash": "baf05bab1d4dbdfaeea77d4ab6d8de7e000d2d5252d47a6f904a44d4dc035719",
+      "plan_hash": "f9b0f0ae7d85911d5373a76e0118f6b5bb635b88b99e3d89fdeb837d4a3659a8",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s512-t8000000",
+      "candidate_hash": "bc6c5cd65c82f35cd0731e9d754aa6e8d2f631658470459432407cc6d1cd79f5",
+      "semantic_hash": "39a3bb3c5e8cd8156a7131af5896a0b9d73e398f70f1b68492b8f468fe1dad24",
+      "plan_hash": "71d195612ad957499680771a64399532c9c58da040cafa7ca90d98f0b428a81c",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s640-t8000000",
+      "candidate_hash": "1edef1876d7f54f473d838d2d8d9da12705268cd12d82f864809d2a1aac4aef9",
+      "semantic_hash": "16442c0587c8636bc3097a1e1e4a886441b9d8f7389aa1f04cdd77f853fe187c",
+      "plan_hash": "cba285a4fc3b79ef894262debc15bc793c1ff8fa7d493485e050228bf6ee2fd4",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s384-t1000000",
+      "candidate_hash": "ee895ea18337f21edba1d68723beed1cdfc8bde23658510ffa67f3f6c46337db",
+      "semantic_hash": "82fc9b3a28967818222381ba0b1980b76cb55f7b9ad050de69f95b56a2d3849b",
+      "plan_hash": "534a3662718dd90d87d5453aa8afcaa00f6c2a5e63fc32424412d8e770ba94d0",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s64-t1000000",
+      "candidate_hash": "8c242d35bad98659730e814213610b87efae9de06e61ff3a586cf9585261a939",
+      "semantic_hash": "1399bcdb227fd152ea1c22ec3a75e204aa1a4a6c9182aba2df5edb8a93fb97ab",
+      "plan_hash": "ddf7ffd3bf6ead4e61492abed73ec74935d008889672195a7978889c51050dd2",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s640-t4000000",
+      "candidate_hash": "a4a356250003e3c12a29ef7ddc229379344ec9c7bd3139e83ccb9415ffd33a4e",
+      "semantic_hash": "17af6b78bc0b563953d385ecee2c4b53427583f4006b534ef201b78be44e1132",
+      "plan_hash": "83ea3e27a55c84d813c72a87bcf1d8ccb657047c6810a59a2513c51fb72b10b0",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s320-t2000000",
+      "candidate_hash": "17c07c4e49e69061fe9ac2404eb1e433ec762ce1d7eaac533c8b1e04a55d7bd9",
+      "semantic_hash": "aca433f75c048e4f9c9cbcb230d0e37406671268aee4a762828f05f283426365",
+      "plan_hash": "a2bbb7b66b7696bc0c843f99906554e884fe4dff47a2b347507b783dc78bff8e",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s128-t8000000",
+      "candidate_hash": "263f04ef0a822614c23f1de0821952e5ddd63f141be1361b1d5571e85ee612d4",
+      "semantic_hash": "056058a05ea5bbb3529bd2505730da7b07e4b4bb5722ce3de6a2a94aba0afb3a",
+      "plan_hash": "0ac9480a44a73968b937d87dd4dc24d17d907b6577717304b6eae4507e91b6b2",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s160-t1500000",
+      "candidate_hash": "089d36fa0f36f63ed2c01ad0e52ffc0d0d87bfbc608c07d4fb0785a0d8fba41b",
+      "semantic_hash": "a992c913fce2f431d3b5416468aa41d7af3319585ae0ad1b6b918d2c258ba7be",
+      "plan_hash": "96f19b6f663835cd9a0947a5ed421eb4d94e8a607bdb30804704cc7c9769dc12",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s160-t4000000",
+      "candidate_hash": "11abdfb1a8d7d73d70365afa7b3659f8d135f4bc42f682ceba8f60ec57f7b040",
+      "semantic_hash": "76c1881e351aedf92b2d2264091150038e03f7a47acdca6e8f5cce63e0305164",
+      "plan_hash": "6486313591ab356f7de8e2fed85b4a5101cd9cbc714d7d6151dc07aaa3273870",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s1536-t2000000",
+      "candidate_hash": "da565db0c21e8861935069d4d507085135a890dea8b54d5ce49122600df0c344",
+      "semantic_hash": "8610f2b949e18e7e5a1cf4a691fbf7f6ed22d5f7df2c490bd16224b4c5fdd5fd",
+      "plan_hash": "20ea2b54b8af19bc179245ed0229bc2894b88353b4251100392ef848d1a3a344",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s1536-t1500000",
+      "candidate_hash": "7b11c24f717e96f1a2fe2df487995d7a8199c5a166e7285e7688da2f62389bc2",
+      "semantic_hash": "11fe52bd107a95c400d47337bad58a9356b96a992da4a3568bc674cf26a3cb8b",
+      "plan_hash": "2da5d0935b3db7bdb9841ff4722f5fdbdaf74b519369aa6205de10a142c0bcf4",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s768-t8000000",
+      "candidate_hash": "3ca4c1fe55e7a1f467e48fdd11a6bd1512560f73c74caf3323703abcc85f2e7e",
+      "semantic_hash": "f94b34ae5b9fcc3d4d39374a49764227d5401788c9331a8e3cb252ba16958224",
+      "plan_hash": "0bf8b1930f459265555549957e65df6da5da1ba16eaa7c8e810aafd1690d2f62",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s96-t1500000",
+      "candidate_hash": "bd13f4e3a78130536d892778371daf960646fe0afe6f4ee2a87b44306932e904",
+      "semantic_hash": "54eb81d2c7cbe9c5f82f692f7cb995e2a39c2093d9880351d30d3cbd32212985",
+      "plan_hash": "a5240f82e959d31356a92180134772ff5d08c1ad9f2e47ff090b91f7f73bb62c",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s128-t1000000",
+      "candidate_hash": "2540a3ba273e7d1baa3f775dcd902ea540a9f8682104505e027982449c06ff85",
+      "semantic_hash": "aed1c32b812241afa50d4816eddd6a26f5f19cdd8102a9f86a211ff168bb28c4",
+      "plan_hash": "bd4d9c2e2f64fa765762140c6dfecdbb0a6b50b345af6bc8f1a909fcb92e095e",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s320-t8000000",
+      "candidate_hash": "69f323bd70760ba736646271fb56853fb744be5bcc138c9098a4554005074212",
+      "semantic_hash": "0f6cd688da76f6f05d3e40650e6a20baee29afb15f3589a66af9cf24e2eade7c",
+      "plan_hash": "f4930cf45df25fa176e39633367b7fae10910cd568879c0c9a6ad7919e7c209e",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s256-t2000000",
+      "candidate_hash": "e7b4b771b1f6a0a3cab1e34300fce42a61a46853f241307dd43ac0f0d2f6f7cf",
+      "semantic_hash": "8461fa80b1d09d735586b6968a3dee5ddf4d65d9e0b7f8ead57b3db03d4344b6",
+      "plan_hash": "cb757dbaacb95694f4b53347fd496933509e5a0c275566979edc2513ab686280",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s640-t2000000",
+      "candidate_hash": "855ce51659fd6709c4e72240fa6a8d19f71455f25538d74aff780117e9aa0b03",
+      "semantic_hash": "c46e486b1cf84ea05f3ec7fe944b4969a71f2ed36148d411425b2d96cff47678",
+      "plan_hash": "010ccc08056b74d8be8641e20221cb0d7fab7cd8488d9565753920e62115d987",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s640-t12000000",
+      "candidate_hash": "43b47708af5c82a8a20243c7dbaa89abb5f03b524374a4262846463b984d1d4e",
+      "semantic_hash": "e2706c266a7f2bea05fc608a2b4be7b16d54c3c4f1aed8e2704903eda4f90691",
+      "plan_hash": "a4277fe7eccac912553da297233985b3467f70aa86f666af95bed043fda60c84",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s160-t1500000",
+      "candidate_hash": "f6f279aadb813a4b10c0582829eea62e2b2b8e5139925a78567f532c910bca7a",
+      "semantic_hash": "20cbbb55808436e53addfa69f3c48864edd1d7f5c47f74b5b8334df0e226aecd",
+      "plan_hash": "b407c70d9e5d0b09896c6982ac81d82a1df40747cf3782d60af89340310104b5",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s640-t100000",
+      "candidate_hash": "be385a3c752ccbc85d125aa0bc446c48fa19a871d27fe981cf9b2d6d8f5715c6",
+      "semantic_hash": "11d790c24faf8cbc5fddf56a138ea54b126103b4d02c9ee3f2652ebd3782ec42",
+      "plan_hash": "59928ac098143470ac007e150b6770d22e628680b06b9a4efc735239b24b8aef",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s160-t4000000",
+      "candidate_hash": "59caa53a99d93b2092184e071f7308a76093c79e8308b22b612c972011b0baea",
+      "semantic_hash": "b5bd197b9249f0108de6f0d66f50da981e41e2da751d7929f7b058dea7bf56c1",
+      "plan_hash": "c1dc765a71a6723a7b47fe8f450f0541486adad9b5718eedc6a6612b52531e02",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s320-t100000",
+      "candidate_hash": "d04f09103205f34ee04110298f27a5f9bead45266abc0fafae3a485b8bc44286",
+      "semantic_hash": "a62eac6961a2a3313a75a362bfcfdc7f02c722bcc3eff1e1b5b0d6754284ca6b",
+      "plan_hash": "eeb73d57724565cd4999dfe25653ce0530cd4aa4867fac7110a2859ccbe79513",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s768-t1000000",
+      "candidate_hash": "faf439dff56d2bf7ddc59d8c58b4529e2ddfb9458991e307ca61a5ab1fc6d412",
+      "semantic_hash": "5cf00fc2483bb3cf5ba0a14bbfdb8c63725509a9f1d7be845f0ad742d8439976",
+      "plan_hash": "cb762279f9250667523e8515f36f1d638d3df505a26b9af938e7dae23037e42a",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s320-t8000000",
+      "candidate_hash": "84e5c7099c84a18288d71d5b8d0c3352e69c6bea3dc730a4db4d9073d4c53991",
+      "semantic_hash": "9dcbd6189008253621ada4deb8564ed2997b6e700b543d6d4232f0e19a0e0f80",
+      "plan_hash": "bc6fb0ed9a2d053a9e9fe82ddd58b28f88aa4bbdd768ae43d4e1bfa016ffbc86",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s128-t12000000",
+      "candidate_hash": "ffe107be5f7814afefbd598b43f908d14c2b37c76abb22a04c39a849d537bfb8",
+      "semantic_hash": "185cfbaf4d370ef3c4b331956828a3123f4ce21a04af6b3eec22bcbc2d7a7070",
+      "plan_hash": "37b045810c42e2b0813f4b993b47f571afbf7368d684ecbc45f3346d43188140",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s64-t12000000",
+      "candidate_hash": "27dc1b7092c90fb2a5b8cbafe10486cb0937c8d13d2fd023085ad5e2e0bed49a",
+      "semantic_hash": "68ef19a92b8570f632b55695c5b2341496015a03041e7823a677433cb3a8a857",
+      "plan_hash": "ff3a92ba9dc92f4db44350259f5990bcd4c79d62d56b4095f342fca1f96402ee",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s512-t100000",
+      "candidate_hash": "c7a54b0bcabcb4fe14a82e2633f875c186f11c7e2874fe361d9a930f446e1369",
+      "semantic_hash": "b95121d3c3e810a270c993522948c37356069e8ea524ce5fa1c22c276ba69d53",
+      "plan_hash": "4be5522d24bec85a23f6e5021553ae5a8edbf1b2cf0a42a2f0024095475fb755",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s320-t8000000",
+      "candidate_hash": "b7b3d5b88b776aa3b6bdd1b7b28354a6c31c77336cd59d5b0ca89683d71c16d6",
+      "semantic_hash": "0cea812a621e2b7aa441f4bc1f442b523e5c28f1641a03fa0c700b4c290fe137",
+      "plan_hash": "41c31dd46503d2cc8303bc060db96214ab7a6ad6c38abfb88bf246b1d359097e",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s128-t4000000",
+      "candidate_hash": "d623b729c1ac2a5877de9e6088b12f7d37b97bbb2b00110368c970cce86f08f2",
+      "semantic_hash": "a3a5bbac1a3699806e767cb319affaf0a650f15a8f38f969221f18ec7b78ebff",
+      "plan_hash": "17db01b5f1c2deeabc6fdbd77d434c0e4ede617d050f8eaa29b1286de6674e12",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s256-t8000000",
+      "candidate_hash": "5561bbde6b09af2e4a79371c8b23172fa370fd2c345e80d1da7482d2bb6b840e",
+      "semantic_hash": "ec021c87654cc9501d577cf497d81e9253daaca6bf393718a658a9cf2655cfb7",
+      "plan_hash": "6718ec50df8b4335f4060ab3606ad2b4ba47614364df1f1be2dc60b937702ed6",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s768-t100000",
+      "candidate_hash": "7888b3b139f61448afb72a9634bd70e39459fe74e85243659affd08ed707ee1c",
+      "semantic_hash": "a0be978cfb41b41546966726ccf213a53572591c97b425e6852fb2ecea6c1230",
+      "plan_hash": "5e87b7de00136685843b60a9f20131c0ca69a73d65eacf8e79c9b65ffad1c3db",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s96-t1000000",
+      "candidate_hash": "eab8944c843273786119ae86d7260d4d1f36496dba1b1265e375ebff1ab02e43",
+      "semantic_hash": "98e676926bdd2c434faebf31955b99fea9578bbfa374dd6cca2a6f07134435bf",
+      "plan_hash": "9454a1166d2b70ab1230a6f7c6bc0aacafe69f2c89c70903a80d49cd7020c366",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s384-t8000000",
+      "candidate_hash": "fcaae60bfbdb21135ab6b38cb45dc6160389e52294a5532b3d6ecc820b060661",
+      "semantic_hash": "18bfd2e6091854d7a9fe8415c5035113555fcadebba8758132a82c40886fa42b",
+      "plan_hash": "0b5709cc77509f46974b3fc6c5bbcd21b7fbc9e8bf108d64a25f3021db65386e",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s128-t1500000",
+      "candidate_hash": "05d47156990888b13b05f92ea374a267b3f08a82a9d9f1782232cf10266e408a",
+      "semantic_hash": "789e1c8c6cd2e026a95212e503419089a5e80baed78893ded78d42c94af486f7",
+      "plan_hash": "eda4dfb8d0b519c8c05e624b4e5970ce2b70e9a0405f63fc3d9b53bd75c7546b",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s1536-t2000000",
+      "candidate_hash": "c276e4da37eb48398defe31b37072e925f10eafececac36e583bbc4355aa5010",
+      "semantic_hash": "6cb0a34af94114a34f55c8d960e66d1909f5f941e838f8b5f04f95a4ca9d2536",
+      "plan_hash": "77df2eafe3a4ed8ff8cc5863fc97eca13e314f2647e7301fb80d8a170dbe82eb",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s96-t1500000",
+      "candidate_hash": "b6a584b74c7ea73052cfcbe9434fab1925ce70f0aa7c78da5385fd609e323856",
+      "semantic_hash": "aa0ad35e52b2b7c2c1a247019adf745eaaa51d267bdc31830d64b54d3284801f",
+      "plan_hash": "354948729af63ed989a3692b25bf1aee5d68487dc83b6ce4346a63509adeb473",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s768-t12000000",
+      "candidate_hash": "cc9fbf0c3280a0c3796caa86d8c4a98810d7c5a0b14a553feb5ec675a995c09c",
+      "semantic_hash": "87fc97f5f8c9874ee92b0cb7e0de3fe624bfd34fcd61826157eb85987e9322dc",
+      "plan_hash": "0bd3bbc1c5fbe812496ba666d8fd81c6884a34b3eb7a032a154670704fef01c5",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s64-t12000000",
+      "candidate_hash": "08a7decb28f0323ba6920be190f39e4b0122bf1f8eb8cad836507d9b23bc7c7a",
+      "semantic_hash": "032be8e6144c63f7ca9f90757c864fcc9e96f0cfd2f41bb905b044be0e339ca6",
+      "plan_hash": "10987c92a7a8a8256493fb6026ff685921b222e751360f3213dcdfff04f6db11",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s384-t12000000",
+      "candidate_hash": "47f9423a329d74040618c927aa0eb91e75417f9ea90c565f278b988c614e3d25",
+      "semantic_hash": "a6b9d98dda32370ed711dd662f290f6a533cadea406111dc344d61cd9ca4b80d",
+      "plan_hash": "dc5d1bf736b7be0fb259edb26cb3a8cdaf3fbe8a729b3b39683676fb796dbdc7",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s96-t100000",
+      "candidate_hash": "1f3246aa116afd8790bd37cf548c4ed7c54b3c8e6182531a85256559a9dd19ab",
+      "semantic_hash": "a65c00ad27fc2fadc256d6a97a207d0c653f9300aea47ee7fcf9de23a10e44dc",
+      "plan_hash": "ad441d43ebc0e0edcf266230977e07980c50764c5a08a9587c26743568518eeb",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s96-t100000",
+      "candidate_hash": "1804392b4fb620f6ca1ab3ef3cb366c214d2a24ad1b51259966c7bf279af70ff",
+      "semantic_hash": "4d149044706dfd0bee456c5f9f9bf7e9b1b8edf8adb05e9e89e7fe108b85a706",
+      "plan_hash": "a60ec3e81876838d962c2a7cab7ff8bc10b18833f3766a8419c46209c43e661b",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s768-t8000000",
+      "candidate_hash": "500fdc3e1171a9f3379ef0a4188ac08df65841262837557efb3e68ebf1b6ab62",
+      "semantic_hash": "5c44971ed7d836f36405197e2fbbe743111657cad21edf508520d9e7bbce078d",
+      "plan_hash": "76688f099948c5c36b3378f0cca6215f358b7e1126437498a79467fc884e0910",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s128-t12000000",
+      "candidate_hash": "892b918db376f8b71abd60496d6fe39c74cb242bd057e094d9ee12a86a4eaa15",
+      "semantic_hash": "f75eb1bc310bcc95e101dc4e7285a6fb24e9b111b21b527fec8bde835266ab50",
+      "plan_hash": "ea55ffc78487ac74d16968bb80d9fcd84b306e02898cab4926919967c2d09c68",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s128-t4000000",
+      "candidate_hash": "aa5049af6e11faa0aa7e7f1b70893aeb86d198f73b40474d7ad15e581b385f98",
+      "semantic_hash": "0155cd804eb5a95a55fadbff0b60f98e7c010f295696f7429ab0f2df5e003b44",
+      "plan_hash": "aac3c595883bdf0bb6a8fff9928983ebab28856441495843ce9497a807e497d1",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s1024-t100000",
+      "candidate_hash": "ebff9e76a6d1b84ef2aa8a2b146259e14f16ec3fd63a90e6cbeb88dc4c379fe0",
+      "semantic_hash": "9a01546e738017592e69b873c6e17c2b13f5ca76080b1b8ca3760c96197a282b",
+      "plan_hash": "8557bad8f5ddc3cee19ac328f2adbc4f24a7290b654e5a1769a5b09f769231b2",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w1-s96-t4000000",
+      "candidate_hash": "e5e13d29eacf06b518f29f8e34ce26149c229f9b4c69e66c8060d645844f8283",
+      "semantic_hash": "10d61a610bb8e928b15e6a78b5b2d6f3858ec139ba3a243829bfbc841fa03098",
+      "plan_hash": "cc42ffdd9919e7d8c26a6a7109f2273356fd7e031cc7d239b1efbba72cf636fc",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s64-t100000",
+      "candidate_hash": "2bb25cdb857bee6fcbca6c70a855f6315467a5bd2f265f686bb6e94acbc23437",
+      "semantic_hash": "62ed929e78763fce2866d83b069453d8d05742b1e3b6a8270198221c3c14588e",
+      "plan_hash": "ca882671f504946246bbef8a78f5042c6934066da4109fee1ca54f61bd7693a1",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s384-t1500000",
+      "candidate_hash": "7a16982a76367ec8106f029a8c7188151f148f0c1acd0ae245ad4b4a6e32fa8e",
+      "semantic_hash": "8fbca0c12074740334e8909b718a9221cbb50ef8a60fb0d93fef39be39ec95a9",
+      "plan_hash": "fd6dde4ab103be357da61f40e816c2e07980fc89ecd79a602af8235c327d1a23",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s640-t8000000",
+      "candidate_hash": "f8c8a36fcf30df502857538a5610f675ce99fefc0a3d5efc450860b40a486555",
+      "semantic_hash": "dae0e3783c52c2f49fed57bb8cc0a179c25f1a713e101181d21438a8974ac4b6",
+      "plan_hash": "764e46e587b903a776568b4c2643bdd91fcc8521599ac87d97db1cd9baf9a4fc",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s96-t4000000",
+      "candidate_hash": "b0b913c0d66ee2490d5bf51c9c60a2f0bb9267cc4cf27ce640d1beb2db3e9426",
+      "semantic_hash": "2b84a9b4ecebcf709aad7feed85179d9996c0b3bcaf9cfe9cd1a93152a2a0777",
+      "plan_hash": "2b70ed8c880953185ca4192fdd42c6840bb06afa6629e34f107eacee9d4966f2",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s320-t1500000",
+      "candidate_hash": "176fe4dc2a04d90b44bc48a1f2b66054ee9b893f952c96b279b720c06f4c11bb",
+      "semantic_hash": "53299705227545847995744349c22cec5039321d0e3882aadd03b3d75d394127",
+      "plan_hash": "e7e4578f3ebf0405ad2427e0393b0afc3fd13085d3f1fc634bf930352aaa0fad",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s160-t4000000",
+      "candidate_hash": "0fd33ee7264fed3752b953efd15f0a1b98b9f451d1cf3fca333f8bd59d9a3a6c",
+      "semantic_hash": "91e6ad3f5489fa88f5eff71c4a068af9b810cb2478fbe15395f78f496b9cbdb3",
+      "plan_hash": "c1bab8cd3647cd9fb7f02c3ebb5ee4d0f82b20eef44f39cd479757882e9e728d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s512-t100000",
+      "candidate_hash": "cb59da78a155efcc7f245f29dd369b6b649dad9bbde32587138d0ac1f677d1a9",
+      "semantic_hash": "88c4a220e5e89e8e5ce512438f1e2e16275eff6b4066379de0b5506e8f35f3f0",
+      "plan_hash": "b2ba270ee668f1ccd1268b186a2c859f36d5c3fd404fcbfe409d1392ccbe744c",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s96-t8000000",
+      "candidate_hash": "2f66dc57786f12e0b150cacc812c1c68dc20cffc445f3f4348993f93a7896669",
+      "semantic_hash": "e08ab495c5623e47baad8c15057048bf350f04513a5f96d60f7cbf05ebb33d52",
+      "plan_hash": "a3d7f5caf8cb8247da17f81d5436a599a03446ac5361a27fd0a3be16514bfe06",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s640-t100000",
+      "candidate_hash": "a4273983002c95f07474ab87796bc99ab3c679c8a2a3e6280d8da508bca3c485",
+      "semantic_hash": "fa2fbb027ab0b061584074a98da5ea7511171851ab983fb592983ad2eff404dc",
+      "plan_hash": "bc335b770b7410cb701f1f34d062567b8db7ef43c777314b208f869d9c3e2743",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s96-t2000000",
+      "candidate_hash": "020f00e7f724c1adec64aea8dc14e15bbbfa585bfefea8375378bbf93704c420",
+      "semantic_hash": "62adb8540dbf2a2e556c9c92a2dc7ebade3ce27940f69c22dbd09d0613a38d6d",
+      "plan_hash": "4cc8c743fce3a97e812afc670b0d105537a2ac158560854a0cb22024af843cb4",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s384-t12000000",
+      "candidate_hash": "6debef56e2a28c5946b45cbe12726fd4cf6b667800bce248bceb8f064b9f10bd",
+      "semantic_hash": "938e0618a3de12bc0554a396d1bb18f2869b96743f3d87455804c4c6d4b8e58c",
+      "plan_hash": "c7fc5ef46867f0de394ebf9afa5e8c6d7dd94c1bb278b2c848f75ec3b7c96a7a",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s512-t4000000",
+      "candidate_hash": "847da52e80668e13b673f40b895385768509c2fc38edcb013c7cf9c780add0d8",
+      "semantic_hash": "a97704d91e995f2024b761a9b504951dec7b61a06a03e7b148e01e7871533a5e",
+      "plan_hash": "0dd3ec7dc41ca5682c72f89e96c5e20cc08eeb0b94bb5c17820682cfda3b590d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s160-t2000000",
+      "candidate_hash": "322b38054acf271fd8e259c595f759b0344ee916092996199995fd04acf3f2fa",
+      "semantic_hash": "62bbf2fc0fad0a91d4918c48aa6cac927c1e40beef39494c6d2452d63662c7eb",
+      "plan_hash": "ac4974953d175d9148b8d3526c8e27d272d98e2d21e6c0f8b2283a1ae08db115",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s160-t2000000",
+      "candidate_hash": "5e18faf1a879730fa8207ed50a8dc51ab7d4b4a9ea8c348eb4199cbecc5185c3",
+      "semantic_hash": "b817c5318f9c6c5e0fb31a2f73d3b9e6b8bfc020350957268c30c27ec578926c",
+      "plan_hash": "53b77889902e7e7d9c38fb96c11f33f3f428824e0ea7a7d93b6d1fc5421b6bb8",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s128-t4000000",
+      "candidate_hash": "f7a30f546e845ab7b690f5d4b57dff26d0bf4ecc6855871472d97c977a4fab1f",
+      "semantic_hash": "dda7ae70b31986c67a8e8e5736f727ac4744d3630a8b124135aabb1272ec400c",
+      "plan_hash": "c720ee1734874a950e21867b031c5ecd1c15e32532c4b7be313eb034d22279a6",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s256-t1000000",
+      "candidate_hash": "3f8265e37e0cf4f0d94674de5f5306ec87cb19dfe1d973ea919f6ac28773c940",
+      "semantic_hash": "7a94af22fa2777cb1576e14c84e0c3e1301fa6efb1e36b9626c5eb852e98206a",
+      "plan_hash": "8127fcbfbd45e02530a60c5c1413a80215f1310c5fa6f52a01fe3333fcc44d11",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s1536-t12000000",
+      "candidate_hash": "2ce4faec01db5146afdf0fb2f27e9a2a00a18069286679ae73f8585c85e70ba4",
+      "semantic_hash": "ed540b48e40bc260eb50baff4e2a91d1057242f2d233f495685aa08c61417449",
+      "plan_hash": "70ea047b312e0bb84a956d4c8eff660c18dcc3be67b24844b74ff0f3f98665c1",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s320-t100000",
+      "candidate_hash": "cd83a4ecfbe9243485fbf9f2da9d8a670944b334c749167c67c3f6870544c8d3",
+      "semantic_hash": "b4f913aeb8943d7837fa8f4af0250d31f4867ba9803ae3717ead2fd00667c550",
+      "plan_hash": "49d826838774f542d652dc455b0fa78a07d2ab4d8a05ad52c970ed91635d32db",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s128-t8000000",
+      "candidate_hash": "c26804edbe8ecddd8b4a84d19649b9dd27365e9ed64243e872f44b29755497d3",
+      "semantic_hash": "13bddd8c7622e48aec52c5e8c03cdea0dd6bb495b0724a90c9025ef06acf7e55",
+      "plan_hash": "51501b100936b3097c2772f8c433bdd69de151763f00dc71da2ebba2de382a83",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s192-t12000000",
+      "candidate_hash": "4e6f45aaca27b3e218aad266f5e88325eee464bf3480c4a684d29304445e998f",
+      "semantic_hash": "b643158459b313b8eaf6050073e7d197eef5a2781b81f54eec08951198b3033e",
+      "plan_hash": "b0643005cee1e8e0d85d26e6f042f1894df0fbcdfc8644ee2c47f42d011d8e2f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s192-t1000000",
+      "candidate_hash": "c6b261e72c793ef6fab4c7a1fb28d589c958bf6f35035df8baa3547779fd1c34",
+      "semantic_hash": "3db4018dae14d71312f14dfe7d23bdc47cd3bc4829f9ece880bf76d5cba0d8a2",
+      "plan_hash": "4d589b1d3c7fc10d5812c62f1bf3c7d23dd767441faf580d151764a503b21c0f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s192-t2000000",
+      "candidate_hash": "462b8b0cda2911e8780ba522d462a07c9692a4801e05b5e42557c1a3e3d89021",
+      "semantic_hash": "c5abef841e91520de8c1b88b4944d7e1e0a1334adc67f5a82203bc7f4294bcb3",
+      "plan_hash": "234c8e46dae60afb09e3b9b311dda2e1b0bd4609fad054b388438ef9153b16b5",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s96-t1000000",
+      "candidate_hash": "b7bb44d04e9fe06cb66cb83e15e3f5da1b5ce58074d019e04cefae6c14ccb23b",
+      "semantic_hash": "484f0ee2ca1bde1def9a82b208da720b287d726e00d5f81d3d357f7114821c9d",
+      "plan_hash": "0900f8f7b70a32b3b54d1ad70bc9a0d7bb34131b94b47faa82622242df86665d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s320-t2000000",
+      "candidate_hash": "af42461cd418b51cd317a7170ba43899384556bba1b14e8958526bdb36f691ed",
+      "semantic_hash": "1642314812f9f6a48a5d88de7be8a891fc60f802fd83ed73d51efc511f0b3ed4",
+      "plan_hash": "50859281c46ccb970158cf800e2694e4c266da619b93cf9d6251d474d073caf2",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s96-t1500000",
+      "candidate_hash": "0a5858815a7bb57c7d75da749fbf12a66ba74b4a405532274c6e2aeca8511a15",
+      "semantic_hash": "550d11dcbee3c21ba221f8a8204a5d2960efb364db0fff9421d64b2954ba61b2",
+      "plan_hash": "30dc42a6b0a871aa6a63cb03dff107833540ca6930e987597c827a65af1c58ab",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s256-t1500000",
+      "candidate_hash": "61e480f1aedc3853f65a9f9bb0c557d8a6d99f85bbae964e1d44848fca44f055",
+      "semantic_hash": "d487afbe7f363dae50130464b6b48b8f7ec7759698a0363c076590b9fb2f1fdd",
+      "plan_hash": "fbe2e3a79c2ded847604b30fbcee88777aad951da527a49deb532b8316f4cf07",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s64-t4000000",
+      "candidate_hash": "6f973239a82dccb9de87cba90761c4f6afd3c0d5a79ad123196aaa03303e634d",
+      "semantic_hash": "ac5fb8aa86bb1eefcc179e63fb6cd0cffb867ce0f9807e26bae9d8b3c5c120d7",
+      "plan_hash": "953c2d89c23354d95ef144cf57050c21a876483c8b4295cc1d3ef2aa2303f3a6",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s320-t12000000",
+      "candidate_hash": "e691cf4799d4cd73e9d420c9f9bae3c70474381b140fcc6655a5cff46745da4c",
+      "semantic_hash": "ef651c67e1127ec51843b92f9cc31daa288188a5e1b74ebe1705ceae14892899",
+      "plan_hash": "417524b78778c33e0d6d9ca9e5ea788657a7f927d7dbf1d59be502fad0ccd578",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s160-t2000000",
+      "candidate_hash": "32cb3d7374cb8bca59580001347c2a7de9e42d8d09c8520ef5a4a4cb40bb49e1",
+      "semantic_hash": "71bc89c9edbc7356df8e8610e9acbc6fa61bce834fc6d8f341a1dc71b6929790",
+      "plan_hash": "0e8ff79ddb7d2a5121e4c004ad0dbc372287f81933688cf0d78779137c468a99",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s320-t4000000",
+      "candidate_hash": "fb608ac608493435ed05b8a30fbdeffddf24f735c748a76ab9bc647e71a49875",
+      "semantic_hash": "e31dc1bcc3c234436538f4b6588253981a52e5346ddb674f76691ffd9628be9f",
+      "plan_hash": "d7f0c1cf743630f9531fbbb003296597ed30d69a25852b40ff9bbb0411319da9",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s320-t100000",
+      "candidate_hash": "9396ac862571642071ddbb965f016288c87b361d112a6074122234a769b7cde9",
+      "semantic_hash": "16fcb1251eb1029299e5b94949205639739c976ae313c5b7d224474b36b06dc1",
+      "plan_hash": "e4e2847b5c2ccd9d95dd94584102c44a00aa474cab69ee75dafc98a55ae5e3f5",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s256-t12000000",
+      "candidate_hash": "dd8ef6384de7873ee2bc50e03e7aab380c80a1354d1aa780b59c2f203e13495f",
+      "semantic_hash": "eec2ec75b6772eeff42c534997c8cd6eeefc526b079cf50d3e2ad7946c102980",
+      "plan_hash": "67d0d9483771fe1b8c47246a1c8343b404c12d8f877ca369efcc6ecafec514de",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s192-t12000000",
+      "candidate_hash": "9772b05bf98198b3b9abc17abb4fa56319220ffda63f29c2ecfe45a346576828",
+      "semantic_hash": "7741eef7407327ab5fd11190cf2b5f7c0fe542cd4acc623353e4e792d0ae60be",
+      "plan_hash": "be3fd52c3e3e2955a0507fe3cc18210534086e3d2ff62ae4e2a0a939d9ccd215",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s192-t100000",
+      "candidate_hash": "6c8886e6b57981a178fea15c18d45cf9ada084ffbb4b27e4c5dc2c11f4344314",
+      "semantic_hash": "1c38622081865023811a00deda339593351aa3e3e919c6c651a03020ba02d4f1",
+      "plan_hash": "6c3b1939b80061182c7309b7a5ebf34e5343b69a2238b7bda464f81cb700ce7f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s64-t2000000",
+      "candidate_hash": "e721a082a86455b70df3c9a897c24823d4faa5025fdba9c8ad7031a7125eedbb",
+      "semantic_hash": "c57f020f4475ae9ceeae36817b6765517a95fbb26f71c0f2dd88b95321dfc9c5",
+      "plan_hash": "d90fefa0e25b369b2ecdfc4ee8d776e05212effbd66f0c41f8a90afd05fb89a0",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s64-t4000000",
+      "candidate_hash": "aadd4873d56929d64520614d683087b860cb0310c050fd066f5b1fae154ff37e",
+      "semantic_hash": "d7fcc7d91b276123ffd64a53b63d635c6585ed640241a8bbd9b925e5def060e3",
+      "plan_hash": "0d73b5267cf4153a8e953a5302d9d9462674eb280170bef47fd5f2d2d94b8b3d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s128-t2000000",
+      "candidate_hash": "55046e31d5d8dc8197c781dabad8667fa2b8ecc1b5e1046367d6daf743d26b79",
+      "semantic_hash": "8d66feacf7e60951830086905a97665008618d2fef78780ba3f9db106638a694",
+      "plan_hash": "58f70ebaab196f89c80cafee8a72d606724e5d4420508d0e30aa0e564e681403",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s128-t8000000",
+      "candidate_hash": "43fc1273384c8bf6c418dda3d7be06e4047b6ca651b1044807a4d1289a1a32f4",
+      "semantic_hash": "4ee05f7e65cb0c5dbf76efd0a788d76c36a3907a76839b26b390585d7cf0f3c4",
+      "plan_hash": "35d2ed32441ea3b5f3055fa16e28a1810e8754d4787e39a88ef0f180ddda09c2",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s160-t1000000",
+      "candidate_hash": "5279a5b396207adba6f5dcb74f2b41beb2550d82290b378f0ba52ee242dcf306",
+      "semantic_hash": "077e392cb26bcb8aacc2262f68e3e37ff194e817d6741a727a2728d11066444f",
+      "plan_hash": "21f32b24680ca63a7ec85d94a75c6b6bfdbb187216e436b5a538126479790797",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s768-t1500000",
+      "candidate_hash": "ed0b1d1bd6fbdd4d1517a42c02cce43a61f99e9c560e03c5a76b2c060114a5de",
+      "semantic_hash": "fb4907ad4c8e451577bc10d5f2494eb32ade1e857703a7a159a4e898e69f6d91",
+      "plan_hash": "04b54470422dc0964e624862415f5b91cfa55dfb74d0ec41cef4aff365d7b561",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s128-t1000000",
+      "candidate_hash": "53e74d6156269ef169aa7108cbf792eb9440ac338060d8a9cff96004652c20af",
+      "semantic_hash": "c5cfdc8504ff789ae59209b3e7e19f34ddb1a8b4e1719a2022b4129583be7237",
+      "plan_hash": "860e58f674fe5de1ac4ea02646c62c434082974d80554c4fff86f8cb585d0c19",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s160-t12000000",
+      "candidate_hash": "0240608e19cdca11c79d0f1e1699aa431cd7bd5377383c35d139b17f64bc0bb3",
+      "semantic_hash": "bb5db37b7040b87f00aa8eb2e3aa1c6b9db8ff70115249aecc7e01faac538d07",
+      "plan_hash": "536e31f85555285dbe58347d8993cf0fd43dfde9137841d25ef90eb55f31f4b4",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s256-t4000000",
+      "candidate_hash": "bd1eedd1ae99df9d54f6af0a05fe8a2ad656ab185d293409a6451c50a4bbd67f",
+      "semantic_hash": "c474ab5f2fc1354e92b5f48b01d7b7823e83960d9e5d07b37dc43a8f8cc7a974",
+      "plan_hash": "c944f4028924817b50b2fdde99ccacf5d1ba4239718d23d54550c1e3efdea854",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s384-t2000000",
+      "candidate_hash": "4cbcc7932f5efa126f25c6d7dc051f7e1501622b2b965a82402bf573fc527d90",
+      "semantic_hash": "b4bf02f7a21a0af9543f49664c0c0ea06ccdeecc540889106df7d68110be35cf",
+      "plan_hash": "ddcba0b97d8bafaf3d9190365540b85b5b97c4272f8eb4b86e0237ec4506c942",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s160-t1000000",
+      "candidate_hash": "ec45e6c4186f77f75be7c3f4af874d9d631d322237eb8eaa48bb477af267471c",
+      "semantic_hash": "2fa0e36faa5857b0002cc70fb480c825e055ef3b158f459459fd99aee5bec9a9",
+      "plan_hash": "c2d5940a57d7c1831a1924e3a935046c1b127522b17a01daa7996562c80daf27",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s192-t4000000",
+      "candidate_hash": "d8bbf2e4f8c9667529628aee2ce6525c9e8f43cd0b7707cef5b97242bf3cf1fb",
+      "semantic_hash": "d1eb1074866ad53e76d2aa75a234ce2e0e31583f8e92920149bf510e84fc6a67",
+      "plan_hash": "6e2457a1d0fbb8f67ac138221e9dead2b5b4451c448a63c55d2b20d6fb6b40e0",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s512-t2000000",
+      "candidate_hash": "d5960fcbd0910fc3383713138c12bff2ce5b45df019816fe8daf3fa730ff08dc",
+      "semantic_hash": "d7dac229c076b586a498bfb3386017f4f11a77f9dbfe0f1818b48773eb45777c",
+      "plan_hash": "3ffa3bc6fbc64a37ff78392ba28cfcc6df709153feaf927f83624193cb098baf",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s96-t12000000",
+      "candidate_hash": "b1c15534dcd3f7d0dae153fdd427904dc03f65c60718c2dce4abb47dacde4ff0",
+      "semantic_hash": "27f55a9ec0bd9f91e8765017aa9ea03e975e4770801568a695ba31584a51f9c7",
+      "plan_hash": "90b2db8d871a06147b627b014f452d481b3d352e165faf636a9d928f456b570c",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s64-t100000",
+      "candidate_hash": "5e53f1c7c449d0b11227cdb83c9d208c5493063df4497a562dfd575cbbaa2402",
+      "semantic_hash": "f966eed0c8a2f65b38dee6f7d37b0b1af00da8325b4d69dcb0e6dd1ab69e12df",
+      "plan_hash": "4fef5278da980e5c1fa06934062eb657ef02e3ba6f4052e1c452339825152eb1",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s384-t8000000",
+      "candidate_hash": "a3eceb793d15083bb229bccea909336d16f2f574d5e917980f6596c97a386d99",
+      "semantic_hash": "5f2048b3e4b4a89070bc42bdd14fcbb9865f11466b1b7e05ba56d7df566de9d5",
+      "plan_hash": "b4d4c3cf63806245f45e2710888604ee48f7f0128a5b13733697f1c2a4f7696b",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s640-t2000000",
+      "candidate_hash": "7d01570920805a327fa7d712a0077e938c692432abd23069e878424aacf5f94a",
+      "semantic_hash": "e1367e1a9f98f40b0ec7cd421c0d8167cb1df7f8edb7359ff7266f1121a18aea",
+      "plan_hash": "391ba33cc7666174cc12a874a30588f362a75370654047e5cc9af9e060bbad96",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s320-t12000000",
+      "candidate_hash": "a4698fcedab070e224bf44037fee1d97870dbb0005c79372ab881cafb0b66702",
+      "semantic_hash": "a996b89bf29c52d1c5a80e4c605aa1f9766edbde2846d59091a07c6cb746cc1f",
+      "plan_hash": "018d96f1d8df4c8659dfa0376f98f0a1884326fa4f035e741fd90881bbcbb075",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s640-t1500000",
+      "candidate_hash": "ce1ef4d38c57162029126b2fb47049bec9fcf2387f189a5ed8468635e29dc2ac",
+      "semantic_hash": "24da6a5ed55a6092548a0f48dc8ca4eb8279fb11cae0843e9fcf0e8d0b8d45c7",
+      "plan_hash": "62ec82b63beb32f1db1e87659d17fa2daa880daab658ce2cdde9b6b6d5cf2260",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s160-t8000000",
+      "candidate_hash": "8babdd2e6691a7c347c90afa6e5aa470a9f5a429301086935c4fe02e51a841d9",
+      "semantic_hash": "abe5a6bedc7ad4ab14f027d7173e1c3d88b048a36649d0a2c4944e4a249978d6",
+      "plan_hash": "b49dc6970e237e9f753aafff78ea3ac334b275882c409a72205c8812c6ae005e",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s192-t4000000",
+      "candidate_hash": "6ae0defe2991e03004d59aa00a7600b76ee0c8a818ba4274bda303fd2f1bcb0a",
+      "semantic_hash": "657b0c626762b453a985719caa4e7926c8ac2fd400bf97cd849ffa57188a81d5",
+      "plan_hash": "c03c4264873c6b3ff911c98cef416790c3d8d6164ee1939f655f600983568640",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s96-t2000000",
+      "candidate_hash": "1abee6fa260f3119ea2dd9209895b5f78206ba5c2a0105be031d158245aca355",
+      "semantic_hash": "52e107c59826d13d7df599ae62d3b13804b3d4344368eb2af47c0ac0b89acb6f",
+      "plan_hash": "12cfb12bcd536abcf018f5f7f2a41f79b2b6487c707f136ef501881eef6f81ff",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s64-t12000000",
+      "candidate_hash": "2aed40244c231a305b6abeda88c65fe7184405fa0a8b652062ae6fb3887b7754",
+      "semantic_hash": "ca0a9a1463447c78352ecf70e7bd9f175870bcafceb5f72cd0c7dae4778e0a63",
+      "plan_hash": "597af68d9ca768cdc085582ce00b60a1779a1375f4d634f456961222f4fc705d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s640-t2000000",
+      "candidate_hash": "6072be58083af03e61bc874b05587f47b300e639ade2184ebb886515bbad9679",
+      "semantic_hash": "248c28e535f564b76f2588b07072eae11d6b028d56d7eb45b2bde55a191c1cb2",
+      "plan_hash": "6d369c6e5cae42609c694dcab3c17ea02308f11a0b45cc6841261f9c28fdfcbc",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s640-t12000000",
+      "candidate_hash": "cc9f407e2aa34e0dead020d78e5b6ab6d5311b844c2a455116db23859d26db95",
+      "semantic_hash": "7308add39925547d09915c355d783336318f20b6075cb41d1b5340922ce6d0cd",
+      "plan_hash": "17064dbff783e44a1975aba6dcb11266b76ada57fc228cd2a7034438d8248819",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s256-t4000000",
+      "candidate_hash": "75545fcb20158fc4d3d8a444e0113f0a2e6f613516615cb818d00b68edaa5395",
+      "semantic_hash": "9a9ed4a69cbce1071495d01f27d25e862788a9b720b4112bde204e53362fcaae",
+      "plan_hash": "19d1566f71c17f532b330d65be379a1b14bcd875406f8ba477a15865c103c666",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s256-t2000000",
+      "candidate_hash": "88fdbfe573e7541b241306c23ec0107bdd4903bb576d44b63953a68a238c5c22",
+      "semantic_hash": "403eb3e4d45ffd79ba9b87fdffcc529ca2907e65cef80dda19f13aaf8bc87247",
+      "plan_hash": "749230f069b738ac3632abd1186d56475c7a58128b7e3dacd06728d289ccf630",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s256-t4000000",
+      "candidate_hash": "120f1650a9f336b8fa5850d856c116c628c4cc4f2695e2913ddf615d5c4ecbc2",
+      "semantic_hash": "bd9fa8a875b10a1b9482b8046cc0d50f15ff7182b31f1c239fe30279c226fa20",
+      "plan_hash": "e3796cccdc1e2579ebd497c7c56acbec9fe3f5036fe470d5c72727dac9ed9d1c",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s512-t1500000",
+      "candidate_hash": "6fb003ce800d1904958136bfed85b265b01abb52689d603bb7839f5e5cc99de0",
+      "semantic_hash": "484e6aa9bbe7b875a81cc0cbdffcc12dbbd86dcca126df7060eb6cf995d7e219",
+      "plan_hash": "a1f3a27c6919019c21a897b52ac573939d496127ed3c64e1e09762f33b06ab45",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s768-t8000000",
+      "candidate_hash": "027a080f5fd692f38a49f4568b9674a30994712def729edde1e8dc8250669f26",
+      "semantic_hash": "ce86c0cd17608bfd3f21e3b68fc2fe861e51ba61179d3072536d3d38af949a2d",
+      "plan_hash": "0a292888b52cbe2cbe6ce5990a23b14724ba919ad798919d8f854a294abd1e2a",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s64-t1000000",
+      "candidate_hash": "d064840ec1d7ce38aa06ed68f8511eebf5429ec3c146b8171c290597f6bf1f66",
+      "semantic_hash": "6d793c2c5f9bcdceabf4117c17632671647d554b15301dd59bcbe69acf9f0002",
+      "plan_hash": "6713436946df55d37203d11ac87411a5b513b8dadc24098b7133a77455887cb6",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s128-t100000",
+      "candidate_hash": "8c20b6ebe36e9423298572863615eb2a33d8d954edc5be54ed74269abd75e040",
+      "semantic_hash": "7b95c9143935c4a8f1e8d6ef5f9aaf6c3480894d795d602e09382a8717dfad02",
+      "plan_hash": "ce5d0d05e7dd62d63775dc08724d78061b8a167051fda56ad2d38aac16f9fb23",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s128-t2000000",
+      "candidate_hash": "cb6b27eb77b1054c1330715b654fe41fbe0e83023c198da9d2d5ce582a2ca5b3",
+      "semantic_hash": "7651c2056517ab45b32ca69b4d023d3e4792f3327ee6b83fecb6d7562cf11bf2",
+      "plan_hash": "f0607d73c8813770fde1bf7288252dde4a65a8300f6c0e23fe9106e7b0236070",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s1536-t12000000",
+      "candidate_hash": "78bdc6cd569a8e50fe5a0fc6fafe58fff0b26c400c3f2e11427eb417da4f7861",
+      "semantic_hash": "2cedbf9b7bf4a494ef2f36eb036bf68ecff2608419ae0eaa0284d4e7f6977d9a",
+      "plan_hash": "7285f3f5585cddbe7d30f7ea2db937688318171a1d5bcb39490e7aec38f21b87",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s64-t8000000",
+      "candidate_hash": "783927393b5cade21c6e97a547ac694bbb63470ab3881e42f476a28c030114f9",
+      "semantic_hash": "5b70f9b173ba8283d744c852f54915133de64e8d4049feb3bde03dae6b9ef80a",
+      "plan_hash": "368d408c64664d489eff172c47319372f18eafa26e9cbd644259470c0473fe4a",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s192-t1500000",
+      "candidate_hash": "81137819eef55d468d98dac4829115cccf39b3f2362487f351866e139fbd116b",
+      "semantic_hash": "7323a0cf7396cbb67489701e180aaf4bc5bd20292f3e606a559b3667bc0fe4d4",
+      "plan_hash": "4756347bea8cf20eda7df907e13ae35427c053e75079913d3aa7ebcea07c26ad",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s256-t8000000",
+      "candidate_hash": "2546ce88341e280ccea8df51b22c86ce79c441bf4e15688ed4cf6da0f2cb15d0",
+      "semantic_hash": "40dae8bcfd25234314fdf9a616b09387f4687a2b95a3ce83173fbea84ec2740c",
+      "plan_hash": "a683543361f8049b5b89dbb3c52b71b2f2e2475bd7daa7936e08548e8fb0249b",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s96-t8000000",
+      "candidate_hash": "7c3733be5ccfd3bafcf6998e8ff4ba00e3d56f65d73525048ca1f99460b01d78",
+      "semantic_hash": "3561fecc460c800228473232c33ddc0e94f3213beb7fd4b2119fcc5832db1d1b",
+      "plan_hash": "bcff15057036097eb2f25ee3631b3eefd63cfe338e9ca77f611b518aa28f472e",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s64-t2000000",
+      "candidate_hash": "acd7cbed2ff96d4b0196fe7600d2d7727bf604f1de44c5fbb237419b081ed1a7",
+      "semantic_hash": "85ea763a1d6e78ee585541aff0c539fcec93624cb2fef88fa0effab375030638",
+      "plan_hash": "c23c9802d082664a2079235b83d75e34ba8cb78267e98e3be31382dcb4c97b59",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s192-t100000",
+      "candidate_hash": "be290ed5a9c764229b4f6d7040ee321f84af71d426f463322aefa1631eb27fb8",
+      "semantic_hash": "7aedefedeacebafc49992331b24c6fa8a48a15c20c19ec05b58a9fa7936d3684",
+      "plan_hash": "cca2584dc095e00d1c7abdb4099ac0686bb58421fb3aeafe2ca8ea7ec993e6e2",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s1024-t12000000",
+      "candidate_hash": "2967542057956b0e618e9e994a34a683e55430193061c1a9efefbd8f0c931c9e",
+      "semantic_hash": "e97653378671baca0ddb64d7049c672bf4fae832526b794328c863f33531ac0d",
+      "plan_hash": "2321a4df9f4b29b62621606efebf7e4cb0174c982816a2c9dfaee42463e598a7",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s320-t1500000",
+      "candidate_hash": "7661c8758e245f94d8d21c167f143f41fcda30e04b24994197e6b7a632c31275",
+      "semantic_hash": "5c627af051188d9230f3e8894f4b3b0b086e5860c33f44d01445248ec08cfa10",
+      "plan_hash": "0734b8afed339019c6f2967c030861b3f46ce7c6878b3d5acf90fac090f3988f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s512-t12000000",
+      "candidate_hash": "322114892b1b82809442fd60893205ae8bffc4fed690e6c60454babbdbad0d92",
+      "semantic_hash": "8db7b82646336b624f436875e25f778664d7525525bacfd4ccdbb0206e7fa2b9",
+      "plan_hash": "1424b7c15bbef40fca52b67583661cf659ffd1e7f8c35f62a5395fd8672ec4ba",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s160-t100000",
+      "candidate_hash": "51ac60695637775003f30826bd84183037e734335b6e9d56c70a8a0058358a05",
+      "semantic_hash": "0d5410e3ef2a9a9cf3af7a7d53cb7b8c5fd085dd00bedff6b6211fcf2659cb4f",
+      "plan_hash": "4cb597b86abedbe5149b64a6e9b81743bef8e08b7ca26f69d0f5b4c435fec46e",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s96-t100000",
+      "candidate_hash": "b1beffe224388b0302cd24ef8ae98b6375825944de45c23aa61e821e6a09c091",
+      "semantic_hash": "c2436cd0df6b8e90055ce38afdcee52c494ee5d3488cd83c4adad6ac25e63cd6",
+      "plan_hash": "59957b9c8284abc893b40b53f12603b4272542126084e5fd5c720c30e91777df",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s64-t1500000",
+      "candidate_hash": "896d7399b0ee236e5a981fab538c045bd66300b81f0e1db3a1ce103adf7ecc04",
+      "semantic_hash": "b1a3ed733120a4ef058035bdc35aaa8576a47d03bd5108a280c6d2dc240b2913",
+      "plan_hash": "925796c886894b5d020d4cc125e3d038fa3d1eae493117c7ecc541008fe78a9b",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s160-t1000000",
+      "candidate_hash": "f9ae13e513dfbbd2f8dadadcf3c1e6b9acf912b0fd43739063e169f753611f66",
+      "semantic_hash": "136eada5cc27e1dd5a489eca606a6e6a9c82901357f61dc520644cec68b48d86",
+      "plan_hash": "0caf598f00b80d75e61ed7abbecbef5b504571c8c6bb5c059134b79b66f5a5bd",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s128-t1500000",
+      "candidate_hash": "2a3dcf4b8624f5a9cf5a1d1b2453c8715a7aab9c69cc292d58a1b915cb677bf2",
+      "semantic_hash": "c95522d11286ff37f1cc345880e2fa1e716edb1edbb04479c4ff53ad5a86d232",
+      "plan_hash": "01a2bc6e7e8ad9fdfe221f77c6ea338c977b161a530be0f957c578800e03a178",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s192-t2000000",
+      "candidate_hash": "a4311961a09424384aa0e7dd55a2eaedc6c5f3e2240bac542173ae02f6ea5d62",
+      "semantic_hash": "984ba70cb7b7a03d60370ccf57d0c39c013c33b8ce7435144a5ad6b242b2a6b7",
+      "plan_hash": "ab8e14574e91ef04e4d355db113336dbef0b99c302a74bdbc2a2f6252e56910c",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s128-t2000000",
+      "candidate_hash": "7decb0573ebc4f62ee244eb1643f51499f6495b7340ac91024616a928cde715b",
+      "semantic_hash": "b45c49ac6c0534db22f46072c99d60eaf8a6689851f1e376c6ca61efc0e0c044",
+      "plan_hash": "ac093ae6b6f94521b0a88af620c669615bd328913b075c09d7f67776e9b47035",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s384-t12000000",
+      "candidate_hash": "53ebce51a99f91275fdd3734360ad1182ddcc4d82b70def3b30e6c372f95a5d0",
+      "semantic_hash": "93ebe444702b68c82186acb05d0513e47e7e3e34740b41535ea186231051f8a3",
+      "plan_hash": "650dd829052c0fcdaa56c224312ff060e9d4be65e32006f41c323eb4679311a2",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s512-t100000",
+      "candidate_hash": "1e0aa35cd986b8a4e5ddd41ebcd7b299df8398c63fc10f939c5ea809fdcafcef",
+      "semantic_hash": "b8734eda68b73483b68d49419165987536b7b10d713ffe6ab707af112cc6a445",
+      "plan_hash": "7dc0bdda57880a2216dae4e0683a71d806ff69a693230645d48b47168a080513",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s320-t4000000",
+      "candidate_hash": "519cd6708df08cf3aa92c536ee0c000ac91fd5603a87697d1473ee7d17689654",
+      "semantic_hash": "0816ecc0f2f742692cbd48d51f7690b2e60304916063c040895841340b069de5",
+      "plan_hash": "1c00d7207fdf930bc25f51ad6245a2c0fba126c029362df59c0a483ce4b8e2e5",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s256-t12000000",
+      "candidate_hash": "e84bac568301c45375a5c73544c07ccce97b369a0a9ab53d66c19df4d2e9dd99",
+      "semantic_hash": "fe7ca1f97d7af2efd75376bef45b8bcda3533906ca374df32a3f4252b5e951b3",
+      "plan_hash": "bd89906a5d5c6525d1997ad8819e2bb3877d9264a0b03bd63022069e4151bbfe",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s64-t100000",
+      "candidate_hash": "6e9249b7e5261676650661646f9b647ad3052ecd180edd0feab4828b0a1ed5cb",
+      "semantic_hash": "4f24bc0e2164c922788001ce7e5fe7d6b027542dee85bc335d9f452dbd704774",
+      "plan_hash": "b9d5a4e39cec4ff8e74a22671d609ebe5e6d4b9f1288558d72a0f2292a59b25d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s192-t8000000",
+      "candidate_hash": "9e3aa1157e4a6265b8824482ac53f9e7cc1cb51eea98cac298e13e8aa92326de",
+      "semantic_hash": "362b574413b198a238f218104cf6a80ca1f57ed74fbe9110f16274594c688528",
+      "plan_hash": "7bb95f86cff32899bc0834142cd92cdcc13f976577558ed5438a2ffd36c240f2",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s256-t100000",
+      "candidate_hash": "229e4b34536f319dca0fc345dfdf18274f7fb76c53aeb17bb1443b798b06ae47",
+      "semantic_hash": "7f693c5f0ce606ad77d143e0dc9064185c02c8fe104c198486e7398fcd6ab3ab",
+      "plan_hash": "bf0c2f100dc335297c421bf4f0cf19b67a29600328d13311c4acd23eea2a77fa",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s192-t1500000",
+      "candidate_hash": "0f621c345b2f839401795ba6ae6ab45536fdd373a278f221c8b5ebcc18bb6a52",
+      "semantic_hash": "e3e5fc2adef1f7ffbcf5da4218e1e34027b2db6068045ed86f71ca462a476c72",
+      "plan_hash": "af4548c1b3bc443179eb16724ab6f741512c7f21095a65dc3611a792b6ebe3b0",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s192-t2000000",
+      "candidate_hash": "6f49210eb4b06874443c82201b4fa4a67029a413a0ede01705a5fba98fb8c541",
+      "semantic_hash": "3c91de9e55733a5e2ea99f82ed2c512d64f16589c1c4692b56938ebfad2eb9e2",
+      "plan_hash": "0a70f26be2893ac826d8cd7b1d4fe0ad715a2abc8ec21c23b9ed1b983c2c8ecd",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s320-t12000000",
+      "candidate_hash": "4a986bae574b80f5181510d77809ed769a1346c1beac7cf53e64dab69381d2bf",
+      "semantic_hash": "ef79a6ea95b1e30d1f595f1efc0d91bcbf6fdb5691fd03d449c9f31355a9e2f8",
+      "plan_hash": "c712b5ef7852be92d7f0c5b1237f5eb07cf54d2b770d707faabc913078b97f01",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s1024-t12000000",
+      "candidate_hash": "e18470383855ca492c840982b3c0e3518211facb89b72e7cacb463f900b131ae",
+      "semantic_hash": "21112c1b3e0f8ef0f64143bea0398fc17760f0b778d0d17b746b76f66247c4f8",
+      "plan_hash": "92db6ecbad98d8a5ab2d02ac3c978ce78953518096a4fdb3f75a08b1051c2770",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s640-t1500000",
+      "candidate_hash": "a89bb0dd2bc727b3cc5d269f0db9276b05a807dfe87eec2feb6d62d983817dc7",
+      "semantic_hash": "cc8d9933a3e7c95c5c471757920b7b8aaeeac10ad156441e414be41744735f56",
+      "plan_hash": "39814bb78372b09ec6cc332e5994700c8d5c6c4a0041b0a336dac3aa64eaad36",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s64-t1000000",
+      "candidate_hash": "3175e0b7a747038807e05b8c903d3c4228b5aa037de2e399ea53ddf77b345204",
+      "semantic_hash": "9ca23e5df227b6ada32fc9ed46afa186cfac76a29815be3e9ece31817479152c",
+      "plan_hash": "e42d251af60e181b5fac60c6e5df7217fa0b2fad839fff3529d03c04cd5c531f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s192-t100000",
+      "candidate_hash": "0855a471e4b7dbf9d7996ba0c63193a2740777e95c6ef6fa577da68cca3a2cee",
+      "semantic_hash": "102d5d661d7fedf04dfdf191af76b24d19c4c41f8e9ddb2d6712598d9e05d253",
+      "plan_hash": "7750c2e95a8bc00dfaa4fc5724c6ae01b4fa19564cf8a390fadb7299434cc54d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s160-t1500000",
+      "candidate_hash": "666db55d79f83ca4c92ae405f039d0acf884b0e1d41788356fa1c9c672c11720",
+      "semantic_hash": "1b993ac9290e1c9e40b99d7f94242bcec1f497c1a485cc2fbc663127c1ee8d54",
+      "plan_hash": "a2f6723afc6d7ef89fa0c2ed529cf8841ba34046ed986085e4edbe1a9472c249",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s160-t100000",
+      "candidate_hash": "1172971eae4858aaf2877e6801a451fc7afc4fd834c0b66fd71da10857c33abe",
+      "semantic_hash": "b114d9489a9a0e4d56b00b379c5ffed0d28b204db3cf4c41f4502132b5ed6ed5",
+      "plan_hash": "3b3e54f0e4e0d86c74b75187931c524449be02108f65afdfdc262fdfe4e5bc12",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s160-t1500000",
+      "candidate_hash": "dd4aeddd25b230092c908c79e09e8ec62bd70b762a218c457270acaa3ce21c8f",
+      "semantic_hash": "a9ccd34207802d08300b5aacfdb81c105c80b1ea3b4e63de0a1b199d1a98119a",
+      "plan_hash": "38148efd016bc3d7b989544d851968c219d1a7beebcd52d7d45915023b738e8a",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s640-t4000000",
+      "candidate_hash": "c6e364577ac0ab5e256dc3f69d43273b6c24ee606d45eb6564bbaf3107f3ea7d",
+      "semantic_hash": "26086be9ca653aa6d955caad968acb55a3e78f2f62a3c68b73b63264dada3f6d",
+      "plan_hash": "406a2405f0095aa8fc0066fadef76c26d54110ac2374388a42dd679249d8817d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s640-t4000000",
+      "candidate_hash": "9f2aac57ccf5f9a9d1a921fab8c4d2d77acc2c1c7c2d6e899f11886ff17b88cc",
+      "semantic_hash": "4254f1d957c2c1df2810c819dcaa0560573e26a1f811aa48b7120812e278c870",
+      "plan_hash": "de9cceef00805f87602232d9acf682d5d453bbb55a8108419da7353f3f26fb8f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s64-t8000000",
+      "candidate_hash": "77298b063d5987dde989acd3ac9d6fa3023aa95100bc71ba6737e71437190e10",
+      "semantic_hash": "6261dfdbf3e5b1c1cbed013cc20b8f6d65c9466cffe23cb3a2f63a4fe656cc69",
+      "plan_hash": "779fefce40704b1230477c9fafff314afcb03679c67f19268f98c7315fcd2c0d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s512-t8000000",
+      "candidate_hash": "68d2ca4eb267d51e46ad989a476bb1e2667333ab7c29dfe06e68f8cb6b8d4042",
+      "semantic_hash": "775f4cadef7871df31da5ee67e36e6403652b553f237812c3e7273fa0a4f0fe8",
+      "plan_hash": "838fb9696d6b9b229e94b225d281c774632a20bd50ef2528ccee5498d4db9fee",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s160-t8000000",
+      "candidate_hash": "dcc882c336e5f231d892b63a085b06ae45cfbd5d2e12f517cfce341503339f00",
+      "semantic_hash": "d90429d639cd92e79b72854f1f0bfd173b60467af217b885db5b9a837e320319",
+      "plan_hash": "481f2e5e6506bdc820c00a92a22bfe49c12ef4d07ed069790081adedd2e9e115",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s640-t8000000",
+      "candidate_hash": "e54547cac9671d43a0f7eec35c911dbe2de103020822eed12736be3bcae033fc",
+      "semantic_hash": "ebb846a9a179ddfa1cdcb089545e5bf84f7b41d2147b2ee36bd4d3fa58b1f35e",
+      "plan_hash": "05a290a1eed9daa2fc4ab775b02cb9e4f800b226f2bb27df47ea78c2f1ab3b00",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s512-t12000000",
+      "candidate_hash": "cf744985cb086703475da31e1f544c370a8cc60a641e45acb461108767b54528",
+      "semantic_hash": "41b122e2c16a03729ab4e8b194b85165892d14ba8da7b59f954decba744461dd",
+      "plan_hash": "f3fc82ec1b6b4cbe34df428f4c3fb0323debaa93ca7de7f455b2e89259816b81",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s192-t1000000",
+      "candidate_hash": "481aca2482291f481139f3ce91ba5fad77f69da80ccc3cf0d44d375e4357fb83",
+      "semantic_hash": "66c37e99e819f2d881417beaf4fc6ac99dc84bf6bbcf022f171ea6bd9ddb8f89",
+      "plan_hash": "975869dbb7434519868250dcbc79aa98f00b68083b2d018e9d74bfffefe12f8a",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s128-t12000000",
+      "candidate_hash": "d3d1319465add107a8597f7e55c0e5612475704b5b824355a31253cd00aa36b0",
+      "semantic_hash": "c1c51aed9f8f7770863e488669dab16f00f6f7302d84ac434c0cbc271828a643",
+      "plan_hash": "eff2d5c74b69d55bc3e1f6378aa1345d83a76c42254e826dff81c71346b50041",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s512-t1500000",
+      "candidate_hash": "340ec19d18f594c27053003ca099157960bc7b1e0ecf9ca7bbab3bd816b69b54",
+      "semantic_hash": "55253119b4eeb52f8cc0be74dc96db02b1f968d03bc25b4dd0d75b158d6f3a39",
+      "plan_hash": "160d78a2d334fdfb69d25694e2adbd81d60bfc8a2aaa07d6c508a7ba694bad96",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s256-t1500000",
+      "candidate_hash": "f745e602464babb472fd6f17011b94b43bb9ae5a72d76de3b5d4bc23dfd2675c",
+      "semantic_hash": "3c786179a4cae968fc29a8a096f2bc0cfaf6c379461b3a8c157b9e93fab864ae",
+      "plan_hash": "2c2c1170ea97b89d19bf553149404be21f6bd899b65f7c25f569b02056b0f2d0",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s192-t8000000",
+      "candidate_hash": "be3fc91047dd914246d75995aac29d873780b5e8328d702d7622e58685d826aa",
+      "semantic_hash": "0e5237e58a7cc71cc5bd0d256c7891d57c83736c60025023f4ae5b310c3fd31a",
+      "plan_hash": "8c65ff299c52e6dc108f4ee0f2b861763fc02bf33bbce06487c463a1c12057e6",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s320-t4000000",
+      "candidate_hash": "f9e5d85ffa996b6db31c0ea7ffe4a191147e7579772b7ef678561461d6e4eb9f",
+      "semantic_hash": "327ac5971674c7a72fa1609c1076f9cf994e509a3e5375b429f5eca911ac7dc1",
+      "plan_hash": "75d3dda170c8027145c9d387b2a522f65835554e8e8947e82da7c7817196dda1",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s512-t12000000",
+      "candidate_hash": "b02151c050d68a32f21ecc13b6176f42d51b167de5133f81c5f9a2c10c322a7b",
+      "semantic_hash": "c99e1b792f182a859294e1a050b133fd94eac95e1e3c362b223df9d619621a23",
+      "plan_hash": "26b3c1a762cd796b2e8ec007383827942990191ee1efaa12a3b9416f2664feb0",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s384-t2000000",
+      "candidate_hash": "c300fdf4708508ca38ee0fd103431a07e0d888c524aa02742d2e6ec301cc1594",
+      "semantic_hash": "147f75c2209de748e3e6491ccb9c471c5c82f1073e1c713c8a368edb8d3074be",
+      "plan_hash": "599ad7e18e400d95fa8c4a112c4d3d080f3d8a118bcaf87e383467fb36eacb0f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s256-t1500000",
+      "candidate_hash": "61c2499aeba981680a35bb0e81b5ffebb857d3f00f3ae6ecad076f5453447505",
+      "semantic_hash": "7761a8ec1c8b82537edfb2b6c0e9fad45360122dd21e8a045b6d6dbf3271d263",
+      "plan_hash": "93fd38eeca01e2773d45b0eaa5b97d81551d014b6aa5c0c716dba26e143dec46",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s512-t8000000",
+      "candidate_hash": "c1ca398abcfd0c423c8f1f9b1133dfac2a8c83f6b6742f0a8e6ad4983385f0d2",
+      "semantic_hash": "09a39490c5dc026b14bebe20225d17dcc907d43bc2b51753765ca4ffcf2745f2",
+      "plan_hash": "bde5d372704a6a09242f22fbefe14b9f23ed5d35bc9050add07608199954d28a",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s384-t2000000",
+      "candidate_hash": "808c06f7a1bbef4fa4f0e79e00a8b55ffd7a5c45562a4facaf4d59fb4d57fad3",
+      "semantic_hash": "047d4d5b05ffa0eb38936b96e8b3f7b02098f37751552b3226c5b5dea9f8e28d",
+      "plan_hash": "ab8d74345e743308604a1b55c5f6932bbc6848a07d334bfe26f58c700ccdbea3",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s512-t2000000",
+      "candidate_hash": "21adf1d9a4d73cd8207551b71d26964ea7732ea2a34d560270a5048c061c6f8c",
+      "semantic_hash": "1142db5ff3ea8302a800f119a61cecf075f60474ae936dfde11ae5c37dfe1dfd",
+      "plan_hash": "155e0363f79321cc6f1d7fb346f41e150a32245be3e45493d8834e2f765fd8ee",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s192-t4000000",
+      "candidate_hash": "721c02763562bbcbaa0aedf8d35711f73ce0daab1222faefaa340074dc840e97",
+      "semantic_hash": "82992fb5def10aef00ccd5f0f8a8a442925e70b94c245e3756790941fa3f7cc1",
+      "plan_hash": "22a237f5ac9d789a7570385789e07c02ca7c471c4f1d37f4ac5a816a72af0b94",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s64-t1500000",
+      "candidate_hash": "b8093d0b58460a4bca8235d3eadc734b71811f5d6b8b91f594198e41ffccbcda",
+      "semantic_hash": "60f1ca4a0e082e24274b5274b70d91ce3997aaa76ef57053739b0d99645accb8",
+      "plan_hash": "af3fc4f8b2f1d86cc6dc8b61f1c0fd9bd2f0360dc4d180b60f96bc1d1678260c",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s96-t4000000",
+      "candidate_hash": "aaef5e02acd748510ccc5d5a37da87ca50297ff1faef7dbd4dc2a21f3237f445",
+      "semantic_hash": "992baff23caf103dda124fe419a2d764e1b0883f7b49b2863882aaad1c54974a",
+      "plan_hash": "fc172cdf87e7841b1c3a56fa4d9576d5f8396296ff3b917b8ab7fd579b0092de",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s160-t100000",
+      "candidate_hash": "5d06e72ffb31b0a384dc35d38258000fdb0f84b7e55625a49e1f81b2f4e66392",
+      "semantic_hash": "6cf99646557a397713b943507e0eedf6fe539dc27f691a5e4116c3b8872142dd",
+      "plan_hash": "e90661039f8dd91041e1aa43d82311cfc5501ad66158e8c86684e66818c1bb9f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s384-t4000000",
+      "candidate_hash": "8c305f413b9cd0376e59e84ef908ba247993c495f5b0c59fd3a982cb55c60f69",
+      "semantic_hash": "db42702a21e6c5664c0293090e22ddcba6feda81572be082e671427e357ade24",
+      "plan_hash": "d86dc47e68a11ab834caba0cc3c05dcee340c55f2b177a50f1c81724b06c75df",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s160-t8000000",
+      "candidate_hash": "852b2c740f3f9d7518ab4fa31bd1e6bb97b887fc64f561e2695095052947361f",
+      "semantic_hash": "635ec838a465d22191f733b7f9845fa949a30f14c4c9d653974edb4881215086",
+      "plan_hash": "a585b78b94167537aae249f4074d340b1a26ac5485b7ca7a1db88c9d91dfd5e7",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s384-t4000000",
+      "candidate_hash": "0d371d79d2083d8eb9e61d429344aab30bf927a208fea33cb66153cc231ef729",
+      "semantic_hash": "182167b6189b2a7528aae2898891dd43bf89828a901650a7d8d03c663b3979a9",
+      "plan_hash": "f5577c6de00b22c6efe23542b8696f21db567452afa4b0923065b5179d8eeaeb",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s192-t12000000",
+      "candidate_hash": "3bd9cc8462a31d21ff4e8ca70993e4d9c55046a355e5837f934806dca01863e7",
+      "semantic_hash": "6500681f362b8b7d087ec0f82537cd4b8f3015aba8893e87fa2de7976882aad6",
+      "plan_hash": "f0c95fe26998fd4ad1289cb8a4e8861559b0e181547986e687fcaa3b82e387d3",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s96-t12000000",
+      "candidate_hash": "9a77d67d9bbc6c7b74a5f2996d691792efd2a2b39d00545ae07dde3965dee030",
+      "semantic_hash": "662c391e027faee9e2b915e2b09cd443eccf47adcb6eb9cae7ed490bb3d69748",
+      "plan_hash": "05253385d058d19c4940f0877020110a35c0136fd52b851281bcae7d633a989a",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s96-t8000000",
+      "candidate_hash": "ef620bc92b7fac8d51d8aee083caea22e5c2b1d1253e69642cdc6e5abab3fba7",
+      "semantic_hash": "c882228b10d7f70ea24a5941869eb17cc67e44302e5f6cd35cd5db75fab86cb4",
+      "plan_hash": "6dc69eb4ecdf0d5773fa625a4eaf979502d5c780de97195dca9c694543934c49",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s384-t1500000",
+      "candidate_hash": "f005b679e3f80769ae48a8ac3bbb429dce78f55c27b5ff4a675568fba07ef6e7",
+      "semantic_hash": "2469d2bd07f41fd24135d9d0821fef1f215beef0887600008e472becf5ce9f72",
+      "plan_hash": "2b36156226e67b5acdf5ab87e4f05b47c36d8ef352775fda666e285ad506009d",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s384-t100000",
+      "candidate_hash": "e3e319c37db24b9b8133d46ef197483ca380aa2a8908493b9b2d34a98c87355d",
+      "semantic_hash": "eee20fca07520685b548a418079fa3f8d9a7f509b8d0884c21fcfb8fec58b0f5",
+      "plan_hash": "5cd4fbef4e14e9e38469b40b4891ad2f3c495aec030054747bca0e4bf5330376",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s512-t1500000",
+      "candidate_hash": "ad3b7923c0b08242b0b7fd7afe2f4d0bd3ab7cbad755c9607fdc7225916c1253",
+      "semantic_hash": "9939dee28c593b29d8ced9ce8bd2998dfac8e41a7403bf2ab1b8e2aa4d532be3",
+      "plan_hash": "414e354990b5204cba2d5af8c5e9331ecf3a3e434a0d0cc1c7b22d7163394e35",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s512-t4000000",
+      "candidate_hash": "7e85232e5b44dfa035044f662e4deec843bd10f1f74e1a119edf4cffe7269cb0",
+      "semantic_hash": "85905c380ee3ba2dc9015dcbef4b3aca1a2628bb9b8ae328f599bf7edf4c635a",
+      "plan_hash": "114c8073daa3a919b4fc34f799021403a7c368bee734e7fe059aae93a64e3420",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s96-t2000000",
+      "candidate_hash": "426700b49c9214773a2fa495a1184674f10269e9f9bd78cde0fcadf6a3e6bd9f",
+      "semantic_hash": "8c27958e1b87581fbb43369a8885e4a1dd2ac568d01320daaf424f29cb20cd6d",
+      "plan_hash": "a9828b7c8c2fdef52ea91d16d2978c43e4997e1a12bf798a508946cc4a746994",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s192-t1000000",
+      "candidate_hash": "a4fe1e6ee60dd8a8728bdb480b5022dc94b7dd69c3badbb975f112a0e43bf281",
+      "semantic_hash": "f5e2ea0b69bf16bdce4b738f8c61f2343b6ac2e0c087b8a5b48e5517a1203a95",
+      "plan_hash": "5afa205dcceee255a62b20b512fd1fa155a0c77e0c1b52d481fd0d020ba5fbf2",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s64-t8000000",
+      "candidate_hash": "a0983e0161e8458742de052729aa6609cd880fc506bdde7f55ed2f9df8d6e181",
+      "semantic_hash": "7d69ec2ca1a6a60fdec5b44d31273ccd7089e46efcbc390af6c77d05d6b77037",
+      "plan_hash": "a4cc3f03323a1bd2578cecdbba3816e760929ee0d3d92eff5d2eefd30cf5ec7e",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s768-t12000000",
+      "candidate_hash": "f119a08482e27ba12106671effd743a6d5b77c06ade7e6a85dd87bd213000e23",
+      "semantic_hash": "1a6e74f651d59637ac943a46b5cb845aa33a026d5557accc3f72830669bc2a29",
+      "plan_hash": "295d5cc273e2fd26269c78027ecc44aa46a4532a6265d2b75c66a8fea60c4ee0",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s320-t2000000",
+      "candidate_hash": "a5d6950c5499e80cbd4af191d75eb42dbc831870969266d055e417f0cc4416ce",
+      "semantic_hash": "f0fefd1a2d38875f2ea1a0c23086023a8dca7bcf61bb927160c43a3af6d8fb50",
+      "plan_hash": "e42fba400e905593802e69d6bc812b741f78676e3116acb5648171b2d76b2e99",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s64-t2000000",
+      "candidate_hash": "88cc66489e3d5fd15aeda5a47d9e616312d963a80e61e4d75f0444b96f7fa3bf",
+      "semantic_hash": "8a655a23ce3513c903a94275df31325c637113c6062f9e80805752e8775ed287",
+      "plan_hash": "9c6557582a28f3666c623ca2a2bfc9de4d40b2035d7a0bf6dbaed4745a1870c1",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s1024-t12000000",
+      "candidate_hash": "944a37223ce73e3fb91e33eeb598d0a71895a3b5a69145f4f192c52c34539d7e",
+      "semantic_hash": "7738ab3427b248f7db09d36f2f214c51a546f7b3a8523e3fc34272c21a3b9800",
+      "plan_hash": "ea8f5d00c2009318e1b49b7936eed6fa3d1d29509f572f3c54dce473471ae58c",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s256-t12000000",
+      "candidate_hash": "58eecc31ecb95d150e265c11e98cd4a782eb90de39085f32309adba6b0c776ff",
+      "semantic_hash": "3fcd01d10b7a68872871c14aa86aa26841bdb8cbad0c98a287e8479f5c5dae76",
+      "plan_hash": "d8f772f78c8a8c939a287809872fbfbb4aa7adf7259077a1673287a810ef6dec",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s256-t2000000",
+      "candidate_hash": "c291b7656227eff8189f251f4b6311f9d60cf849360f2d90b39a153fb08fd085",
+      "semantic_hash": "459235dee281ed0a973da8ec89d18e1c0934d57fef8c84f7b349462c3e616856",
+      "plan_hash": "2d30db62cc17fcfa813b133e2a90abe40b8cbcce02f75516ccecb312f1edf773",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s160-t12000000",
+      "candidate_hash": "b474c9545b97f411553e435ce5b544fba46efeae662d8b5463d55e076c74eb9b",
+      "semantic_hash": "ff8a7b1cffdab87cb31b40cadb319c249345d11259f859c4767f206368a804ee",
+      "plan_hash": "aa0daf8c7d0c58e709efc04206e41faa3feeba2c5be52264841fc73a0be8d007",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s128-t1000000",
+      "candidate_hash": "61a36f7952036203dee7968f79a4272efec6bc1009139b61e622b9b21025d7fc",
+      "semantic_hash": "2b969477633ce32cd4824792cd9e4b77e66f498c94500a8356a5bb3400eae958",
+      "plan_hash": "030b450abc9b2c98866219c0734e387b53fa03d6cccbac8280fb7565e6fb362e",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w4-s64-t4000000",
+      "candidate_hash": "e45dfd43550676e1ebe88c48995d1822c2974fe6cf2227a1431a486b92c2e27b",
+      "semantic_hash": "0a82a7dbf738f6cb5a1e09b8621058f0d98b1aa4e128566fca061f4c7dd763b4",
+      "plan_hash": "ea2a5326e6963ccc0d43d0cd2160e42a1ea44ef5a4c984aecbd32c8778650061",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s512-t4000000",
+      "candidate_hash": "175587d8d817ec0b596c6bcb2f90145b6b8146dc6bccbb5243e76961e878a884",
+      "semantic_hash": "d3ce4084fc82acc1a661877f767ecc50fa454202410def4a61d6135bf5cae20d",
+      "plan_hash": "519558ced629f0e5e6f9a25b3eb144ebe13448719ad57c0bace832da46139fe8",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s1536-t12000000",
+      "candidate_hash": "fab77e1bbfa684635ce9cad57ed592441042ad914c01afb7a6697735b4fada77",
+      "semantic_hash": "a607e8dbda5fc6bfbeae3b5cc9e6d2346b1a6e2c417e32658e4a3160965e8fee",
+      "plan_hash": "c47163e63d9de34ce39ed4c60880c0691e3c618d0765be46882220469adf244b",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s256-t8000000",
+      "candidate_hash": "04acfd87930f9fc975d44c3026789359daadf47760b50ef70a2b3634c4775b72",
+      "semantic_hash": "3df06252e512f237c8ed3570b940e8c123ef59039479120484945b7855efdf0f",
+      "plan_hash": "95716685e43b5d1beca2a552ecca92856bcc9c1b3c89357e490adbd11fc9cab0",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s192-t8000000",
+      "candidate_hash": "ae4924bec26974be3cd03341b7b917591a84356f2c826c10dbc8b45ee80b7b7a",
+      "semantic_hash": "4e56064ad7477a789062a27132ea5fa5a6adf24e465817e44b1c37ab6aaccbe9",
+      "plan_hash": "e0961b128215370a421e01ffe5e466fc8359702917554e38893b96ac7f178a7f",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s96-t12000000",
+      "candidate_hash": "1a0b48351495fc83700bd4fc6e939337e93ccc401042c94ccb95b1b38df8c64f",
+      "semantic_hash": "59b2c57fff7e7686cd4fe2bac2a1bd68616d002b87a42c96ea077d9f96bece18",
+      "plan_hash": "99d215d28d7c1861632dd9281a8ea005a510920951f3d3621538346799f59bf4",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s128-t100000",
+      "candidate_hash": "67b731ff8bc46a4cc9105e160f883b0c3f7353f5fdf3458894890db0abf37131",
+      "semantic_hash": "9fbc7a960e9d898ba97b524da13e15ea51f1c1bd5f9165f87041b921bc371c8b",
+      "plan_hash": "eab06fe7e2abeca30311bec90b6dc3a00c824df2b7d09b4f4500cceeb5827608",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w3-s768-t12000000",
+      "candidate_hash": "58b9b86fe3418870f603a29937bd30e9fa5071e6a4fb26f178f4040c7f05db7c",
+      "semantic_hash": "444343b9cac86ebc7051068181350fed705e467bac143956eef9e89809ba7b85",
+      "plan_hash": "d15b1f713c622e5543aa004c8b5d55a77595a323f6d21eac15c52b6968b0fa86",
+      "micro_mismatch": null
+    },
+    {
+      "name": "tune-w2-s128-t1500000",
+      "candidate_hash": "bc000e54fa43419b8e42159b9f15140c0d622c189d15f9e77064a196eedcf69a",
+      "semantic_hash": "53e795ce046ce648c3b74204d04ca5fb6f390de11d74760a37be6175e6eca1ff",
+      "plan_hash": "41c8a4ada8376a16648d6158bf176dce86f526f6f91729ec1a5ee744d4ed272f",
+      "micro_mismatch": null
+    }
+  ],
+  "skipped": [
+    {
+      "name": "full-erode-analytic",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "white-opaque-direct",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "cmyk-normalize-inplace",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "density-copy-false",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "density-mask-inplace",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "rank32-wide",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "wide-limit-3",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "clip-ufunc",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "rank-float32",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "cmyk-clip-ufuncs",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "threshold-narrow-fallback",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "threshold-padding-bound",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "density-private-buffer",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-validate-minmax",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-tail-empty",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "writer-reuse-buffer",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "writer-zero-plane",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "edt-convert-scale",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-validate-unsigned",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-validate-max8",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-validate-mask8",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-validate-or8",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-tail-zero",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-tail-ufunc",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-pair-lut",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-einsum",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "pack-accumulator",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "writer-planar-layout",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "writer-sparse-empty",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "ink-identity-limit",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "ink-multiplier-cache",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "alpha-multiply-ufunc",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "threshold-indices32",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "threshold-direct-index",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "threshold-power-two",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "white-no-fill-assignment",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "close-padding-buffer",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "edt-coordinate-cache",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "memory-budget-384",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "memory-budget-256",
+      "reason": "historical-equivalent"
+    },
+    {
+      "name": "tune-w1-s1024-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s256-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s1024-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s640-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s128-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s128-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s1024-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1024-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s768-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s1024-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s1536-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s1024-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s64-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s768-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s384-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s1024-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s128-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s768-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s256-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s128-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s192-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s768-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s1024-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s1024-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s1024-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s384-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s64-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s1536-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s1024-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s384-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s192-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s1536-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s512-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s320-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s320-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s1536-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s512-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s256-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s768-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s512-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s320-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s192-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s320-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s64-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s512-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s512-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1024-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s96-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s1024-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s64-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s64-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s1536-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1536-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s1536-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s384-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s1024-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s768-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s96-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s1536-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s1536-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s160-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s640-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s128-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s320-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1024-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s768-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s1024-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1536-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s192-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s768-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s256-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1024-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s96-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s256-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1024-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1536-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s768-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s768-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s640-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s384-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s96-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s768-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s640-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s256-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s160-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s320-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s1536-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s320-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s640-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s160-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s1536-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s768-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s128-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s1536-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s384-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s1024-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s768-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s768-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s384-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1536-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s192-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s768-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s160-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s640-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s64-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s640-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s320-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s1024-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s256-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s192-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s768-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1536-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s160-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s160-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s384-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s96-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s512-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w4-s1536-t1500000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s1536-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s320-t4000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s640-t1000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s1536-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s96-t8000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w3-s768-t100000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s1536-t12000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w1-s512-t2000000",
+      "reason": "same-execution-plan"
+    },
+    {
+      "name": "tune-w2-s256-t1000000",
+      "reason": "same-execution-plan"
+    }
+  ],
+  "errors": []
+}

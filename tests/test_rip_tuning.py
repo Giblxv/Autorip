@@ -100,6 +100,14 @@ def test_single_worker_threshold_alias_has_same_execution_plan(campaign,tmp_path
     assert execution_plan(first,a['engine'],[case])==execution_plan(second,b['engine'],[case])
 
 
+def test_old_scheduling_families_receive_same_inert_plan_filter(campaign):
+    from rip_tuning_candidates import is_scheduling_proposal
+    for name in ('strip-256','pipeline-2','wide-limit-2','pixel-estimate-80',
+                 'parallel-threshold-500k','memory-budget-256','tune-w2-s192-t1000000'):
+        assert is_scheduling_proposal(name)
+    assert not is_scheduling_proposal('cmyk-lut')
+
+
 def test_late_wide_worker_cap_is_part_of_plan(campaign,tmp_path):
     from rip_tuning_candidates import execution_plan
     from rip_wide_candidates import fewer_wide

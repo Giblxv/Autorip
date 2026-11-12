@@ -83,6 +83,26 @@ def historical_semantic_pairs(report, report_path):
     return pairs
 
 
+def historical_scheduling_candidates(report, report_path, initial):
+    from rip_tuning_candidates import is_scheduling_proposal
+    archive_path=report_path.parent/'source-snapshots.zip'
+    if not archive_path.exists():return
+    with zipfile.ZipFile(archive_path) as archive:
+        def sources(folder):
+            return {key:archive.read(f'{folder}/{key}.py').decode() for key in FILES}
+        try:leader=sources('initial')
+        except KeyError:return
+        for row in report.get('rounds',[]):
+            if row.get('leader_before')!=digest(leader):break
+            try:candidate=sources(f"round-{row['round']:03}-{row['candidate']}")
+            except KeyError:break
+            assert digest(candidate)==row['candidate_hash']
+            if (is_scheduling_proposal(row['candidate']) and semantic_digest(leader)==semantic_digest(initial)
+                    and row.get('reason') not in ('exception','infrastructure-error')):
+                yield row,candidate
+            if row['accepted']:leader=candidate
+
+
 def validate_candidate_checkout(bundle, directory):
     """Run regression tests serially, outside all performance measurements."""
     before = {key: (ROOT / path).read_text() for key, path in FILES.items()}
@@ -550,6 +570,18 @@ def main():
     tested.update((r['leader_hash'], r['candidate_hash']) for r in report['skipped_execution_plans'])
     planned = {(r['leader_before'], r['execution_plan_sha256']) for r in report['rounds']
                if 'execution_plan_sha256' in r}
+    if args.candidate_family == 'all-tuning':
+        from rip_tuning_candidates import execution_plan
+        historical_plans=[]
+        for entry in history_sources:
+            path=Path(entry['path']);past=json.loads(path.read_text())
+            for row,snapshot in historical_scheduling_candidates(past,path,initial):
+                module=load(snapshot,work/'history_plan_probe','history_plan')
+                plan_hash,_=execution_plan(snapshot,module['engine'],timed)
+                planned.add((digest(initial),plan_hash))
+                historical_plans.append(dict(path=str(path),round=row['round'],
+                    candidate_hash=row['candidate_hash'],leader_hash=digest(initial),execution_plan_sha256=plan_hash))
+        report['historical_execution_plans']=historical_plans
     frozen = {}
     if args.freeze_inputs:
         inputs = list((ROOT / 'autorip').glob('*.py')) + list((ROOT / 'benchmarks').glob('rip_*.py'))
@@ -580,7 +612,8 @@ def main():
             if skips>len(proposals)*2:raise RuntimeError('Sem hipoteses aplicaveis suficientes; nao declarar convergencia')
             continue
         plan = None
-        if getattr(proposal, 'is_scheduling_tuning', False):
+        from rip_tuning_candidates import is_scheduling_proposal
+        if getattr(proposal, 'is_scheduling_tuning', False) or is_scheduling_proposal(name):
             from rip_tuning_candidates import execution_plan
             probe = load(bundle, work / 'proposal_probe', 'plan_probe')
             plan_hash, plan = execution_plan(bundle, probe['engine'], timed)

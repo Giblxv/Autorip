@@ -10,6 +10,11 @@ from types import SimpleNamespace
 from PIL import Image
 
 
+def is_scheduling_proposal(name):
+    return name.startswith(('tune-', 'strip-', 'pipeline-', 'wide-limit-',
+                            'pixel-estimate-', 'parallel-threshold-', 'memory-budget-'))
+
+
 def tune(bundle, workers, strip, threshold):
     source = bundle['engine']
     for name, value in [('RENDER_WORKERS_MAX', workers), ('STRIP', strip)]:

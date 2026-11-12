@@ -32,8 +32,64 @@
           192
         ]
       }
+    },
+    {
+      "round": 2,
+      "domain": "rip",
+      "accepted": false,
+      "consecutive_without_gain": 1,
+      "source_round": 1,
+      "candidate": "wide-limit-2",
+      "candidate_hash": "9470a0e1a2541f646d41f6198c1ac46275aac274fbd72b0737756a5c4b73325c"
+    },
+    {
+      "round": 3,
+      "domain": "rip",
+      "accepted": false,
+      "consecutive_without_gain": 2,
+      "source_round": 2,
+      "candidate": "pixel-estimate-80",
+      "candidate_hash": "f72ecaac80459fe6382d6817dc3d5533620766bf5993830efafe07274a0ba897"
+    },
+    {
+      "round": 4,
+      "domain": "rip",
+      "accepted": false,
+      "consecutive_without_gain": 3,
+      "source_round": 3,
+      "candidate": "pixel-estimate-64",
+      "candidate_hash": "719521cf308d7bb91b33b25590f1c1831535674f747950894a7be1a6f15735f1"
+    },
+    {
+      "round": 5,
+      "domain": "rip",
+      "accepted": false,
+      "consecutive_without_gain": 4,
+      "source_round": 4,
+      "candidate": "edt-transpose-wide",
+      "candidate_hash": "96229dfed9a710f55d4e0688fb9fa64613859f3af27528dd30b81aa14d7d0a18"
+    },
+    {
+      "round": 6,
+      "domain": "rip",
+      "accepted": false,
+      "consecutive_without_gain": 5,
+      "source_round": 6,
+      "candidate": "parallel-threshold-2m",
+      "candidate_hash": "0d49fb261358e5a5a5fe9fd606d34924f221fcd672a9332d7c06b845aa1427e5"
+    },
+    {
+      "round": 7,
+      "domain": "rip",
+      "accepted": false,
+      "consecutive_without_gain": 6,
+      "source_round": 7,
+      "candidate": "zero-halftone",
+      "candidate_hash": "945d6ad1b3b2b137ab9b13911023e063fd319b5f17a23a938068a8753cf19789"
     }
   ],
-  "initial_rip_without_gain": 0,
-  "publication": "Only after criterion, independent audit, full regressions and exact-head CI; preserve concurrent main changes"
+  "initial_rip_without_gain": 6,
+  "publication": "Only after criterion, independent audit, full regressions and exact-head CI; preserve concurrent main changes",
+  "prefix_rip_valid_rounds": 6,
+  "prefix_audit_sha256": "c19de4aa23eb338e2e1cb5b320925810a400483dc55892b63f2e5df1e31257ca"
 }

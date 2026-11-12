@@ -1,0 +1,59 @@
+"""Fast offline checks of the autonomous publication barriers."""
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+
+class PublicationGates(unittest.TestCase):
+    def setUp(self):
+        path=Path(__file__).with_name('finalize.py')
+        spec=importlib.util.spec_from_file_location('campaign_finalizer_under_test',path)
+        self.module=importlib.util.module_from_spec(spec);spec.loader.exec_module(self.module)
+        self.folder=tempfile.TemporaryDirectory()
+        self.addCleanup(self.folder.cleanup)
+        self.module.REVIEW=Path(self.folder.name)
+
+    def checks(self,failed=None):
+        names=['build','Testes ubuntu-latest / Python 3.10','Testes ubuntu-latest / Python 3.12',
+               'Testes windows-2022 / Python 3.10','Testes windows-2022 / Python 3.12']
+        return [dict(name=name,status='COMPLETED',conclusion='FAILURE' if name==failed else 'SUCCESS',
+                     detailsUrl=f'https://github.com/Giblxv/Autorip/actions/runs/{10 if name=="build" else 20}/job/1')
+                for name in names]
+
+    def test_exact_head_and_all_required_checks_allow_progress(self):
+        self.module.command=lambda *args:json.dumps(dict(state='OPEN',headRefOid='approved',statusCheckRollup=self.checks()))
+        self.module.api=lambda path:dict(head_sha='approved')
+        self.assertEqual(self.module.wait_checks('approved'),[20,10])
+
+    def test_changed_pr_head_blocks(self):
+        self.module.command=lambda *args:json.dumps(dict(state='OPEN',headRefOid='someone-else',statusCheckRollup=self.checks()))
+        with self.assertRaisesRegex(AssertionError,'PR changed'):
+            self.module.wait_checks('approved')
+
+    def test_failed_installer_build_blocks(self):
+        self.module.command=lambda *args:json.dumps(dict(state='OPEN',headRefOid='approved',statusCheckRollup=self.checks('build')))
+        with self.assertRaisesRegex(AssertionError,'CI failed'):
+            self.module.wait_checks('approved')
+
+    def test_failed_tag_does_not_claim_release(self):
+        self.module.command=lambda *args:json.dumps([dict(databaseId=30,headSha='approved',
+            workflowName='Build Windows',status='completed',conclusion='failure')])
+        with self.assertRaisesRegex(AssertionError,'Tag build failed'):
+            self.module.wait_tag('approved')
+
+    def test_existing_version_is_never_overwritten(self):
+        def command(*args):
+            if args[:3]==('git','branch','--show-current'):return self.module.BRANCH
+            if args[:3]==('gh','repo','view'):return self.module.REPO
+            if args[:3]==('git','ls-remote','origin'):return 'existing-tag'
+            raise AssertionError('Unexpected command: '+repr(args))
+        self.module.command=command
+        self.module.api=lambda path:dict(object=dict(sha=self.module.BASE))
+        (self.module.REVIEW/'campaign.json').write_text(json.dumps(dict(required_without_gain=100,deadline='2026-11-12T22:00:00-03:00')))
+        with self.assertRaisesRegex(AssertionError,'never overwrite'):
+            self.module.readiness()
+
+
+if __name__=='__main__':unittest.main()
