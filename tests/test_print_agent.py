@@ -33,7 +33,9 @@ def test_state_is_persistent(tmp_path):
     reopened.close()
 
 
-def test_config_defaults_to_safe_mode(tmp_path):
+def test_config_defaults_to_safe_mode(tmp_path, monkeypatch):
+    appdata = tmp_path / "appdata"
+    monkeypatch.setenv("APPDATA", str(appdata))
     folders = [tmp_path / name for name in ("out", "printed", "error")]
     config_path = tmp_path / "print-agent.json"
     config_path.write_text(
@@ -51,6 +53,8 @@ def test_config_defaults_to_safe_mode(tmp_path):
     )
 
     config = Config.load(config_path)
+    assert config.state_db.parent == appdata / "AutoRIP"
+    assert config.log_file.parent == appdata / "AutoRIP"
     assert config.auto_print is False
     assert config.dry_run is False
     assert all(folder.exists() for folder in folders)
