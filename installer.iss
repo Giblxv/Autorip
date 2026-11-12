@@ -9,6 +9,8 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=AutoRIP
 DefaultDirName={localappdata}\Programs\{#AppName}
+DisableDirPage=no
+DirExistsWarning=yes
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 DisableWelcomePage=no
@@ -39,6 +41,8 @@ brazilianportuguese.FinishedLabel=O [name] foi instalado. Jogue uma arte na past
 [CustomMessages]
 brazilianportuguese.TaskDesktop=Criar um atalho na área de trabalho
 brazilianportuguese.TaskAutoStart=Iniciar o AutoRIP junto com o Windows (modo automático sempre ligado)
+brazilianportuguese.TaskAgentAutoStart=Iniciar o agente de automação do PrintExp junto com o Windows
+brazilianportuguese.SelectDirLabel3=Escolha onde os arquivos do programa serão instalados. As pastas de entrada, saída, concluídos, erros e impressos são configuradas separadamente abaixo.
 brazilianportuguese.PgFoldersTitle=Pastas de trabalho
 brazilianportuguese.PgFoldersDesc=Onde o AutoRIP vai buscar as artes e guardar os arquivos .PRT?
 brazilianportuguese.PgFoldersSub=Você pode mudar isso depois, em Configurações dentro do programa.
@@ -48,16 +52,23 @@ brazilianportuguese.PgIccTitle=Perfil de cor (ICC)
 brazilianportuguese.PgIccDesc=Escolha o perfil ICC CMYK da sua impressora (opcional).
 brazilianportuguese.PgIccSub=Selecione o perfil da sua impressora. Se pular, a conversão de cor será genérica; configure o ICC correto antes de produção.
 brazilianportuguese.PgIcc=Arquivo .icc:
+brazilianportuguese.PgPrintExpTitle=Automação do PrintExp
+brazilianportuguese.PgPrintExpDesc=Informe o executável do PrintExp usado pelo agente de automação.
+brazilianportuguese.PgPrintExpSub=Essa configuração é opcional. O instalador do PrintExp pode ser colocado em vendor\PrintExpSetup.exe para ser executado ao final.
+brazilianportuguese.PgPrintExp=Executável do PrintExp:
 brazilianportuguese.RunApp=Abrir o AutoRIP agora
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:TaskDesktop}"; GroupDescription: "{cm:AdditionalIcons}"
 Name: "autostart"; Description: "{cm:TaskAutoStart}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "agentautostart"; Description: "{cm:TaskAgentAutoStart}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
 Source: "installer_assets\mobile-android.bmp"; DestName: "mobile-android.bmp"; Flags: dontcopy noencryption
 Source: "installer_assets\mobile-ios-guide.bmp"; DestName: "mobile-ios-guide.bmp"; Flags: dontcopy noencryption
 Source: "dist\AutoRIP\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion createallsubdirs
+Source: "dist\PrintExpAgent\PrintExpAgent.exe"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "vendor\PrintExpSetup.exe"; DestDir: "{app}\vendor"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
@@ -68,12 +79,15 @@ Name: "{autodesktop}\{#AppName} (modo direto)"; Filename: "{app}\{#AppExe}"; Par
 Name: "{userstartup}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "--direct"; Tasks: autostart
 
 [Run]
+Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AutoRIP PrintExp Agent"" /TR """"{app}\PrintExpAgent.exe"""" /SC ONLOGON /RL LIMITED /F"; Tasks: agentautostart; Check: AgentExecutableExists; Flags: runhidden waituntilterminated
+Filename: "{app}\vendor\PrintExpSetup.exe"; Description: "Instalar o PrintExp"; Check: PrintExpSetupExists; Flags: postinstall waituntilterminated
 Filename: "{app}\{#AppExe}"; Description: "{cm:RunApp}"; Flags: postinstall nowait skipifsilent
 
 [Code]
 var
   FoldersPage: TInputDirWizardPage;
   IccPage: TInputFileWizardPage;
+  PrintExpPage: TInputFileWizardPage;
   MobileAppsPage: TWizardPage;
   AndroidQrImage, IosQrImage: TBitmapImage;
   AndroidQrLabel, IosQrLabel, MobileAppsNote: TNewStaticText;
@@ -101,9 +115,12 @@ begin
   IccPage := CreateInputFilePage(FoldersPage.ID, CustomMessage('PgIccTitle'), CustomMessage('PgIccDesc'), CustomMessage('PgIccSub'));
   IccPage.Add(CustomMessage('PgIcc'), 'Perfis ICC|*.icc;*.icm|Todos os arquivos|*.*', '.icc');
 
+  PrintExpPage := CreateInputFilePage(IccPage.ID, CustomMessage('PgPrintExpTitle'), CustomMessage('PgPrintExpDesc'), CustomMessage('PgPrintExpSub'));
+  PrintExpPage.Add(CustomMessage('PgPrintExp'), 'Executavel|*.exe|Todos os arquivos|*.*', '.exe');
+
   ExtractTemporaryFile('mobile-android.bmp');
   ExtractTemporaryFile('mobile-ios-guide.bmp');
-  MobileAppsPage := CreateCustomPage(IccPage.ID, 'Aplicativos móveis', 'Escaneie um QR para baixar o APK Android ou consultar as instruções para iPhone/iPad.');
+  MobileAppsPage := CreateCustomPage(PrintExpPage.ID, 'Aplicativos móveis', 'Escaneie um QR para baixar o APK Android ou consultar as instruções para iPhone/iPad.');
 
   AndroidQrLabel := TNewStaticText.Create(WizardForm);
   AndroidQrLabel.Parent := MobileAppsPage.Surface;
@@ -149,12 +166,26 @@ var R: String;
 begin
   R := S;
   StringChangeEx(R, '\', '\\', True);
+  StringChangeEx(R, '"', '\"', True);
+  StringChangeEx(R, #13#10, '\n', True);
+  StringChangeEx(R, #13, '\n', True);
+  StringChangeEx(R, #10, '\n', True);
   Result := R;
+end;
+
+function AgentExecutableExists: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{app}\PrintExpAgent.exe'));
+end;
+
+function PrintExpSetupExists: Boolean;
+begin
+  Result := FileExists(ExpandConstant('{app}\vendor\PrintExpSetup.exe'));
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  Dir, Cfg, J: String;
+  Dir, Cfg, AgentCfg, J: String;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -172,6 +203,24 @@ begin
         J := J + ',' + #13#10 + '  "icc_path": "' + JsonEscape(IccPage.Values[0]) + '"';
       J := J + #13#10 + '}';
       SaveStringToFile(Cfg, J, False);
+    end;
+
+    AgentCfg := Dir + '\print-agent.json';
+    if not FileExists(AgentCfg) then
+    begin
+      J := '{' + #13#10 +
+           '  "program_dir": "' + JsonEscape(ExpandConstant('{app}')) + '",' + #13#10 +
+           '  "agent_exe": "' + JsonEscape(ExpandConstant('{app}\PrintExpAgent.exe')) + '",' + #13#10 +
+           '  "printexp_exe": "' + JsonEscape(PrintExpPage.Values[0]) + '",' + #13#10 +
+           '  "auto_print": false,' + #13#10 +
+           '  "dry_run": false,' + #13#10 +
+           '  "hot_folder": "' + JsonEscape(FoldersPage.Values[0]) + '",' + #13#10 +
+           '  "output_folder": "' + JsonEscape(FoldersPage.Values[1]) + '",' + #13#10 +
+           '  "printed_folder": "' + JsonEscape(ExpandConstant('{userdocs}\AutoRIP\Impressos')) + '",' + #13#10 +
+           '  "done_folder": "' + JsonEscape(ExpandConstant('{userdocs}\AutoRIP\Feito')) + '",' + #13#10 +
+           '  "error_folder": "' + JsonEscape(ExpandConstant('{userdocs}\AutoRIP\Erro')) + '"' + #13#10 +
+           '}';
+      SaveStringToFile(AgentCfg, J, False);
     end;
   end;
 end;
