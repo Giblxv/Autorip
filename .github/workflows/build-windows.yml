@@ -11,6 +11,8 @@ on:
       - 'tools/generate_mobile_qrs.py'
       - 'build_windows.bat'
       - 'installer.iss'
+      - 'agent/**'
+      - 'vendor/**'
       - 'installer_assets/**'
       - 'autorip/**'
       - 'autorip_gui.py'
@@ -26,6 +28,8 @@ on:
       - 'tools/generate_mobile_qrs.py'
       - 'build_windows.bat'
       - 'installer.iss'
+      - 'agent/**'
+      - 'vendor/**'
       - 'installer_assets/**'
       - 'autorip/**'
       - 'autorip_gui.py'
@@ -51,6 +55,7 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
+            agent/requirements.txt
 
       - name: Conferir versao da tag e do instalador
         if: startsWith(github.ref, 'refs/tags/v')
@@ -60,6 +65,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt pyinstaller
+          if (Test-Path 'agent/requirements.txt') { python -m pip install -r agent/requirements.txt }
 
       - name: Verify PyInstaller availability
         run: python -m PyInstaller --version
@@ -67,7 +73,7 @@ jobs:
       - name: Run regression tests before Windows packaging
         run: python -m pytest -q
 
-      - name: Build one-file executable
+      - name: Build one-file executables and installer
         run: .\build_windows.bat
 
       - name: Smoke test do executavel empacotado
@@ -89,11 +95,13 @@ jobs:
         shell: powershell
         run: |
           if (-not (Test-Path 'dist\AutoRIP\AutoRIP.exe')) { throw 'AutoRIP.exe não foi gerado' }
+          if ((Test-Path 'agent\print_agent.py') -and -not (Test-Path 'dist\PrintExpAgent\PrintExpAgent.exe')) { throw 'PrintExpAgent.exe não foi gerado' }
           if (-not (Test-Path 'Output\AutoRIP_Setup.exe')) { throw 'AutoRIP_Setup.exe não foi gerado' }
-          Get-Item 'dist\AutoRIP\AutoRIP.exe', 'Output\AutoRIP_Setup.exe' | Select-Object FullName, Length
+          Get-ChildItem 'dist\AutoRIP\AutoRIP.exe', 'Output\AutoRIP_Setup.exe' | Select-Object FullName, Length
+          if (Test-Path 'dist\PrintExpAgent\PrintExpAgent.exe') { Get-Item 'dist\PrintExpAgent\PrintExpAgent.exe' | Select-Object FullName, Length }
 
       - name: Smoke test installed executable
-        shell: pwsh
+        shell: powershell
         run: |
           $version = python -c "from autorip import __version__; print(__version__)"
           .\tools\smoke_windows_installer.ps1 -SetupPath Output\AutoRIP_Setup.exe -ExpectedVersion $version -ExercisePortFallback
@@ -102,18 +110,22 @@ jobs:
       - name: Create release checksums
         shell: powershell
         run: |
-          $exe = (Get-FileHash 'dist\AutoRIP\AutoRIP.exe' -Algorithm SHA256).Hash.ToLower()
-          $setup = (Get-FileHash 'Output\AutoRIP_Setup.exe' -Algorithm SHA256).Hash.ToLower()
-          "$exe  AutoRIP.exe" | Out-File -Encoding ascii SHA256SUMS.txt
-          "$setup  AutoRIP_Setup.exe" | Out-File -Encoding ascii -Append SHA256SUMS.txt
+          $files = @('dist\AutoRIP\AutoRIP.exe', 'Output\AutoRIP_Setup.exe')
+          if (Test-Path 'dist\PrintExpAgent\PrintExpAgent.exe') { $files += 'dist\PrintExpAgent\PrintExpAgent.exe' }
+          Remove-Item SHA256SUMS.txt -ErrorAction SilentlyContinue
+          foreach ($file in $files) {
+            $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+            "$hash  $file" | Out-File -Encoding ascii -Append SHA256SUMS.txt
+          }
 
       - name: Upload executable and installer
         uses: actions/upload-artifact@v6
         with:
           name: AutoRIP-Windows-${{ github.sha }}
-          if-no-files-found: error
+          if-no-files-found: warn
           path: |
             dist/AutoRIP/AutoRIP.exe
+            dist/PrintExpAgent/PrintExpAgent.exe
             Output/AutoRIP_Setup.exe
             SHA256SUMS.txt
           retention-days: 14
@@ -138,5 +150,6 @@ jobs:
           body_path: docs/releases/${{ github.ref_name }}.md
           files: |
             dist/AutoRIP/AutoRIP.exe
+            dist/PrintExpAgent/PrintExpAgent.exe
             Output/AutoRIP_Setup.exe
             SHA256SUMS.txt
