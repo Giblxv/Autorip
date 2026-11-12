@@ -1,13 +1,9 @@
-# Campanha de desempenho com prazo em 13/11/2026
+# Campanha de desempenho de 13/11/2026
 
-Base: v0.8.25. Prazo: 13/11 às 22h de São Paulo (14/11 às 01h UTC), ou 100 rodadas consecutivas sem melhoria confirmada. Cada aceite zera a sequência. A contagem desta campanha começa em zero. A campanha anterior terminou e sua contagem não é reaproveitada.
+A pesquisa partiu da v0.8.25 e encerrou por 100 rodadas consecutivas sem novo ganho confirmado. Foram 100 rodadas concluídas, 0 melhorias aceitas e sequência final de 100/100 sem ganho. Rodadas parciais, planos equivalentes e erros não contam. Hipóteses já avaliadas no mesmo líder foram excluídas.
 
-O preflight excluiu 284 pares de fontes e 230 pares semânticos históricos; encontrou 157 propostas novas aplicáveis, sendo 151 planos de escalonamento e seis estratégias de meio-tom CMYK em lote. Não são contados planos equivalentes, aliases, caminhos inertes, erros ou rodadas parciais. Testes instrumentados comprovam que as seis estratégias executam planos diferentes. A guarda do carregamento também preserva hooks de meio-tom personalizados.
+Cada aceite exige 30 PRTs idênticos, limites públicos preservados, 15 pares de medições, confirmação independente, controle A/A, limites de memória e regressões completas. Controles de ICC de cor plana e uma CPU e comparação com a base inicial evitam regressões acumuladas.
 
-Passaram 1147 testes completos antes dos seis testes adicionais de ativação; os 19 testes focados de lotes, igualdade de planos e hooks passaram. Oito testes offline das barreiras de publicação passaram. Isso valida a preparação; não constitui prova de ganho de velocidade.
+Nenhuma nova alteração de produção foi aceita. A versão permanece 0.8.25; não há nova tag ou release só para registrar a pesquisa.
 
-Cada candidata passa por limites numéricos e 30 PRTs idênticos. As 12 cargas cronometradas usam 15 pares, confirmação e controle A/A; aceites exigem regressões completas, controles ICC de cor plana/uma CPU e guarda contra a base inicial. O código e entradas são congelados; alterações externas suspendem a campanha preservando o trabalho. Medições não concorrem com outras suítes locais.
-
-A execução é limitada e depende do ambiente permanecer ativo. Após o critério, uma auditoria independente e a matriz Linux/Windows validam o commit final antes de merge. Uma nova release só é preparada se uma melhoria de produção for aceita; pesquisa sem ganho preserva a versão existente. Nenhum ICC proprietário é distribuído. Relatórios finais serão adicionados ao término.
-
-Uma pausa técnica antes de concluir a primeira rodada permitiu aprimorar a busca: as seis estratégias podem ser comparadas novamente após um aceite, preservando outras melhorias independentes. Os 36 pares de transições foram verificados; reaplicar a estratégia atual é inerte. Passaram 20 testes focados. Os hashes das seis propostas iniciais continuam idênticos ao preflight. A rodada parcial e suas fontes são preservadas em `maintenance/`, sem entrar na contagem.
+A auditoria compara fontes, histórico, planos e PRTs; a verificação adicional de origem de 90 MP verifica igualdade e pico nativo de memória. Os tempos dessa checagem não são usados como alegação de ganho.
