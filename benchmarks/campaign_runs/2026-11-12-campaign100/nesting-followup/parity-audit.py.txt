@@ -1,0 +1,61 @@
+"""Exact full-layout and pruning comparison against the published implementation."""
+from dataclasses import asdict
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import random
+import sys
+
+ROOT=Path('/workspace/Autorip-campaign100')
+REVIEW=Path('/workspace/autorip-review/campaign100-2026-11-12')
+sys.path.insert(0,str(ROOT))
+from autorip.layout import LayoutItem,layout_to_svg
+
+def load(path,name):
+    spec=importlib.util.spec_from_file_location('autorip._'+name,path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module
+
+old=load(REVIEW/'baseline-sheet.py','published_sheet')
+new=load(ROOT/'autorip/sheet_nesting.py','new_sheet')
+checks=[]
+for pattern in ('random','repeated','mixed'):
+    for count in (0,1,2,3,8,17,32):
+        for seed in range(8):
+            rng=random.Random(seed+1200)
+            items=[]
+            for i in range(count):
+                width,height=((6.,4.) if pattern=='repeated' else
+                              ((5.,4.),(5.,6.),(8.,6.))[i%3] if pattern=='mixed' else
+                              (rng.uniform(1,15),rng.uniform(1,20)))
+                items.append(LayoutItem(str(i),f'{i}.png','',300,200,width,height,
+                            rotation=0 if pattern=='repeated' else i%4*90,selected=i%3==0))
+            before=[asdict(x) for x in items]
+            for rotate in (False,True):
+                results=[]
+                for module in (old,new):
+                    packed=module.nest(items,gap_cm=0 if seed%2 else .2,allow_rotation=rotate)
+                    assert module.check_layout(packed,gap_cm=0 if seed%2 else .2)
+                    assert [asdict(x) for x in items]==before
+                    payload=json.dumps([asdict(x) for x in packed],sort_keys=True)+layout_to_svg(packed)
+                    results.append(hashlib.sha256(payload.encode()).hexdigest())
+                assert results[0]==results[1],(pattern,count,seed,rotate)
+                checks.append(dict(pattern=pattern,count=count,seed=seed,rotate=rotate,sha256=results[0]))
+rng=random.Random(20261112)
+split_hashes=[]
+for trial in range(2000):
+    free=[(rng.uniform(-1,10),rng.uniform(-1,10),rng.uniform(.1,20),rng.uniform(.1,20))
+          for _ in range(rng.randrange(1,40))]
+    if trial%3==0:free+=free[:5]
+    if trial%5==0:
+        free+=[(0.,0.,10.,10.),(old.EPS/2,old.EPS/2,10.,10.)]*4
+    box=(rng.uniform(-1,10),rng.uniform(-1,10),rng.uniform(.1,10),rng.uniform(.1,10))
+    a=old._split_free(free,*box);b=new._split_free(free,*box)
+    assert a==b,(trial,free,box,a,b)
+    split_hashes.append(hashlib.sha256(repr(a).encode()).hexdigest())
+result=dict(verified=True,identical_layouts=len(checks),identical_pruning_cases=len(split_hashes),
+            input_immutable=True,candidate_sha256=hashlib.sha256((ROOT/'autorip/sheet_nesting.py').read_bytes()).hexdigest(),
+            cases=checks,pruning_sha256=split_hashes)
+(REVIEW/'nesting2-parity.json').write_text(json.dumps(result,indent=2)+'\n')
+print(json.dumps({k:v for k,v in result.items() if k not in ('cases','pruning_sha256')},indent=2))

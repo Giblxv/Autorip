@@ -1,0 +1,67 @@
+{
+  "verified": true,
+  "source_dimensions": [
+    12000,
+    7500
+  ],
+  "source_pixels": 90000000,
+  "outputs_identical": true,
+  "peak_rss_mib": {
+    "baseline": 659.109375,
+    "final": 643.375
+  },
+  "acceptance": "final <= max(baseline * 1.10, baseline + 16 MiB)",
+  "timings_not_used_for_speed_claim": true,
+  "workers": {
+    "baseline": {
+      "seconds": 2.602378593001049,
+      "cpu_seconds": 6.417764408,
+      "peak_rss_mib": 659.109375,
+      "outputs": {
+        "prt_sha256": "697755eff2e9762ea84bc893b89b2b4972a3fe5595d2ce22410e60a8eef0e9f8",
+        "metadata": {
+          "n_rows": 4964,
+          "n_dots": 2268,
+          "width_cm": 8,
+          "height_cm": 4.9995666666666665,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": false
+        },
+        "bytes": 33834672
+      },
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "source_sha256": "bdfd20d3bcea428e34ad633b240b57d6f9c4a51caa4fc1abe79704c165314892"
+    },
+    "final": {
+      "seconds": 2.263782314999844,
+      "cpu_seconds": 5.810582430999999,
+      "peak_rss_mib": 643.375,
+      "outputs": {
+        "prt_sha256": "697755eff2e9762ea84bc893b89b2b4972a3fe5595d2ce22410e60a8eef0e9f8",
+        "metadata": {
+          "n_rows": 4964,
+          "n_dots": 2268,
+          "width_cm": 8,
+          "height_cm": 4.9995666666666665,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": false
+        },
+        "bytes": 33834672
+      },
+      "cpu_affinity": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "source_sha256": "bdfd20d3bcea428e34ad633b240b57d6f9c4a51caa4fc1abe79704c165314892"
+    }
+  }
+}

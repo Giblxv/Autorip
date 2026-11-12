@@ -1,0 +1,267 @@
+"""Publish only a completed, independently verified and CI-approved campaign."""
+import ast
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+if not __debug__:
+    raise RuntimeError('Run campaign safety checks without Python -O')
+
+ROOT=Path('/workspace/Autorip-campaign100')
+REVIEW=Path('/workspace/autorip-review/campaign100-2026-11-12')
+PYTHON='/workspace/Autorip/.venv/bin/python'
+REPO='Giblxv/Autorip'
+BASE='263209a1d9f98bd967feea906275a83af615412e'
+BRANCH='perf/campaign-100-2026-11-12'
+VERSION='0.8.25'
+TAG='v'+VERSION
+PR=68
+
+
+def command(*args):
+    return subprocess.check_output(list(args),cwd=ROOT,text=True,stderr=subprocess.STDOUT).strip()
+
+
+def api(path):
+    return json.loads(command('gh','api',f'repos/{REPO}/{path}'))
+
+
+def save(name,value):
+    (REVIEW/name).write_text(json.dumps(value,indent=2)+'\n')
+
+
+def stage(name,**fields):
+    save('finalize-status.json',dict(phase=name,updated_at_utc=datetime.now(timezone.utc).isoformat(),**fields))
+
+
+def check_run(name,args,env=None,timeout=900):
+    stage(name)
+    with (REVIEW/(name+'.log')).open('w') as output:
+        subprocess.run(args,cwd=ROOT,env=env,stdout=output,stderr=subprocess.STDOUT,
+                       check=True,timeout=timeout)
+
+
+def large_source_guard(out):
+    """Validate the already-selected code on 90 MP; do not search for new gains."""
+    sys.path.insert(0,str(ROOT))
+    from dataclasses import asdict
+    from PIL import Image
+    from autorip.config import Settings
+    stage('large-source-resource-check')
+    folder=REVIEW/'resource-validation';folder.mkdir(exist_ok=True)
+    source=folder/'opaque-90mp.png'
+    image=Image.new('RGB',(12000,7500),(20,120,210))
+    try:image.save(source,compress_level=1)
+    finally:image.close()
+    case=dict(name='native-90mp-resource-validation',path=str(source),
+              source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),width=8,
+              cpu_limit=4,settings=asdict(Settings(label_enabled=False,offline_mode=True,
+                  margin_top_in=.05,margin_bottom_in=.05,white_choke_mm=.1,white_fill_holes_mm=.3)))
+    spec=folder/'case.json';spec.write_text(json.dumps(case))
+    final=folder/'final-modules';final.mkdir(exist_ok=True)
+    for name in ('engine','prt','morph'):
+        shutil.copy2(ROOT/f'autorip/{name}.py',final/f'{name}.py')
+    values={}
+    for side,modules in [('baseline',REVIEW/'rip/initial'),('final',final)]:
+        args=['taskset','-c','0-3',PYTHON,'benchmarks/benchmark_threshold_shapes.py',
+              '--trial-worker','--module-dir',str(modules),'--case',str(spec),'--output-root',str(folder)]
+        log=REVIEW/f'resource-{side}.log'
+        with log.open('w') as output:
+            subprocess.run(args,cwd=ROOT,stdout=output,stderr=subprocess.STDOUT,check=True,timeout=600)
+        lines=log.read_text().splitlines()
+        values[side]=json.loads(next(line for line in reversed(lines) if line.startswith('{')))
+    assert values['baseline']['outputs']==values['final']['outputs'], 'Large source output mismatch'
+    old,new=[values[x]['peak_rss_mib'] for x in ('baseline','final')]
+    assert old is not None and new is not None, 'Native RSS measurement unavailable'
+    assert new<=max(old*1.10,old+16), 'Large source native RSS regression; leave PR without publication'
+    result=dict(verified=True,source_dimensions=[12000,7500],source_pixels=90000000,
+                outputs_identical=True,peak_rss_mib=dict(baseline=old,final=new),
+                acceptance='final <= max(baseline * 1.10, baseline + 16 MiB)',
+                timings_not_used_for_speed_claim=True,workers=values)
+    (out/'large-source-validation.json').write_text(json.dumps(result,indent=2)+'\n')
+
+
+def readiness():
+    meta=json.loads((REVIEW/'campaign.json').read_text())
+    assert meta['required_without_gain']==100
+    assert datetime.fromisoformat(meta['deadline']).utcoffset() is not None
+    assert command('git','branch','--show-current')==BRANCH
+    assert command('gh','repo','view','--json','nameWithOwner','--jq','.nameWithOwner')==REPO
+    assert api('git/ref/heads/main')['object']['sha']==BASE, 'Concurrent main changes; publication needs a new review'
+    assert not command('git','ls-remote','origin',f'refs/tags/{TAG}'), 'Version already exists; never overwrite a tag'
+    for filename in ('audit.py','runner.py','verify_release25.py'):
+        ast.parse((REVIEW/filename).read_text())
+    pull=api(f'pulls/{PR}')
+    assert pull['state']=='open' and pull['head']['ref']==BRANCH and pull['base']['sha']==BASE
+    assert Path(PYTHON).is_file() and Path('/usr/bin/chromium').is_file()
+    return dict(ready=True,pr=PR,branch=BRANCH,version=VERSION,main=BASE,
+                no_remote_writes=True,deadline=meta['deadline'])
+
+
+def wait_checks(head):
+    expected={'build','Testes ubuntu-latest / Python 3.10','Testes ubuntu-latest / Python 3.12',
+              'Testes windows-2022 / Python 3.10','Testes windows-2022 / Python 3.12'}
+    started=time.monotonic(); dispatched=set()
+    while time.monotonic()-started<2700:
+        pull=json.loads(command('gh','pr','view',str(PR),'--json','headRefOid,state,statusCheckRollup'))
+        assert pull['state']=='OPEN' and pull['headRefOid']==head, 'PR changed during validation'
+        checks=[x for x in pull['statusCheckRollup'] if x.get('name') in expected]
+        stage('waiting-for-pr-ci',head=head,checks=[dict(name=x['name'],status=x['status'],conclusion=x.get('conclusion')) for x in checks])
+        failed=[x for x in checks if x['status']=='COMPLETED' and x.get('conclusion')!='SUCCESS']
+        assert not failed, 'Final CI failed; no merge/publication: '+json.dumps(failed)
+        if expected <= {x['name'] for x in checks} and all(x['status']=='COMPLETED' for x in checks):
+            test=next(x for x in checks if x['name'].startswith('Testes '))
+            windows=next(x for x in checks if x['name']=='build')
+            ids=[int(re.search(r'/actions/runs/(\d+)/',x['detailsUrl'])[1]) for x in (test,windows)]
+            assert all(api(f'actions/runs/{rid}')['head_sha']==head for rid in ids)
+            return ids
+        if time.monotonic()-started>120:
+            runs=json.loads(command('gh','run','list','--branch',BRANCH,'--limit','30','--json','headSha,workflowName'))
+            names={x['workflowName'] for x in runs if x['headSha']==head}
+            for name,workflow in [('Testes','tests.yml'),('Build Windows','build-windows.yml')]:
+                if name not in names and name not in dispatched:
+                    args=['gh','workflow','run',workflow,'--ref',BRANCH]
+                    if name=='Testes':args+=['-f','regression_15x=false']
+                    command(*args);dispatched.add(name)
+        time.sleep(30)
+    raise TimeoutError('CI did not finish in 45 minutes; no merge/publication')
+
+
+def wait_tag(merged):
+    started=time.monotonic(); dispatched=False
+    while time.monotonic()-started<2700:
+        runs=json.loads(command('gh','run','list','--branch',TAG,'--limit','10',
+                                '--json','databaseId,headSha,workflowName,status,conclusion'))
+        matches=[x for x in runs if x['headSha']==merged and x['workflowName']=='Build Windows']
+        for run in matches:
+            stage('waiting-for-tag-ci',commit=merged,tag=TAG,run=run)
+            if run['status']=='completed':
+                assert run['conclusion']=='success', 'Tag build failed; no unverified release claim'
+                return run['databaseId']
+        if not matches and time.monotonic()-started>120 and not dispatched:
+            command('gh','workflow','run','build-windows.yml','--ref',TAG);dispatched=True
+        time.sleep(30)
+    raise TimeoutError('Tag build did not finish in 45 minutes; inspect GitHub Actions')
+
+
+def main():
+    if '--readiness-check' in sys.argv:
+        print(json.dumps(readiness(),indent=2));return
+    stage('checking-preconditions')
+    readiness()
+    expected=(REVIEW/'framework-head.txt').read_text().strip()
+    assert command('git','rev-parse','HEAD')==expected, 'Branch advanced outside this campaign'
+    dirty=set(command('git','diff','--name-only').splitlines())
+    assert dirty <= {'autorip/engine.py','autorip/prt.py','autorip/morph.py'}, 'Unexpected edits preserved: '+repr(dirty)
+    assert not command('git','ls-files','--others','--exclude-standard'), 'Unexpected untracked files preserved'
+    stage('auditing')
+    import audit
+    result=audit.audit()
+    assert result['verified'] and (result['consecutive_without_gain']>=100 or result['stop_reason']=='deadline')
+    out=ROOT/'benchmarks/campaign_runs/2026-11-12-campaign100'
+    large_source_guard(out)
+    for filename in ('runner.py','finalize.py'):
+        shutil.copy2(REVIEW/filename,out/(filename+'.txt'))
+    (out/'final-result.json').write_text(json.dumps(result,indent=2)+'\n')
+    with (out/'README.md').open('a') as output:
+        output.write(f"\nParada final: `{result['stop_reason']}`; rodadas RIP: {result['rounds']}; aceites RIP: {result['rip_accepted']}; sequência sem ganho: {result['consecutive_without_gain']}/100. Rodadas parciais não contam. Convergência alcançada: {result['convergence_reached']}.\n")
+    init=ROOT/'autorip/__init__.py';installer=ROOT/'installer.iss';readme=ROOT/'README.md'
+    assert '__version__ = "0.8.24"' in init.read_text()
+    init.write_text(init.read_text().replace('__version__ = "0.8.24"',f'__version__ = "{VERSION}"',1))
+    assert '#define AppVersion "0.8.24"' in installer.read_text()
+    installer.write_text(installer.read_text().replace('#define AppVersion "0.8.24"',f'#define AppVersion "{VERSION}"',1))
+    text=readme.read_text().replace('# AutoRIP 0.8.24',f'# AutoRIP {VERSION}',1)
+    text=text.replace('/releases/tag/v0.8.24',f'/releases/tag/{TAG}',1)
+    marker='- **0.8.24:**'
+    assert marker in text
+    text=text.replace(marker,f'- **{VERSION}:** planejamento evita cópias de candidatos descartados; campanha de desempenho auditada. [Notas](docs/releases/{TAG}.md).\n'+marker,1)
+    readme.write_text(text)
+    condition='100 rodadas consecutivas sem novo ganho confirmado' if result['convergence_reached'] else 'o prazo de 22h de São Paulo de 12/11/2026'
+    notes=f'''# AutoRIP {TAG}
+
+O encaixe da folha evita copiar peças de candidatos que não poderiam melhorar a altura atual. Em 112 combinações, layouts e SVGs permaneceram idênticos; num exemplo de oito peças, as cópias de candidatos caíram de 240 para 16. A confirmação local com uma peça mediu cerca de 0,34 para 0,21 ms (1,6×). As cargas maiores e o controle A/A foram ruidosos: não se afirma ganho geral em folhas grandes.
+
+A pesquisa encerrou por {condition}. Foram {result['rounds']} rodadas RIP concluídas, com {result['rip_accepted']} aceites nessa fase e sequência final de {result['consecutive_without_gain']}/100 sem novo ganho. Rodadas parciais, configurações equivalentes e erros não completam a meta. Cada aceite exigiu comparação dos PRTs, confirmação, controle A/A e regressões completas. Uma guarda contra a base inicial evita acumular regressões entre aceites.
+
+A auditoria independente verificou fontes, histórico, contagem, planos de execução e 30 PRTs idênticos. Uma checagem adicional processa uma origem RGB de 90 MP, compara saída e metadados e verifica o pico nativo de memória; seus tempos não são usados para alegar novos ganhos de velocidade. A matriz Linux/Windows e os testes do executável e do instalador validam os pacotes da release.
+
+[Relatórios e limites](https://github.com/{REPO}/blob/{TAG}/benchmarks/campaign_runs/2026-11-12-campaign100/README.md).
+'''
+    followup=REVIEW/'nesting2-decision.json'
+    if followup.exists():
+        gain=json.loads(followup.read_text())
+        assert gain['accepted']
+        sample=gain['random_confirmation']['120']
+        extra=(f"\nA segunda etapa reaproveita bordas na poda e evita repetir ordens de peças equivalentes. "
+               f"Comparada à primeira etapa, a confirmação local de 120 peças variadas passou de "
+               f"{sample['baseline_seconds']:.2f} para {sample['candidate_seconds']:.2f} s. "
+               "A revisão final preservou 336 layouts/SVGs e 2000 casos de poda. As medições são locais e não representam velocidade geral da ripagem.\n")
+        notes=notes.replace('\nA pesquisa encerrou',extra+'\nA pesquisa encerrou',1)
+    (ROOT/f'docs/releases/{TAG}.md').write_text(notes)
+    check_run('final-version-check',[PYTHON,'tools/check_release_version.py',TAG])
+    check_run('final-python-tests',[PYTHON,'-m','pytest','-q'])
+    check_run('final-application-smoke',[PYTHON,'tools/smoke_frozen.py',str(REVIEW/'source-launcher'),VERSION])
+    env=dict(os.environ,AUTORIP_PYTHON=PYTHON,AUTORIP_CHROMIUM='/usr/bin/chromium',AUTORIP_NO_SANDBOX='1')
+    check_run('final-browser-smoke',['node','tools/smoke_polling_ui.cjs',str(REVIEW/'browser-final')],env=env)
+    for filename in ('final-version-check.log','final-python-tests.log','final-application-smoke.log','final-browser-smoke.log'):
+        shutil.copy2(REVIEW/filename,out/filename)
+    shutil.copy2(REVIEW/'browser-final/browser-results.json',out/'browser-final.json')
+    assert json.loads((out/'browser-final.json').read_text())['passed']
+    command('git','diff','--check')
+    paths=['autorip/engine.py','autorip/prt.py','autorip/morph.py','autorip/__init__.py','installer.iss',
+           'README.md',f'docs/releases/{TAG}.md','benchmarks/campaign_runs/2026-11-12-campaign100']
+    allowed=set(paths[:-1])
+    assert all(path in allowed or path.startswith(paths[-1]+'/') for path in command('git','diff','--name-only').splitlines())
+    stage('committing-verified-result')
+    command('git','add','--',*paths)
+    command('git','commit','-m',f'Finish performance campaign and prepare {VERSION}')
+    head=command('git','rev-parse','HEAD')
+    command('git','push','origin',BRANCH)
+    body=REVIEW/'pr-final.md'
+    body.write_text(notes+f'\nValidação local: suíte Python completa, smoke do aplicativo e 36 cenários no Chromium. Commit de revisão: `{head}`. A publicação exige a matriz e o empacotamento aprovados neste mesmo commit.\n')
+    title=('Otimizar planejamento e escalonamento do RIP' if result['rip_accepted'] else 'Evitar cópias descartadas no encaixe da folha')+' (v'+VERSION+')'
+    command('gh','api',f'repos/{REPO}/pulls/{PR}','--method','PATCH','-F','body=@'+str(body),'-f','title='+title)
+    ci=wait_checks(head)
+    assert api('git/ref/heads/main')['object']['sha']==BASE, 'Concurrent main changes; leave concrete tested PR'
+    pull=api(f'pulls/{PR}')
+    assert pull['head']['sha']==head and pull['state']=='open'
+    if pull['draft']:command('gh','pr','ready',str(PR))
+    stage('merging-reviewed-head',head=head)
+    command('gh','pr','merge',str(PR),'--merge','--match-head-commit',head)
+    pull=api(f'pulls/{PR}');assert pull['merged']
+    merged=pull['merge_commit_sha']
+    command('git','fetch','origin','main')
+    assert command('git','rev-parse',head+'^{tree}')==command('git','rev-parse',merged+'^{tree}')
+    save('merge-verification.json',dict(reviewed_head=head,merged_commit=merged,
+         tree=command('git','rev-parse',merged+'^{tree}'),tree_identical=True))
+    assert not command('git','ls-remote','origin',f'refs/tags/{TAG}')
+    command('git','tag','-a',TAG,merged,'-m',f'AutoRIP {VERSION}: audited performance campaign')
+    command('git','push','origin',TAG)
+    tag_run=wait_tag(merged)
+    check_run('release-verification',[PYTHON,str(REVIEW/'verify_release25.py'),merged,*map(str,ci),str(tag_run)],timeout=900)
+    proof=json.loads((REVIEW/'release-verification.json').read_text())
+    assert proof['tag']==TAG and proof['commit']==merged and proof['latest_confirmed']
+    assert proof['manifest_and_api_sha256_verified']
+    final=dict(verified=True,published=True,version=VERSION,release_url=proof['url'],commit=merged,
+               stop_reason=result['stop_reason'],rounds=result['rounds'],
+               consecutive_without_gain=result['consecutive_without_gain'],required_without_gain=100,
+               rip_accepted=result['rip_accepted'],
+               prefix_accepted=sum(x['accepted'] for x in json.loads((REVIEW/'campaign.json').read_text())['prefix_rounds']),
+               ci_runs=ci+[tag_run],
+               asset_sha256_verified=True)
+    save('result.json',final);stage('complete',result=final)
+    print(json.dumps(final,indent=2))
+
+
+if __name__=='__main__':
+    try:main()
+    except BaseException as error:
+        stage('blocked',error=f'{type(error).__name__}: {error}')
+        raise

@@ -512,6 +512,7 @@ def main():
     original=load(initial,work/'initial_modules','initial')
     cases=make_cases(work,str(args.icc.resolve()) if args.icc else None,args.suite)
     timed=[c for c in cases if c['timed']]
+    heldout=[c for c in cases if c['name'] in ('rgba_gamma_flat','icc_single_cpu')]
     output=work/'output.PRT'
     baseline_rips={c['name']:new_rip(original['engine'],c) for c in cases}
     oracle={c['name']:render(baseline_rips[c['name']],c,output,True) for c in cases}
@@ -539,6 +540,8 @@ def main():
     report['excluded_candidates'] = args.exclude
     index=len(report['rounds']);cursor=0;skips=0;accepted_hashes={digest(initial)}
     accepted_hashes.update(r['candidate_hash'] for r in report['rounds'] if r['accepted'])
+    accepted_semantics={semantic_digest(initial)}
+    accepted_semantics.update(r['candidate_semantic_hash'] for r in report['rounds'] if r['accepted'])
     if report['rounds']:
         last=report['rounds'][-1]['candidate']
         cursor=next(i+1 for i,c in enumerate(proposals) if c[0]==last)
@@ -563,6 +566,7 @@ def main():
     report['history_sources']=history_sources
     report['historical_pair_count']=len(historical)
     report['historical_semantic_pair_count']=len(semantic_history)
+    report['heldout_case_names']=[c['name'] for c in heldout]
     semantic_tested = set(semantic_history)
     semantic_tested.update((r['leader_semantic_hash'],r['candidate_semantic_hash']) for r in report['rounds']
                           if 'leader_semantic_hash' in r)
@@ -607,6 +611,7 @@ def main():
         key = (digest(leader), digest(bundle)) if bundle is not None else None
         semantic_key = (semantic_digest(leader), semantic_digest(bundle)) if bundle is not None else None
         if (bundle is None or bundle==leader or key in tested or semantic_key in semantic_tested
+                or (semantic_key is not None and semantic_key[1] in accepted_semantics)
                 or (semantic_key is not None and semantic_key[0] == semantic_key[1])):
             skips+=1
             if skips>len(proposals)*2:raise RuntimeError('Sem hipoteses aplicaveis suficientes; nao declarar convergencia')
@@ -690,6 +695,13 @@ def main():
                             if not initial_safe:
                                 record['reason'] = 'regression-against-initial'
                         validated = True
+                        if initial_safe and args.initial_safety and heldout:
+                            (work/'status.json').write_text(json.dumps({'round':index,'candidate':name,'phase':'heldout-controls'}))
+                            controls=timed_pair(baseline_rips,candidate_rips,heldout,output,args.repeats)
+                            record['heldout_reference']=controls
+                            initial_safe=all(s['speedup']>=1/1.06 for s in controls['scenarios'].values())
+                            if not initial_safe:
+                                record['reason']='regression-in-heldout-controls'
                         if initial_safe and args.validate_accept:
                             (work/'status.json').write_text(json.dumps({'round':index,'candidate':name,'phase':'regression-validation'}))
                             record['regression_validation'] = validate_candidate_checkout(bundle, directory)
@@ -700,6 +712,7 @@ def main():
                         check_inputs()
                         if initial_safe and validated:
                             leader=bundle;accepted_hashes.add(digest(bundle));record['accepted']=True
+                            accepted_semantics.add(semantic_key[1])
                             record['reason']='confirmed-speed' if confirmed_speed else 'confirmed-memory'
                             report['consecutive_without_gain']=0
                             if args.apply:

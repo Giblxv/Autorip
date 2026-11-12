@@ -67,7 +67,7 @@ def execution_plan(bundle, module, cases):
                           self=SimpleNamespace(s=case['settings'], _prepare_resampling=lambda im, *_: im))
             exec(code, dict(module.__dict__), values)
             plans.append(dict(name=case['name'], workers=values['workers'],
-                              strip_rows=values['strip_rows'], halo=values['halo'],
+                              strip_rows=min(values['strip_rows'],values['n_rows']), halo=values['halo'],
                               n_dots=values['n_dots'], n_rows=values['n_rows']))
     finally:
         os.cpu_count = original_cpu

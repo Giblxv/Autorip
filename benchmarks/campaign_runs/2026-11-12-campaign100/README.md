@@ -13,3 +13,9 @@ Os resultados finais serão adicionados ao encerrar. A execução fica no worktr
 O filtro de planos foi estendido às famílias antigas (tiras, pipelines, limiares, orçamento e estimativas por pixel), além da grade nova. O relatório bruto de sete rodadas é preservado em `before-plan-filter/`: a alteração de limiar que não mudava nenhum plano foi retirada da sequência, restando seis rejeições válidas desta mesma campanha. A oitava rodada parcial não conta. A retomada começa em seis, e um aceite posterior continua zerando a sequência normalmente. `adjudication.json` permite reproduzir a correção por hashes e planos reais.
 
 A cobertura das 12 cargas confirmou que os atalhos de raio subpixel e canal inteiramente saturado não eram acionados; eles foram excluídos. O caminho de cópia RGBA foi acionado e continua elegível. A preparação revisada identificou 251 propostas elegíveis, com 231 planos de escalonamento distintos; `preflight-initial.json` conserva a preparação anterior. Passaram 1126 testes completos e cinco testes offline das barreiras de publicação.
+
+## Novo ganho e reinício da sequência
+
+A segunda melhoria de planejamento foi confirmada: reutiliza bordas e ordens equivalentes. Foram 336 layouts/SVGs e 2000 podas idênticos, 1130 testes e smoke aprovados. A confirmação de 120 peças variadas, comparada à primeira etapa, passou de 2,81 para 0,98 s. Dados e escopo em `nesting-followup/`. A sequência sem ganho volta a zero; as seis rejeições válidas de RIP anteriores permanecem como histórico, não como sequência posterior a este aceite.
+
+A aceitação do RIP também exige controles dedicados de ICC com cor plana e uma CPU, evitando promover ganhos que piorem essas cargas. O plano normaliza tiras maiores do que a folha e não repete estados de código já aceitos.
