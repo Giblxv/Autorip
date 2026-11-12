@@ -123,16 +123,28 @@ def test_painel_rejeita_host_remoto_e_porta_incorreta(panel):
     assert status == 200
 
 
-def test_pending_count_reuses_decode_and_detects_file_changes(panel, app, monkeypatch):
+def _track_outbox_reads(monkeypatch, home):
     from autorip import integrations
     original = integrations.outbox_load
+    target = os.path.normcase(os.path.abspath(home))
     calls = []
 
     def tracked(home):
-        calls.append(home)
+        # Workers de outros aplicativos de teste podem terminar em paralelo.
+        if os.path.normcase(os.path.abspath(home)) == target:
+            calls.append(home)
         return original(home)
 
     monkeypatch.setattr(integrations, 'outbox_load', tracked)
+    return calls
+
+
+def test_pending_count_reuses_decode_and_detects_file_changes(panel, app, monkeypatch, tmp_path):
+    from autorip import integrations
+    calls = _track_outbox_reads(monkeypatch, app.home)
+    other_home = tmp_path / 'other-app'
+    integrations._atomic_json(integrations._outbox_path(other_home), [{}])
+    assert integrations.outbox_load(other_home) == [{}]
     app.tokens.add('counter-test-token')
     headers = {'X-Token': 'counter-test-token'}
     path = integrations._outbox_path(app.home)
@@ -151,10 +163,12 @@ def test_pending_count_reuses_decode_and_detects_file_changes(panel, app, monkey
         assert target.read() == '{broken'
 
 
-def test_anonymous_state_never_loads_notification_payload(panel, monkeypatch):
+def test_anonymous_state_never_loads_notification_payload(panel, app, monkeypatch, tmp_path):
     from autorip import integrations
-    calls = []
-    monkeypatch.setattr(integrations, 'outbox_load', lambda home: calls.append(home) or [])
+    calls = _track_outbox_reads(monkeypatch, app.home)
+    other_home = tmp_path / 'other-app'
+    integrations._atomic_json(integrations._outbox_path(other_home), [{}])
+    assert integrations.outbox_load(other_home) == [{}]
     status, body, _ = request(panel, '/api/state')
     assert status == 200 and json.loads(body)['locked']
     assert 'pending' not in json.loads(body) and calls == []
