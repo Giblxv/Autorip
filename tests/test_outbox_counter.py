@@ -4,6 +4,7 @@ import os
 import threading
 import weakref
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 
 import pytest
 
@@ -14,7 +15,19 @@ def store(home, items):
     mod._atomic_json(mod._outbox_path(home), items)
 
 
-def spy_loader(monkeypatch):
+def _patch_loader(monkeypatch, callback, *homes):
+    original = mod.outbox_load
+    targets = {os.path.normcase(os.path.abspath(home)) for home in homes}
+
+    def scoped(home):
+        if os.path.normcase(os.path.abspath(home)) in targets:
+            return callback(home)
+        return original(home)
+
+    monkeypatch.setattr(mod, 'outbox_load', scoped)
+
+
+def spy_loader(monkeypatch, *homes):
     original = mod.outbox_load
     calls = []
 
@@ -22,12 +35,12 @@ def spy_loader(monkeypatch):
         calls.append(home)
         return original(home)
 
-    monkeypatch.setattr(mod, 'outbox_load', load)
+    _patch_loader(monkeypatch, load, *homes)
     return calls
 
 
 def test_count_reuses_validation_and_tracks_add_remove(tmp_path, monkeypatch):
-    calls = spy_loader(monkeypatch)
+    calls = spy_loader(monkeypatch, tmp_path)
     counter = mod.OutboxCounter()
     assert counter.count(tmp_path) == 0
     store(tmp_path, [{}, {}])
@@ -71,8 +84,8 @@ def test_invalid_content_never_returns_old_count(tmp_path, items):
 def test_expiration_revalidates_unchanged_file(tmp_path, monkeypatch):
     store(tmp_path, [{}])
     now = [10.0]
-    monkeypatch.setattr(mod.time, 'monotonic', lambda: now[0])
-    calls = spy_loader(monkeypatch)
+    monkeypatch.setattr(mod, 'time', SimpleNamespace(monotonic=lambda: now[0]))
+    calls = spy_loader(monkeypatch, tmp_path)
     counter = mod.OutboxCounter()
     assert counter.count(tmp_path) == 1
     now[0] += mod.OUTBOX_COUNT_CACHE_SECONDS - .01
@@ -93,7 +106,7 @@ def test_replacement_during_validation_is_not_cached(tmp_path, monkeypatch):
             store(home, [{}, {}])
         return value
 
-    monkeypatch.setattr(mod, 'outbox_load', replace_after_read)
+    _patch_loader(monkeypatch, replace_after_read, tmp_path)
     counter = mod.OutboxCounter()
     assert counter.count(tmp_path) == 1
     assert counter.count(tmp_path) == counter.count(tmp_path) == 2
@@ -112,7 +125,7 @@ def test_multiple_readers_share_one_decode(tmp_path, monkeypatch):
         assert release.wait(3)
         return original(home)
 
-    monkeypatch.setattr(mod, 'outbox_load', blocked)
+    _patch_loader(monkeypatch, blocked, tmp_path)
     counter = mod.OutboxCounter()
     with ThreadPoolExecutor(max_workers=8) as pool:
         first = pool.submit(counter.count, tmp_path)
@@ -135,7 +148,7 @@ def test_counter_retains_no_decoded_jobs(tmp_path, monkeypatch):
         refs.append(weakref.ref(value))
         return value
 
-    monkeypatch.setattr(mod, 'outbox_load', load)
+    _patch_loader(monkeypatch, load, tmp_path)
     counter = mod.OutboxCounter()
     assert counter.count(tmp_path) == 1
     gc.collect()
@@ -145,7 +158,7 @@ def test_counter_retains_no_decoded_jobs(tmp_path, monkeypatch):
 def test_counter_keeps_only_last_home(tmp_path, monkeypatch):
     first, second = tmp_path / 'one', tmp_path / 'two'
     store(first, [{}]); store(second, [{}, {}])
-    calls = spy_loader(monkeypatch)
+    calls = spy_loader(monkeypatch, first, second)
     counter = mod.OutboxCounter()
     assert [counter.count(first), counter.count(second), counter.count(first)] == [1, 2, 1]
     assert len(calls) == 3
@@ -176,5 +189,5 @@ def test_relative_home_stays_bound_if_cwd_changes_during_read(tmp_path, monkeypa
         return original(home)
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(mod, 'outbox_load', change_directory)
+    _patch_loader(monkeypatch, change_directory, first)
     assert mod.OutboxCounter().count('one') == 3
