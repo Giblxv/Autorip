@@ -123,6 +123,43 @@ def test_painel_rejeita_host_remoto_e_porta_incorreta(panel):
     assert status == 200
 
 
+def test_pending_count_reuses_decode_and_detects_file_changes(panel, app, monkeypatch):
+    from autorip import integrations
+    original = integrations.outbox_load
+    calls = []
+
+    def tracked(home):
+        calls.append(home)
+        return original(home)
+
+    monkeypatch.setattr(integrations, 'outbox_load', tracked)
+    app.tokens.add('counter-test-token')
+    headers = {'X-Token': 'counter-test-token'}
+    path = integrations._outbox_path(app.home)
+    integrations._atomic_json(path, [{}, {}])
+    for _ in range(3):
+        status, body, _ = request(panel, '/api/state', headers=headers)
+        assert status == 200 and json.loads(body)['pending'] == 2
+    assert len(calls) == 1
+    integrations._atomic_json(path, [{}])
+    assert json.loads(request(panel, '/api/state', headers=headers)[1])['pending'] == 1
+    assert len(calls) == 2
+    with open(path, 'w', encoding='utf-8') as target:
+        target.write('{broken')
+    assert json.loads(request(panel, '/api/state', headers=headers)[1])['pending'] == -1
+    with open(path, encoding='utf-8') as target:
+        assert target.read() == '{broken'
+
+
+def test_anonymous_state_never_loads_notification_payload(panel, monkeypatch):
+    from autorip import integrations
+    calls = []
+    monkeypatch.setattr(integrations, 'outbox_load', lambda home: calls.append(home) or [])
+    status, body, _ = request(panel, '/api/state')
+    assert status == 200 and json.loads(body)['locked']
+    assert 'pending' not in json.loads(body) and calls == []
+
+
 def test_configuracoes_nao_revelam_segredos_e_resposta_tem_headers(panel, app):
     app.s.trello_token = "TOKEN-QUE-NAO-PODE-SAIR"
     app.tokens.add("sessao-teste")
