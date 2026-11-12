@@ -71,6 +71,22 @@ def _split_free(free, rx, ry, rw, rh):
             out.append((fx, fy, fw, ry - fy))
         if ry + rh < fy + fh - EPS:
             out.append((fx, ry + rh, fw, fy + fh - (ry + rh)))
+    if len(out) >= 8:
+        # Mesmas somas e tolerâncias de _inside, calculadas uma vez por caixa.
+        # Preserve também a ordem e o desempate das caixas exatamente iguais.
+        edges = [(x, y, x + w, y + h) for x, y, w, h in out]
+        containers = [(x - EPS, y - EPS, right + EPS, bottom + EPS)
+                      for x, y, right, bottom in edges]
+        kept = []
+        for i, a in enumerate(out):
+            ax, ay, right, bottom = edges[i]
+            for j, (bx, by, br, bb) in enumerate(containers):
+                if (i != j and ax >= bx and ay >= by and right <= br and bottom <= bb
+                        and (a != out[j] or j < i)):
+                    break
+            else:
+                kept.append(a)
+        return kept
     kept = []
     for i, a in enumerate(out):
         if not any(i != j and _inside(a, b) and (a != b or j < i) for j, b in enumerate(out)):
@@ -93,9 +109,14 @@ def _order_key(name, item):
     return {"orig": 0, "area": -(w * h), "height": -h, "width": -w, "side": -max(w, h)}[name]
 
 
-def _pack_once(items, sheet_w, margin, gap, order, heuristic, allow_rot, height_limit=None):
-    idx = sorted(range(len(items)), key=lambda i: (_order_key(order, items[i]), i)) if order != "orig" \
-        else list(range(len(items)))
+def _pack_once(items, sheet_w, margin, gap, order, heuristic, allow_rot, height_limit=None,
+               order_indices=None):
+    if order_indices is not None:
+        idx = order_indices
+    elif order != "orig":
+        idx = sorted(range(len(items)), key=lambda i: (_order_key(order, items[i]), i))
+    else:
+        idx = range(len(items))
     inner_w = sheet_w - 2 * margin + gap          # o gap extra absorve a folga da ultima peca
     try:
         big = math.fsum(max(*_dimensions(it)) + gap for it in items) + 1.0
@@ -194,11 +215,20 @@ def nest(items: Iterable[LayoutItem], sheet_width_cm: float = MAX_SHEET_WIDTH_CM
         raise ValueError("Não foi possível criar uma folha válida.")
     if not base_items:
         return best
+    seen_orders = set()
+    unique_orders = []
+    for order in ORDERS:
+        indices = (tuple(sorted(range(len(base_items)),
+                   key=lambda i: (_order_key(order, base_items[i]), i))) if order != "orig"
+                   else tuple(range(len(base_items))))
+        if indices not in seen_orders:
+            seen_orders.add(indices)
+            unique_orders.append((order, indices))
     for rot in ((False, True) if allow_rotation else (False,)):
-        for order in ORDERS:
+        for order, indices in unique_orders:
             for heuristic in HEURISTICS:
                 cand = _pack_once(base_items, float(sheet_width_cm), float(margin_cm), gap_cm,
-                                  order, heuristic, rot, height_limit=best_h)
+                                  order, heuristic, rot, height_limit=best_h, order_indices=indices)
                 if cand is None:
                     continue
                 h = sheet_height(cand, margin_cm, gap_cm)

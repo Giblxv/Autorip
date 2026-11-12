@@ -18,11 +18,12 @@ sys.path.insert(0, str(ROOT))
 from autorip.layout import LayoutItem, layout_to_svg
 
 
-def fixture(count, seed):
+def fixture(count, seed, pattern='random'):
     rng = random.Random(seed)
     return [LayoutItem(str(i), f'art-{i}.png', f'/synthetic/art-{i}.png',
-                       100, 200, rng.uniform(1, 15), rng.uniform(1, 20),
-                       rotation=(i % 4) * 90, selected=i % 3 == 0)
+                       100, 200, 6.0 if pattern=='repeated' else rng.uniform(1, 15),
+                       4.0 if pattern=='repeated' else rng.uniform(1, 20),
+                       rotation=0 if pattern=='repeated' else (i % 4) * 90, selected=i % 3 == 0)
             for i in range(count)]
 
 
@@ -40,7 +41,7 @@ def checksum(output):
 
 def worker(args):
     module = load(args.source)
-    items = fixture(args.count, args.seed)
+    items = fixture(args.count, args.seed, args.pattern)
     before = [asdict(x) for x in items]
     def run():
         return module.nest(items, allow_rotation=True)
@@ -92,6 +93,7 @@ def main():
     parser.add_argument('--seed', type=int, default=20261112)
     parser.add_argument('--aa', action='store_true')
     parser.add_argument('--skip-memory', action='store_true')
+    parser.add_argument('--pattern',choices=['random','repeated'],default='random')
     parser.add_argument('--worker', action='store_true')
     parser.add_argument('--source', type=Path)
     parser.add_argument('--count', type=int)
@@ -103,7 +105,8 @@ def main():
     assert args.pairs > 0 and args.baseline and args.candidate and args.output
     paths = dict(baseline=args.baseline.resolve(),
                  candidate=(args.baseline if args.aa else args.candidate).resolve())
-    report = dict(complete=False, aa_control=args.aa, pairs=args.pairs,
+    report = dict(complete=False, aa_control=args.aa, pairs=args.pairs,pattern=args.pattern,
+                  driver_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   cases={}, sources={k:hashlib.sha256(v.read_bytes()).hexdigest() for k,v in paths.items()},
                   memory_metric='tracemalloc, excludes some native allocations',
                   cpu_affinity=sorted(os.sched_getaffinity(0)) if hasattr(os,'sched_getaffinity') else None)
@@ -117,6 +120,7 @@ def main():
             for side in order:
                 command = [sys.executable, __file__, '--worker', '--source', str(paths[side]),
                            '--count', str(count), '--seed', str(args.seed + count),
+                           '--pattern',args.pattern,
                            '--repeats', '32' if count <= 8 else '5']
                 if args.skip_memory:
                     command.append('--skip-memory')

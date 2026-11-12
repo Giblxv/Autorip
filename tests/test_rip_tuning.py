@@ -108,6 +108,19 @@ def test_old_scheduling_families_receive_same_inert_plan_filter(campaign):
     assert not is_scheduling_proposal('cmyk-lut')
 
 
+def test_oversized_single_strip_values_have_same_plan(campaign,tmp_path):
+    from autorip.config import Settings
+    from rip_tuning_candidates import tune,execution_plan
+    case=make_case(tmp_path)
+    case['settings']=Settings(label_enabled=False,dpi_x=72,dpi_y=72,
+                               margin_top_in=.05,margin_bottom_in=.05)
+    first=tune(bundle(campaign),1,128,1000000)
+    second=tune(bundle(campaign),1,256,1000000)
+    a=campaign.load(first,tmp_path/'a','one_strip_a')
+    b=campaign.load(second,tmp_path/'b','one_strip_b')
+    assert execution_plan(first,a['engine'],[case])==execution_plan(second,b['engine'],[case])
+
+
 def test_late_wide_worker_cap_is_part_of_plan(campaign,tmp_path):
     from rip_tuning_candidates import execution_plan
     from rip_wide_candidates import fewer_wide

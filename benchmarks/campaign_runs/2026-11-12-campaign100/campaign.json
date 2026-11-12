@@ -86,9 +86,99 @@
       "source_round": 7,
       "candidate": "zero-halftone",
       "candidate_hash": "945d6ad1b3b2b137ab9b13911023e063fd319b5f17a23a938068a8753cf19789"
+    },
+    {
+      "round": 8,
+      "domain": "sheet-planning",
+      "accepted": true,
+      "consecutive_without_gain": 0,
+      "completed_at_utc": "2026-11-12T04:06:36.908821+00:00",
+      "candidate_sha256": "fbe39d9a245238d566f685f210da3486462dd7439dd3a4e91e1a34e2574ac822",
+      "baseline": "first accepted nesting leader in this campaign, not a published release",
+      "reason": "confirmed-reuse-of-pruning-bounds-and-equivalent-packing-orders",
+      "layouts_identical": 336,
+      "pruning_cases_identical": 2000,
+      "local_full_tests_passed": 1130,
+      "application_smoke": true,
+      "random_confirmation": {
+        "1": {
+          "baseline_seconds": 0.0002039320006588241,
+          "candidate_seconds": 8.693599920661654e-05,
+          "speedup": 2.3457716310840215,
+          "bootstrap_95": [
+            1.9859254916408728,
+            2.571247478578716
+          ]
+        },
+        "8": {
+          "baseline_seconds": 0.004051783000249998,
+          "candidate_seconds": 0.003479885999695398,
+          "speedup": 1.1643436022342857,
+          "bootstrap_95": [
+            1.1335884692123444,
+            1.260747766296698
+          ]
+        },
+        "40": {
+          "baseline_seconds": 0.13536662199840066,
+          "candidate_seconds": 0.06413461400006781,
+          "speedup": 2.1106640167547828,
+          "bootstrap_95": [
+            2.06884443046847,
+            2.3010344617021037
+          ]
+        },
+        "120": {
+          "baseline_seconds": 2.8142377539988956,
+          "candidate_seconds": 0.9822394520015223,
+          "speedup": 2.865123924990272,
+          "bootstrap_95": [
+            2.290836574089906,
+            3.448098594679391
+          ]
+        }
+      },
+      "repeated_confirmation": {
+        "1": {
+          "baseline_seconds": 0.00018939000074169599,
+          "candidate_seconds": 6.960199789318722e-05,
+          "speedup": 2.721042591799421,
+          "bootstrap_95": [
+            2.6915784779924374,
+            2.8644867488465624
+          ]
+        },
+        "8": {
+          "baseline_seconds": 0.0021393175011326093,
+          "candidate_seconds": 0.0004951569990225835,
+          "speedup": 4.320483211093696,
+          "bootstrap_95": [
+            3.8487450628015774,
+            4.320483211093696
+          ]
+        },
+        "40": {
+          "baseline_seconds": 0.008661163999931887,
+          "candidate_seconds": 0.0032438000016554724,
+          "speedup": 2.67006720374612,
+          "bootstrap_95": [
+            2.2104088895000222,
+            3.7244469433601255
+          ]
+        },
+        "120": {
+          "baseline_seconds": 0.02638232900062576,
+          "candidate_seconds": 0.010326630999770714,
+          "speedup": 2.5547856799774813,
+          "bootstrap_95": [
+            2.3992308792973125,
+            2.7875089458168483
+          ]
+        }
+      }
     }
   ],
-  "initial_rip_without_gain": 6,
+  "initial_rip_without_gain": 0,
   "publication": "Only after criterion, independent audit, full regressions and exact-head CI; preserve concurrent main changes",
   "prefix_rip_valid_rounds": 6,
   "prefix_audit_sha256": "c19de4aa23eb338e2e1cb5b320925810a400483dc55892b63f2e5df1e31257ca"
