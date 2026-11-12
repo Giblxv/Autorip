@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import py_compile
 import subprocess
+import zipfile
 
 import pytest
 from PIL import Image
@@ -33,7 +34,13 @@ def make_case(tmp_path):
 
 
 def bundle(campaign):
-    return {key:(campaign.ROOT/path).read_text() for key,path in campaign.FILES.items()}
+    # Test the benchmark helpers against a stable 0.8.24 fixture, even while
+    # validating a proposal that legitimately changes production strip settings.
+    path=Path(__file__).parent/'fixtures/rip-tuning-baseline.zip'
+    with zipfile.ZipFile(path) as archive:
+        result={key:archive.read(key+'.py').decode() for key in campaign.FILES}
+    assert campaign.digest(result)=='4931ab0acb27b5753a0a78e2aaef4dbd1ed5306096afc4b61ef9de1bec8dedd5'
+    return result
 
 
 def test_probes_never_execute_stale_bytecode(campaign,tmp_path,monkeypatch):
