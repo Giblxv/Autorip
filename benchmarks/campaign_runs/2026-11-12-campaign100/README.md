@@ -21,3 +21,5 @@ A segunda melhoria de planejamento foi confirmada: reutiliza bordas e ordens equ
 A aceitação do RIP também exige controles dedicados de ICC com cor plana e uma CPU, evitando promover ganhos que piorem essas cargas. O plano normaliza tiras maiores do que a folha e não repete estados de código já aceitos.
 
 A atualização concorrente da `main` em `7d9420e` foi incorporada por merge, preservando o agente PrintExp, a interface e o instalador existentes. Após isolar a pasta de estado do novo teste, passaram 1134 testes e o smoke do aplicativo. A etapa de instalação do CI volta ao PowerShell 7 usado antes; a publicação continua condicionada ao CI do commit final. O verificador contempla os quatro arquivos da release, incluindo o agente, e valida nomes normalizados e hashes, sem contar essas adaptações como ganhos de desempenho.
+
+Parada final: `consecutive-without-gain`; rodadas RIP: 106; aceites RIP: 0; sequência sem ganho: 100/100. Rodadas parciais não contam. Convergência alcançada: True.
