@@ -14,7 +14,8 @@ def verify_round_history(report):
     assert report['complete']
     required=report.get('required_without_gain',15)
     assert isinstance(required,int) and required>=15
-    count=0
+    count=report.get('initial_without_gain',0)
+    assert isinstance(count,int) and 0<=count<required
     seen=set()
     for index,record in enumerate(report['rounds'],1):
         assert record['round']==index

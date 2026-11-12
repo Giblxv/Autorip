@@ -5,6 +5,7 @@ Hipóteses não aplicáveis não contam como rodadas. Os PRTs devem ser idêntic
 à base inicial em todos os cenários; cada aceite zera a sequência de recusas.
 """
 import argparse
+import ast
 from datetime import datetime, timezone
 import hashlib
 import importlib.util
@@ -17,8 +18,10 @@ import statistics
 import struct
 import subprocess
 import sys
+import tempfile
 import time
 import tracemalloc
+import zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
@@ -45,13 +48,122 @@ def digest(bundle):
     return hashlib.sha256(''.join(bundle[k] for k in sorted(bundle)).encode()).hexdigest()
 
 
+def semantic_digest(bundle):
+    text = ''.join(ast.dump(ast.parse(bundle[k]), include_attributes=False) for k in sorted(bundle))
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def historical_semantic_pairs(report, report_path):
+    """Verify archived bodies before ignoring comment/whitespace-only aliases."""
+    archive_path = report_path.parent / 'source-snapshots.zip'
+    if not archive_path.exists() or not report.get('rounds'):
+        return set()
+    pairs = set()
+    with zipfile.ZipFile(archive_path) as archive:
+        def sources(folder):
+            return {key: archive.read(f'{folder}/{key}.py').decode() for key in FILES}
+        try:
+            leader = sources('initial')
+        except KeyError:
+            return pairs
+        for record in report['rounds']:
+            if record.get('leader_before') != digest(leader):
+                break
+            folder = f"round-{record['round']:03}-{record['candidate']}"
+            try:
+                candidate = sources(folder)
+            except KeyError:
+                break
+            if digest(candidate) != record.get('candidate_hash'):
+                raise RuntimeError('Historical snapshot hash mismatch: ' + str(report_path))
+            if record.get('reason') not in ('infrastructure-error', 'exception'):
+                pairs.add((semantic_digest(leader), semantic_digest(candidate)))
+            if record['accepted']:
+                leader = candidate
+    return pairs
+
+
+def historical_scheduling_candidates(report, report_path, initial):
+    from rip_tuning_candidates import is_scheduling_proposal
+    archive_path=report_path.parent/'source-snapshots.zip'
+    if not archive_path.exists():return
+    with zipfile.ZipFile(archive_path) as archive:
+        def sources(folder):
+            return {key:archive.read(f'{folder}/{key}.py').decode() for key in FILES}
+        try:leader=sources('initial')
+        except KeyError:return
+        for row in report.get('rounds',[]):
+            if row.get('leader_before')!=digest(leader):break
+            try:candidate=sources(f"round-{row['round']:03}-{row['candidate']}")
+            except KeyError:break
+            assert digest(candidate)==row['candidate_hash']
+            if (is_scheduling_proposal(row['candidate']) and semantic_digest(leader)==semantic_digest(initial)
+                    and row.get('reason') not in ('exception','infrastructure-error')):
+                yield row,candidate
+            if row['accepted']:leader=candidate
+
+
+def validate_candidate_checkout(bundle, directory):
+    """Run regression tests serially, outside all performance measurements."""
+    before = {key: (ROOT / path).read_text(encoding='utf-8') for key, path in FILES.items()}
+    def clear_bytecode():
+        for key in FILES:
+            for path in (ROOT / 'autorip/__pycache__').glob(key + '.*.pyc'):
+                path.unlink()
+    staged = set()
+    def write_atomic(path, source):
+        fd, temporary = tempfile.mkstemp(dir=path.parent, suffix='.part')
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as output:
+                output.write(source)
+            os.replace(temporary, path)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+    try:
+        for key, path in FILES.items():
+            write_atomic(ROOT / path, bundle[key])
+            staged.add(key)
+        clear_bytecode()
+        check_deadline()
+        timeout = min(600, max(.01, DEADLINE - time.time())) if DEADLINE else 600
+        log = directory / 'regression-check.log'
+        with log.open('w') as output:
+            try:
+                run = subprocess.run([sys.executable, '-m', 'pytest', '-q'], cwd=ROOT,
+                                     stdout=output, stderr=subprocess.STDOUT, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                check_deadline()
+                raise RuntimeError('Regression checker exceeded 600 seconds; infrastructure not counted')
+        check_deadline()
+        contents = log.read_text()
+        if run.returncode not in (0, 1) or 'ERROR at setup' in contents or 'INTERNALERROR' in contents:
+            raise RuntimeError('Regression checker infrastructure failed; inspect ' + str(log))
+        return dict(passed=run.returncode == 0, returncode=run.returncode,
+                    log=str(log), sha256=hashlib.sha256(log.read_bytes()).hexdigest())
+    finally:
+        edited = []
+        for key in staged:
+            path = ROOT / FILES[key]
+            if path.read_text(encoding='utf-8') == bundle[key]:
+                write_atomic(path, before[key])
+            else:
+                edited.append(str(path))
+        clear_bytecode()
+        if edited:
+            raise RuntimeError('Candidate sources changed during validation; user edits preserved: ' + ', '.join(edited))
+
+
 def load(bundle,folder,index):
     folder.mkdir(parents=True,exist_ok=True)
     loaded={}
     for key in ('prt','morph','engine'):
-        path=folder/f'{key}.py';path.write_text(bundle[key])
+        path=folder/f'{key}.py';path.write_text(bundle[key], encoding='utf-8')
         spec=importlib.util.spec_from_file_location(f'autorip._campaign_{index}_{key}',path)
-        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        module=importlib.util.module_from_spec(spec)
+        # Probes rewrite one path quickly; timestamp/size-based bytecode could
+        # otherwise execute an earlier proposal with the same source length.
+        exec(compile(bundle[key], str(path), 'exec'), module.__dict__)
         loaded[key]=module
     loaded['engine'].PrtWriter=loaded['prt'].PrtWriter
     loaded['engine'].morph=loaded['morph']
@@ -330,7 +442,12 @@ def main():
     parser.add_argument('--baseline-ref',help='Commit/tag Git da base; leitura sem checkout')
     parser.add_argument('--deadline',help='Prazo ISO 8601 com fuso, por exemplo 2026-11-11T22:00:00-03:00')
     parser.add_argument('--exclude',nargs='*',default=[],help='Hipóteses excluídas antes da campanha')
-    parser.add_argument('--candidate-family',choices=['auto','wide','all'],default='auto')
+    parser.add_argument('--candidate-family',choices=['auto','wide','all','all-tuning'],default='auto')
+    parser.add_argument('--validate-accept', action='store_true', help='Full pytest before accepting, outside timers')
+    parser.add_argument('--initial-safety', action='store_true', help='Reject cumulative regressions against initial RIP')
+    parser.add_argument('--freeze-inputs', action='store_true', help='Refuse external edits to measured code')
+    parser.add_argument('--initial-without-gain', type=int, default=0,
+                        help='Consecutive rejections from the documented prefix of this same campaign')
     parser.add_argument('--avoid-history',type=Path,nargs='*',default=[],
                         help='Relatórios/pastas cujos hashes já testados não serão repetidos no mesmo líder')
     args=parser.parse_args()
@@ -354,7 +471,7 @@ def main():
         from rip_io_candidates import CANDIDATES as proposals
     if args.candidate_family == 'wide':
         from rip_wide_candidates import CANDIDATES as proposals
-    elif args.candidate_family == 'all':
+    elif args.candidate_family in ('all', 'all-tuning'):
         from rip_wide_candidates import CANDIDATES as wide
         from rip_rgba_candidates import CANDIDATES as rgba
         from rip_io_candidates import CANDIDATES as io
@@ -362,6 +479,9 @@ def main():
         for item in wide+rgba+io:
             by_name.setdefault(item[0],item)
         proposals=list(by_name.values())
+        if args.candidate_family == 'all-tuning':
+            from rip_tuning_candidates import CANDIDATES as tuning
+            proposals += tuning
     unknown = set(args.exclude)-{p[0] for p in proposals}
     if unknown:
         parser.error('Hipóteses desconhecidas em --exclude: '+', '.join(sorted(unknown)))
@@ -371,22 +491,24 @@ def main():
     if args.suite in ('input-icc','source-alpha','rgba-direct','large-io','large-io-v2','large-io-v3') and not args.icc:
         parser.error('Esta suíte exige --icc com um perfil CMYK válido')
     if args.repeats<5 or args.rounds_without_gain<15:parser.error('Minimos: 5 repeticoes e 15 rodadas sem ganho')
+    if not 0 <= args.initial_without_gain < args.rounds_without_gain:
+        parser.error('Initial streak must be nonnegative and smaller than the campaign target')
     work=args.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)
     REPORT_PATH = work/'report.json'
     previous_report = json.loads((work/'report.json').read_text()) if args.resume else None
     if args.resume:
-        initial={k:(work/'initial'/f'{k}.py').read_text() for k in FILES}
+        initial={k:(work/'initial'/f'{k}.py').read_text(encoding='utf-8') for k in FILES}
     elif args.baseline_ref:
-        initial={k:subprocess.check_output(['git','show',f'{args.baseline_ref}:{path}'],cwd=ROOT,text=True)
+        initial={k:subprocess.check_output(['git','show',f'{args.baseline_ref}:{path}'],cwd=ROOT,text=True,encoding='utf-8')
                  for k,path in FILES.items()}
     else:
-        initial={k:(ROOT/path).read_text() for k,path in FILES.items()}
-    leader = {k:(ROOT/p).read_text() for k,p in FILES.items()} if args.resume else dict(initial)
+        initial={k:(ROOT/path).read_text(encoding='utf-8') for k,path in FILES.items()}
+    leader = {k:(ROOT/p).read_text(encoding='utf-8') for k,p in FILES.items()} if args.resume else dict(initial)
     if args.resume and digest(leader) != previous_report['leader_hash']:
         raise RuntimeError('Codigo local diverge do lider salvo; retomada recusada')
     if not args.resume:
         for k,source in initial.items():
-            path=work/'initial'/f'{k}.py';path.parent.mkdir(exist_ok=True);path.write_text(source)
+            path=work/'initial'/f'{k}.py';path.parent.mkdir(exist_ok=True);path.write_text(source, encoding='utf-8')
     original=load(initial,work/'initial_modules','initial')
     cases=make_cases(work,str(args.icc.resolve()) if args.icc else None,args.suite)
     timed=[c for c in cases if c['timed']]
@@ -403,10 +525,13 @@ def main():
             'icc_used':bool(args.icc),'suite':args.suite,'repeats':args.repeats,'required_without_gain':args.rounds_without_gain,
             'acceptance':{'minimum_speedup':1.015,'bootstrap_low_minimum':1.005,'max_case_slowdown':1.06,
                           'memory_alternative_reduction':.08,'peak_limit_mib':512},
-            'rounds':[],'consecutive_without_gain':0,'complete':False}
+            'rounds':[],'initial_without_gain':args.initial_without_gain,
+            'consecutive_without_gain':args.initial_without_gain,'complete':False}
     if previous_report:
         if previous_report.get('suite','standard') != args.suite:
             raise RuntimeError('Suite diferente da campanha persistida')
+        if previous_report.get('initial_without_gain',0) != args.initial_without_gain:
+            raise RuntimeError('Initial streak differs from the persisted campaign')
         report=previous_report
     report['deadline_utc'] = datetime.fromtimestamp(DEADLINE, timezone.utc).isoformat() if DEADLINE else None
     report.setdefault('started_at_utc', started_at)
@@ -418,7 +543,7 @@ def main():
         last=report['rounds'][-1]['candidate']
         cursor=next(i+1 for i,c in enumerate(proposals) if c[0]==last)
     tested = {(r['leader_before'], r['candidate_hash']) for r in report['rounds']}
-    historical=set();history_sources=[]
+    historical=set();history_sources=[];semantic_history=set()
     for location in args.avoid_history:
         files=sorted(location.rglob('report.json')) if location.is_dir() else [location]
         for path in files:
@@ -427,27 +552,89 @@ def main():
                   if 'leader_before' in r and 'candidate_hash' in r
                   and r.get('reason') not in ('infrastructure-error','exception')}
             historical.update(keys)
-            history_sources.append(dict(path=str(path),sha256=hashlib.sha256(raw).hexdigest(),pairs=len(keys)))
+            semantic_keys = historical_semantic_pairs(past, path)
+            semantic_history.update(semantic_keys)
+            archive_path = path.parent / 'source-snapshots.zip'
+            archive_sha256 = hashlib.sha256(archive_path.read_bytes()).hexdigest() if archive_path.exists() else None
+            history_sources.append(dict(path=str(path),sha256=hashlib.sha256(raw).hexdigest(),pairs=len(keys),
+                                        semantic_pairs=len(semantic_keys), archive_sha256=archive_sha256))
     tested.update(historical)
     report['candidate_family']=args.candidate_family
     report['history_sources']=history_sources
     report['historical_pair_count']=len(historical)
+    report['historical_semantic_pair_count']=len(semantic_history)
+    semantic_tested = set(semantic_history)
+    semantic_tested.update((r['leader_semantic_hash'],r['candidate_semantic_hash']) for r in report['rounds']
+                          if 'leader_semantic_hash' in r)
+    report.setdefault('skipped_execution_plans', [])
+    tested.update((r['leader_hash'], r['candidate_hash']) for r in report['skipped_execution_plans'])
+    planned = {(r['leader_before'], r['execution_plan_sha256']) for r in report['rounds']
+               if 'execution_plan_sha256' in r}
+    if args.candidate_family == 'all-tuning':
+        from rip_tuning_candidates import execution_plan
+        historical_plans=[]
+        for entry in history_sources:
+            path=Path(entry['path']);past=json.loads(path.read_text())
+            for row,snapshot in historical_scheduling_candidates(past,path,initial):
+                module=load(snapshot,work/'history_plan_probe','history_plan')
+                plan_hash,_=execution_plan(snapshot,module['engine'],timed)
+                planned.add((digest(initial),plan_hash))
+                historical_plans.append(dict(path=str(path),round=row['round'],
+                    candidate_hash=row['candidate_hash'],leader_hash=digest(initial),execution_plan_sha256=plan_hash))
+        report['historical_execution_plans']=historical_plans
+    frozen = {}
+    if args.freeze_inputs:
+        inputs = list((ROOT / 'autorip').glob('*.py')) + list((ROOT / 'benchmarks').glob('rip_*.py'))
+        frozen = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                  for p in inputs if str(p.relative_to(ROOT)) not in FILES.values()}
+        if report.get('frozen_inputs') is not None and report['frozen_inputs'] != frozen:
+            raise RuntimeError('Frozen inputs changed since checkpoint; resume refused')
+        report['frozen_inputs'] = frozen
+    def check_inputs():
+        for relative, checksum in frozen.items():
+            if hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() != checksum:
+                raise RuntimeError('Frozen source changed: ' + relative)
+        if args.apply and digest({k:(ROOT / p).read_text(encoding='utf-8') for k,p in FILES.items()}) != digest(leader):
+            raise RuntimeError('RIP checkout changed outside this campaign; edits preserved')
     def save():
         report['leader_hash']=digest(leader)
         temporary=work/'report.tmp';temporary.write_text(json.dumps(report,indent=2));temporary.replace(work/'report.json')
     while report['consecutive_without_gain']<args.rounds_without_gain:
         check_deadline()
+        check_inputs()
         name,hypothesis,proposal=proposals[cursor%len(proposals)];cursor+=1
         bundle=proposal(leader)
         key = (digest(leader), digest(bundle)) if bundle is not None else None
-        if bundle is None or bundle==leader or key in tested:
+        semantic_key = (semantic_digest(leader), semantic_digest(bundle)) if bundle is not None else None
+        if (bundle is None or bundle==leader or key in tested or semantic_key in semantic_tested
+                or (semantic_key is not None and semantic_key[0] == semantic_key[1])):
             skips+=1
             if skips>len(proposals)*2:raise RuntimeError('Sem hipoteses aplicaveis suficientes; nao declarar convergencia')
             continue
+        plan = None
+        from rip_tuning_candidates import is_scheduling_proposal
+        if getattr(proposal, 'is_scheduling_tuning', False) or is_scheduling_proposal(name):
+            from rip_tuning_candidates import execution_plan
+            probe = load(bundle, work / 'proposal_probe', 'plan_probe')
+            plan_hash, plan = execution_plan(bundle, probe['engine'], timed)
+            leader_probe = load(leader, work / 'leader_plan_probe', 'leader_plan_probe')
+            leader_plan_hash, _ = execution_plan(leader, leader_probe['engine'], timed)
+            if plan_hash == leader_plan_hash or (digest(leader), plan_hash) in planned:
+                tested.add(key)
+                report['skipped_execution_plans'].append(dict(leader_hash=digest(leader),
+                    candidate_hash=digest(bundle), candidate=name, execution_plan_sha256=plan_hash,
+                    reason='same-as-leader' if plan_hash == leader_plan_hash else 'equivalent-tested-plan'))
+                save()
+                continue
+            planned.add((digest(leader), plan_hash))
         skips=0;index+=1
         tested.add(key)
+        semantic_tested.add(semantic_key)
         record={'round':index,'candidate':name,'hypothesis':hypothesis,'leader_before':digest(leader),
-                'candidate_hash':digest(bundle),'accepted':False}
+                'candidate_hash':digest(bundle),'accepted':False,
+                'leader_semantic_hash':semantic_key[0], 'candidate_semantic_hash':semantic_key[1]}
+        if plan is not None:
+            record.update(execution_plan_sha256=plan_hash, execution_plan=plan)
         directory=work/f'round-{index:03}-{name}'
         (work/'status.json').write_text(json.dumps({'round':index,'candidate':name,'phase':'correctness',
                                                    'consecutive_without_gain':report['consecutive_without_gain']}))
@@ -493,13 +680,32 @@ def main():
                                         and all(1/1.03 <= s['speedup'] <= 1.03 for s in aa['scenarios'].values()))
                         record['aa_control_stable'] = noise_stable
                     if (confirmed_speed or confirmed_memory) and confirmed_stable and noise_stable:
-                        leader=bundle;accepted_hashes.add(digest(bundle));record['accepted']=True
-                        record['reason']='confirmed-speed' if confirmed_speed else 'confirmed-memory'
-                        report['consecutive_without_gain']=0
-                        if args.apply:
-                            for key,path in FILES.items():(ROOT/path).write_text(leader[key])
+                        initial_safe = True
+                        if args.initial_safety and digest(leader) != digest(initial):
+                            (work/'status.json').write_text(json.dumps({'round':index,'candidate':name,'phase':'initial-reference'}))
+                            comparison = timed_pair(baseline_rips, candidate_rips, timed, output, args.repeats)
+                            record['initial_reference'] = comparison
+                            initial_safe = (comparison['geomean_speedup'] >= .99
+                                and all(s['speedup'] >= 1/1.06 for s in comparison['scenarios'].values()))
+                            if not initial_safe:
+                                record['reason'] = 'regression-against-initial'
+                        validated = True
+                        if initial_safe and args.validate_accept:
+                            (work/'status.json').write_text(json.dumps({'round':index,'candidate':name,'phase':'regression-validation'}))
+                            record['regression_validation'] = validate_candidate_checkout(bundle, directory)
+                            validated = record['regression_validation']['passed']
+                            if not validated:
+                                record['reason'] = 'failed-regression'
+                        check_deadline()
+                        check_inputs()
+                        if initial_safe and validated:
+                            leader=bundle;accepted_hashes.add(digest(bundle));record['accepted']=True
+                            record['reason']='confirmed-speed' if confirmed_speed else 'confirmed-memory'
+                            report['consecutive_without_gain']=0
+                            if args.apply:
+                                for key,path in FILES.items():(ROOT/path).write_text(leader[key], encoding='utf-8')
                 if not record['accepted']:
-                    record['reason']=('inconclusive-aa-noise' if record.get('aa_control_stable') is False
+                    record.setdefault('reason', 'inconclusive-aa-noise' if record.get('aa_control_stable') is False
                                       else 'no-confirmed-gain-or-regression')
         except CampaignDeadline:
             raise
@@ -507,6 +713,7 @@ def main():
             record['reason']='infrastructure-error';record['failure']=f'{type(error).__name__}: {error}'
             (work/'error.json').write_text(json.dumps(record,indent=2))
             raise  # Erro de implementação/infraestrutura não conta como rodada sem ganho.
+        check_inputs()
         if not record['accepted']:report['consecutive_without_gain']+=1
         record['consecutive_without_gain']=report['consecutive_without_gain']
         report['rounds'].append(record);save()
