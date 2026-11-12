@@ -59,8 +59,9 @@ def load(bundle,folder,index):
 
 
 def make_cases(folder,icc,suite="standard"):
-    narrow_io = suite == 'large-io-v2'
-    large_io = suite in ('large-io', 'large-io-v2')
+    wide_timed = suite == 'large-io-v3'
+    narrow_io = suite in ('large-io-v2', 'large-io-v3')
+    large_io = suite in ('large-io', 'large-io-v2', 'large-io-v3')
     if large_io:
         suite = 'rgba-direct'
     rng=np.random.default_rng(20261109)
@@ -177,6 +178,10 @@ def make_cases(folder,icc,suite="standard"):
             case('narrow_long_output', narrow_path, width=7 / 720 * 2.54, white_enabled=False),
             case('narrow_medium_output', source, width=111 / 720 * 2.54),
         ])
+    if wide_timed:
+        for item in cases:
+            if item['name'] == 'wide_opaque':
+                item['timed'] = True
     return cases
 
 
@@ -320,7 +325,7 @@ def main():
     parser.add_argument('--rounds-without-gain',type=int,default=15)
     parser.add_argument('--repeats',type=int,default=7)
     parser.add_argument('--apply',action='store_true')
-    parser.add_argument('--suite',choices=['standard','extended','input-icc','source-alpha','rgba-direct','large-io','large-io-v2'],default='standard')
+    parser.add_argument('--suite',choices=['standard','extended','input-icc','source-alpha','rgba-direct','large-io','large-io-v2','large-io-v3'],default='standard')
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--baseline-ref',help='Commit/tag Git da base; leitura sem checkout')
     parser.add_argument('--deadline',help='Prazo ISO 8601 com fuso, por exemplo 2026-11-11T22:00:00-03:00')
@@ -345,7 +350,7 @@ def main():
         proposals=CANDIDATES
     if args.suite == 'rgba-direct':
         from rip_rgba_candidates import CANDIDATES as proposals
-    if args.suite in ('large-io', 'large-io-v2'):
+    if args.suite in ('large-io', 'large-io-v2', 'large-io-v3'):
         from rip_io_candidates import CANDIDATES as proposals
     if args.candidate_family == 'wide':
         from rip_wide_candidates import CANDIDATES as proposals
@@ -363,7 +368,7 @@ def main():
     proposals = [p for p in proposals if p[0] not in args.exclude]
     if not proposals:
         parser.error('Nenhuma hipótese disponível após --exclude')
-    if args.suite in ('input-icc','source-alpha','rgba-direct','large-io','large-io-v2') and not args.icc:
+    if args.suite in ('input-icc','source-alpha','rgba-direct','large-io','large-io-v2','large-io-v3') and not args.icc:
         parser.error('Esta suíte exige --icc com um perfil CMYK válido')
     if args.repeats<5 or args.rounds_without_gain<15:parser.error('Minimos: 5 repeticoes e 15 rodadas sem ganho')
     work=args.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)
