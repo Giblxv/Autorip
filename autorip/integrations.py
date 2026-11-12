@@ -6,6 +6,7 @@ import os
 import secrets
 import tempfile
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -18,6 +19,7 @@ MAX_ATTACHMENT_BYTES = 200 * 1024 * 1024
 _OUTBOX_LOCK = threading.RLock()
 _OUTBOX_FLUSH_LOCK = threading.Lock()
 _TRELLO_SEEN_LIMIT = 10000  # evita crescimento infinito do registro de anexos
+OUTBOX_COUNT_CACHE_SECONDS = 5.0
 
 
 def _trello_seen_path(home):
@@ -332,6 +334,42 @@ def outbox_load(home):
         if not isinstance(required, list) or any(not isinstance(name, str) for name in required):
             raise ValueError("Destinos invalidos na outbox; os avisos locais foram preservados.")
     return items
+
+
+class OutboxCounter:
+    """Uma contagem validada, sem reter trabalhos ou disputar o lock de envio."""
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._cached = None
+
+    @staticmethod
+    def _signature(path):
+        try:
+            info = os.stat(path)
+        except FileNotFoundError:
+            return None
+        return (info.st_dev, info.st_ino, info.st_mode, info.st_size,
+                info.st_mtime_ns, info.st_ctime_ns)
+
+    def count(self, home):
+        home = os.path.abspath(home)
+        path = _outbox_path(home)
+        with self._lock:
+            try:
+                signature = self._signature(path)
+                cached = self._cached
+                if (cached is not None and cached[0] == path and cached[1] == signature
+                        and time.monotonic() - cached[3] < OUTBOX_COUNT_CACHE_SECONDS):
+                    return cached[2]
+                self._cached = None
+                count = len(outbox_load(home))
+                # Troca/remoção durante a leitura não deve fixar um snapshot velho.
+                if self._signature(path) == signature:
+                    self._cached = (path, signature, count, time.monotonic())
+                return count
+            except BaseException:
+                self._cached = None
+                raise
 
 
 def outbox_add(home, job, info, *, services=None):

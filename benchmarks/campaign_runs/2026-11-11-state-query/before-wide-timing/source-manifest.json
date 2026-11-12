@@ -1,0 +1,17 @@
+{
+  "round-001-full-erode-analytic/engine.py": "9afb6d83a04a55ff05dee192de41840e46f2ae7badc97892a43283fdd88b500e",
+  "round-001-full-erode-analytic/prt.py": "a2506d539e9c1da492b12732b81bb4b088d4faf85229b73caa313fec4076b008",
+  "round-001-full-erode-analytic/morph.py": "7890d1746e68b784756b6095db910c8ee1f1bd39bc72029f73c364d88d870fa7",
+  "round-002-white-opaque-direct/engine.py": "4af3d501c183d10b21d2f6eacb8d5153e20d203ea60b829e83e51da2150bb4ca",
+  "round-002-white-opaque-direct/prt.py": "a2506d539e9c1da492b12732b81bb4b088d4faf85229b73caa313fec4076b008",
+  "round-002-white-opaque-direct/morph.py": "1dd8e43f0382eddc2f2a71e9256875ae4d746ec06c49603f38b10b82a8b97c2f",
+  "round-003-density-copy-false/engine.py": "09ae420bbc390158d097706736fdf0812629b6e0c15ed0cd1ad8e0744395d19d",
+  "round-003-density-copy-false/prt.py": "a2506d539e9c1da492b12732b81bb4b088d4faf85229b73caa313fec4076b008",
+  "round-003-density-copy-false/morph.py": "1dd8e43f0382eddc2f2a71e9256875ae4d746ec06c49603f38b10b82a8b97c2f",
+  "round-004-density-mask-inplace/engine.py": "8473496b37e1e30d1bc444b26141309db5a930dd46547ad105304137a06c39e0",
+  "round-004-density-mask-inplace/prt.py": "a2506d539e9c1da492b12732b81bb4b088d4faf85229b73caa313fec4076b008",
+  "round-004-density-mask-inplace/morph.py": "1dd8e43f0382eddc2f2a71e9256875ae4d746ec06c49603f38b10b82a8b97c2f",
+  "initial/engine.py": "9afb6d83a04a55ff05dee192de41840e46f2ae7badc97892a43283fdd88b500e",
+  "initial/prt.py": "a2506d539e9c1da492b12732b81bb4b088d4faf85229b73caa313fec4076b008",
+  "initial/morph.py": "1dd8e43f0382eddc2f2a71e9256875ae4d746ec06c49603f38b10b82a8b97c2f"
+}

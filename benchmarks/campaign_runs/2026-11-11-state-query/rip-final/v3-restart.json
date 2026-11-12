@@ -1,0 +1,10 @@
+{
+  "previous_suite": "large-io-v2",
+  "completed_without_gain": 3,
+  "completed_rounds": 3,
+  "partial_round_not_counted": 4,
+  "new_suite": "large-io-v3",
+  "correctness_cases": 30,
+  "timed_cases": 12,
+  "reason": "Include 6000-dot opaque sheet in timing so >4096-dot worker branches are actually exercised; preserve old decisions separately"
+}

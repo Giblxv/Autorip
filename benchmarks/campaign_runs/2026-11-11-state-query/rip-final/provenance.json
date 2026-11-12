@@ -1,0 +1,11 @@
+{
+  "base_commit": "a53217a2abc79c7fa5ecb8fb1446e585aa5d4517",
+  "suite": "large-io-v3",
+  "stopped_at_utc": "2026-11-12T01:00:00.052995+00:00",
+  "memory_metric": "tracemalloc, not complete RSS",
+  "partial_source_folders_not_counted": [
+    "round-007-wide-limit-2"
+  ],
+  "final_modules": "Derived from verified last accepted snapshot, or initial if no acceptance",
+  "zip_sha256": "b92531be7b51000f7a479701c6254d509bb4eb2489933a865cfaadd232c27117"
+}

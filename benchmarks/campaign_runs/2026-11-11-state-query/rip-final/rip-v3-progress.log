@@ -1,0 +1,11 @@
+/workspace/Autorip/.venv/lib/python3.12/site-packages/PIL/Image.py:1134: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+  warnings.warn(
+/workspace/Autorip/.venv/lib/python3.12/site-packages/PIL/Image.py:1134: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+  warnings.warn(
+{"round": 1, "candidate": "full-erode-analytic", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 1}
+{"round": 2, "candidate": "white-opaque-direct", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 2}
+{"round": 3, "candidate": "density-copy-false", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 3}
+{"round": 4, "candidate": "density-mask-inplace", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 4}
+{"round": 5, "candidate": "rank32-wide", "accepted": false, "reason": "inconclusive-aa-noise", "failure": null, "consecutive_without_gain": 5}
+{"round": 6, "candidate": "wide-limit-3", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 6}
+{"stop_reason": "deadline", "message": "Prazo da campanha atingido; rodada incompleta n\u00e3o contabilizada"}

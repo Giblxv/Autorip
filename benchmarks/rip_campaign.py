@@ -59,8 +59,9 @@ def load(bundle,folder,index):
 
 
 def make_cases(folder,icc,suite="standard"):
-    narrow_io = suite == 'large-io-v2'
-    large_io = suite in ('large-io', 'large-io-v2')
+    wide_timed = suite == 'large-io-v3'
+    narrow_io = suite in ('large-io-v2', 'large-io-v3')
+    large_io = suite in ('large-io', 'large-io-v2', 'large-io-v3')
     if large_io:
         suite = 'rgba-direct'
     rng=np.random.default_rng(20261109)
@@ -177,6 +178,10 @@ def make_cases(folder,icc,suite="standard"):
             case('narrow_long_output', narrow_path, width=7 / 720 * 2.54, white_enabled=False),
             case('narrow_medium_output', source, width=111 / 720 * 2.54),
         ])
+    if wide_timed:
+        for item in cases:
+            if item['name'] == 'wide_opaque':
+                item['timed'] = True
     return cases
 
 
@@ -264,6 +269,16 @@ def micro_correct(original,candidate):
                     a=getattr(original['morph'],method)(mask,mm,dx,dy)
                     b=getattr(candidate['morph'],method)(mask,mm,dx,dy)
                     if not np.array_equal(a,b):return f'{method}-physical-boundary'
+        # Atalhos de máscara cheia também precisam preservar cada fronteira ULP.
+        for shape in ((1,1),(3,7),(13,19),(16,32)):
+            full=np.ones(shape,bool)
+            for pixels in (1,2,3,6,13):
+                for dpi in (dx,dy):
+                    mm=pixels/dpi*25.4
+                    for radius in (np.nextafter(mm,0),mm,np.nextafter(mm,np.inf)):
+                        a=original['morph'].erode(full,radius,dx,dy)
+                        b=candidate['morph'].erode(full,radius,dx,dy)
+                        if not np.array_equal(a,b):return 'full-erode-ulp-boundary'
     return None
 
 
@@ -310,11 +325,14 @@ def main():
     parser.add_argument('--rounds-without-gain',type=int,default=15)
     parser.add_argument('--repeats',type=int,default=7)
     parser.add_argument('--apply',action='store_true')
-    parser.add_argument('--suite',choices=['standard','extended','input-icc','source-alpha','rgba-direct','large-io','large-io-v2'],default='standard')
+    parser.add_argument('--suite',choices=['standard','extended','input-icc','source-alpha','rgba-direct','large-io','large-io-v2','large-io-v3'],default='standard')
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--baseline-ref',help='Commit/tag Git da base; leitura sem checkout')
     parser.add_argument('--deadline',help='Prazo ISO 8601 com fuso, por exemplo 2026-11-11T22:00:00-03:00')
     parser.add_argument('--exclude',nargs='*',default=[],help='Hipóteses excluídas antes da campanha')
+    parser.add_argument('--candidate-family',choices=['auto','wide','all'],default='auto')
+    parser.add_argument('--avoid-history',type=Path,nargs='*',default=[],
+                        help='Relatórios/pastas cujos hashes já testados não serão repetidos no mesmo líder')
     args=parser.parse_args()
     if args.deadline:
         try:
@@ -332,15 +350,25 @@ def main():
         proposals=CANDIDATES
     if args.suite == 'rgba-direct':
         from rip_rgba_candidates import CANDIDATES as proposals
-    if args.suite in ('large-io', 'large-io-v2'):
+    if args.suite in ('large-io', 'large-io-v2', 'large-io-v3'):
         from rip_io_candidates import CANDIDATES as proposals
+    if args.candidate_family == 'wide':
+        from rip_wide_candidates import CANDIDATES as proposals
+    elif args.candidate_family == 'all':
+        from rip_wide_candidates import CANDIDATES as wide
+        from rip_rgba_candidates import CANDIDATES as rgba
+        from rip_io_candidates import CANDIDATES as io
+        by_name={}
+        for item in wide+rgba+io:
+            by_name.setdefault(item[0],item)
+        proposals=list(by_name.values())
     unknown = set(args.exclude)-{p[0] for p in proposals}
     if unknown:
         parser.error('Hipóteses desconhecidas em --exclude: '+', '.join(sorted(unknown)))
     proposals = [p for p in proposals if p[0] not in args.exclude]
     if not proposals:
         parser.error('Nenhuma hipótese disponível após --exclude')
-    if args.suite in ('input-icc','source-alpha','rgba-direct','large-io','large-io-v2') and not args.icc:
+    if args.suite in ('input-icc','source-alpha','rgba-direct','large-io','large-io-v2','large-io-v3') and not args.icc:
         parser.error('Esta suíte exige --icc com um perfil CMYK válido')
     if args.repeats<5 or args.rounds_without_gain<15:parser.error('Minimos: 5 repeticoes e 15 rodadas sem ganho')
     work=args.work_dir.resolve();work.mkdir(parents=True,exist_ok=True)
@@ -390,6 +418,20 @@ def main():
         last=report['rounds'][-1]['candidate']
         cursor=next(i+1 for i,c in enumerate(proposals) if c[0]==last)
     tested = {(r['leader_before'], r['candidate_hash']) for r in report['rounds']}
+    historical=set();history_sources=[]
+    for location in args.avoid_history:
+        files=sorted(location.rglob('report.json')) if location.is_dir() else [location]
+        for path in files:
+            raw=path.read_bytes();past=json.loads(raw)
+            keys={(r['leader_before'],r['candidate_hash']) for r in past.get('rounds',[])
+                  if 'leader_before' in r and 'candidate_hash' in r
+                  and r.get('reason') not in ('infrastructure-error','exception')}
+            historical.update(keys)
+            history_sources.append(dict(path=str(path),sha256=hashlib.sha256(raw).hexdigest(),pairs=len(keys)))
+    tested.update(historical)
+    report['candidate_family']=args.candidate_family
+    report['history_sources']=history_sources
+    report['historical_pair_count']=len(historical)
     def save():
         report['leader_hash']=digest(leader)
         temporary=work/'report.tmp';temporary.write_text(json.dumps(report,indent=2));temporary.replace(work/'report.json')

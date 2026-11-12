@@ -1,0 +1,12 @@
+{
+  "accepted": true,
+  "basis": "Repeated removal of redundant JSON decodes with identical HTTP response bodies; strong large-backlog gains in two batteries and real cadence",
+  "cache_entries_per_App": 1,
+  "retained_payloads": false,
+  "maximum_age_seconds": 5,
+  "A_A_timing_noisy": true,
+  "steady_gain_scope": "Burst and one-second cadence HTTP state queries; not RIP throughput",
+  "counter_reset": true,
+  "round": 1,
+  "consecutive_without_gain": 0
+}

@@ -220,6 +220,7 @@ class App:
         self.settings_lock = threading.RLock()
         self.print_lock = threading.Lock()
         self.print_catalog = PrintCatalog()
+        self._outbox_counter = integrations.OutboxCounter()
         self.upload_lock = threading.Lock()
         self.upload_receive_lock = threading.Lock()
         self.login_attempts = {}
@@ -1525,7 +1526,7 @@ class H(BaseHTTPRequestHandler):
                             and os.path.isfile(logo_path)
                             and os.path.commonpath((os.path.realpath(APP.home), brand_dir)) == os.path.realpath(APP.home))
             try:
-                pending = len(integrations.outbox_load(APP.home))
+                pending = APP._outbox_counter.count(APP.home)
             except Exception:
                 pending = -1
             return self._send(200, dict(version=__version__, auto=auto, has_pass=APP.has_pass(),

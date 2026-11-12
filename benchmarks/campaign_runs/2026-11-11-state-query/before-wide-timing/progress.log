@@ -1,0 +1,27 @@
+/workspace/Autorip/.venv/lib/python3.12/site-packages/PIL/Image.py:1134: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+  warnings.warn(
+/workspace/Autorip/.venv/lib/python3.12/site-packages/PIL/Image.py:1134: UserWarning: Palette images with Transparency expressed in bytes should be converted to RGBA images
+  warnings.warn(
+{"round": 1, "candidate": "full-erode-analytic", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 1}
+{"round": 2, "candidate": "white-opaque-direct", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 2}
+{"round": 3, "candidate": "density-copy-false", "accepted": false, "reason": "no-confirmed-gain-or-regression", "failure": null, "consecutive_without_gain": 3}
+Traceback (most recent call last):
+  File "/workspace/Autorip/benchmarks/rip_campaign.py", line 524, in <module>
+    main()
+  File "/workspace/Autorip/benchmarks/rip_campaign.py", line 463, in main
+    measurement=timed_pair(reference_rips,candidate_rips,timed,output,args.repeats)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Autorip/benchmarks/rip_campaign.py", line 288, in timed_pair
+    start=time.perf_counter();render(rip,c,output)
+                              ^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/Autorip/benchmarks/rip_campaign.py", line 197, in render
+    info=rip.process(str(case['path']),str(output),width_cm=case['width'],
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/autorip-review/state-query-2026-11-11/rip-run/leader_modules/engine.py", line 415, in process
+    planes_full = future.result()
+                  ^^^^^^^^^^^^^^^
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/concurrent/futures/_base.py", line 451, in result
+    self._condition.wait(timeout)
+  File "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/threading.py", line 355, in wait
+    waiter.acquire()
+KeyboardInterrupt
