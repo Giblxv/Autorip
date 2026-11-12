@@ -85,7 +85,7 @@ def historical_semantic_pairs(report, report_path):
 
 def validate_candidate_checkout(bundle, directory):
     """Run regression tests serially, outside all performance measurements."""
-    before = {key: (ROOT / path).read_text() for key, path in FILES.items()}
+    before = {key: (ROOT / path).read_text(encoding='utf-8') for key, path in FILES.items()}
     def clear_bytecode():
         for key in FILES:
             for path in (ROOT / 'autorip/__pycache__').glob(key + '.*.pyc'):
@@ -94,7 +94,7 @@ def validate_candidate_checkout(bundle, directory):
     def write_atomic(path, source):
         fd, temporary = tempfile.mkstemp(dir=path.parent, suffix='.part')
         try:
-            with os.fdopen(fd, 'w') as output:
+            with os.fdopen(fd, 'w', encoding='utf-8') as output:
                 output.write(source)
             os.replace(temporary, path)
         finally:
@@ -125,7 +125,7 @@ def validate_candidate_checkout(bundle, directory):
         edited = []
         for key in staged:
             path = ROOT / FILES[key]
-            if path.read_text() == bundle[key]:
+            if path.read_text(encoding='utf-8') == bundle[key]:
                 write_atomic(path, before[key])
             else:
                 edited.append(str(path))
@@ -138,7 +138,7 @@ def load(bundle,folder,index):
     folder.mkdir(parents=True,exist_ok=True)
     loaded={}
     for key in ('prt','morph','engine'):
-        path=folder/f'{key}.py';path.write_text(bundle[key])
+        path=folder/f'{key}.py';path.write_text(bundle[key], encoding='utf-8')
         spec=importlib.util.spec_from_file_location(f'autorip._campaign_{index}_{key}',path)
         module=importlib.util.module_from_spec(spec)
         # Probes rewrite one path quickly; timestamp/size-based bytecode could
@@ -477,18 +477,18 @@ def main():
     REPORT_PATH = work/'report.json'
     previous_report = json.loads((work/'report.json').read_text()) if args.resume else None
     if args.resume:
-        initial={k:(work/'initial'/f'{k}.py').read_text() for k in FILES}
+        initial={k:(work/'initial'/f'{k}.py').read_text(encoding='utf-8') for k in FILES}
     elif args.baseline_ref:
         initial={k:subprocess.check_output(['git','show',f'{args.baseline_ref}:{path}'],cwd=ROOT,text=True)
                  for k,path in FILES.items()}
     else:
-        initial={k:(ROOT/path).read_text() for k,path in FILES.items()}
-    leader = {k:(ROOT/p).read_text() for k,p in FILES.items()} if args.resume else dict(initial)
+        initial={k:(ROOT/path).read_text(encoding='utf-8') for k,path in FILES.items()}
+    leader = {k:(ROOT/p).read_text(encoding='utf-8') for k,p in FILES.items()} if args.resume else dict(initial)
     if args.resume and digest(leader) != previous_report['leader_hash']:
         raise RuntimeError('Codigo local diverge do lider salvo; retomada recusada')
     if not args.resume:
         for k,source in initial.items():
-            path=work/'initial'/f'{k}.py';path.parent.mkdir(exist_ok=True);path.write_text(source)
+            path=work/'initial'/f'{k}.py';path.parent.mkdir(exist_ok=True);path.write_text(source, encoding='utf-8')
     original=load(initial,work/'initial_modules','initial')
     cases=make_cases(work,str(args.icc.resolve()) if args.icc else None,args.suite)
     timed=[c for c in cases if c['timed']]
@@ -562,7 +562,7 @@ def main():
         for relative, checksum in frozen.items():
             if hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() != checksum:
                 raise RuntimeError('Frozen source changed: ' + relative)
-        if args.apply and digest({k:(ROOT / p).read_text() for k,p in FILES.items()}) != digest(leader):
+        if args.apply and digest({k:(ROOT / p).read_text(encoding='utf-8') for k,p in FILES.items()}) != digest(leader):
             raise RuntimeError('RIP checkout changed outside this campaign; edits preserved')
     def save():
         report['leader_hash']=digest(leader)
@@ -670,7 +670,7 @@ def main():
                             record['reason']='confirmed-speed' if confirmed_speed else 'confirmed-memory'
                             report['consecutive_without_gain']=0
                             if args.apply:
-                                for key,path in FILES.items():(ROOT/path).write_text(leader[key])
+                                for key,path in FILES.items():(ROOT/path).write_text(leader[key], encoding='utf-8')
                 if not record['accepted']:
                     record.setdefault('reason', 'inconclusive-aa-noise' if record.get('aa_control_stable') is False
                                       else 'no-confirmed-gain-or-regression')
