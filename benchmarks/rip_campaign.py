@@ -482,6 +482,8 @@ def main():
         if args.candidate_family == 'all-tuning':
             from rip_tuning_candidates import CANDIDATES as tuning
             proposals += tuning
+            from rip_color_candidates import CANDIDATES as color
+            proposals = color + proposals
     unknown = set(args.exclude)-{p[0] for p in proposals}
     if unknown:
         parser.error('Hipóteses desconhecidas em --exclude: '+', '.join(sorted(unknown)))

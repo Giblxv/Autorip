@@ -1,0 +1,67 @@
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+root=Path('/workspace/Autorip-campaign101')
+review=Path('/workspace/autorip-review/campaign100-2026-11-13')
+sys.path.insert(0,str(root/'benchmarks'))
+import rip_campaign as c
+from rip_wide_candidates import CANDIDATES as wide
+from rip_rgba_candidates import CANDIDATES as rgba
+from rip_io_candidates import CANDIDATES as io
+from rip_color_candidates import CANDIDATES as color
+from rip_tuning_candidates import CANDIDATES as tuning,execution_plan,is_scheduling_proposal
+
+base={k:(root/p).read_text() for k,p in c.FILES.items()}
+leader_hash=c.digest(base); semantic_leader=c.semantic_digest(base)
+past=set(); semantic_past=set(); histories=[]
+for path in sorted((root/'benchmarks/campaign_runs').rglob('report.json')):
+    report=json.loads(path.read_text())
+    histories.append((path,report))
+    past.update((r['leader_before'],r['candidate_hash']) for r in report.get('rounds',[])
+                if 'leader_before' in r and 'candidate_hash' in r and r.get('reason') not in ('exception','infrastructure-error'))
+    semantic_past.update(c.historical_semantic_pairs(report,path))
+folder=review/'preflight';folder.mkdir(exist_ok=True)
+cases=c.make_cases(folder,'/workspace/Autorip/Sublinks_DTF_E602 LM720x2400 8Pass .icc','large-io-v3')
+timed=[x for x in cases if x['timed']]
+baseline=c.load(base,folder/'baseline','preflight_base')
+base_plan,_=execution_plan(base,baseline['engine'],timed)
+proposals={}
+for item in color+wide+rgba+io+tuning:
+    proposals.setdefault(item[0],item)
+excluded={'writer-identity-cache','edt-hypot','halftone-multiply','subpixel-morph','halftone-full'}
+seen=set(); semseen=set(); plans={base_plan}; rows=[]; skipped=[]; errors=[]
+for path,report in histories:
+    for record,snapshot in c.historical_scheduling_candidates(report,path,base):
+        module=c.load(snapshot,folder/'historical-probe','historical_preflight')
+        signature,_=execution_plan(snapshot,module['engine'],timed)
+        plans.add(signature)
+for name,hypothesis,proposal in proposals.values():
+    if name in excluded:continue
+    try:
+        candidate=proposal(base)
+        if candidate is None:continue
+        raw=c.digest(candidate); sem=c.semantic_digest(candidate)
+        if raw==leader_hash or sem==semantic_leader or raw in seen or sem in semseen:continue
+        if (leader_hash,raw) in past or (semantic_leader,sem) in semantic_past:
+            skipped.append(dict(name=name,reason='historical-equivalent'));continue
+        seen.add(raw);semseen.add(sem)
+        module=c.load(candidate,folder/'probe',name)
+        plan_hash=None
+        if getattr(proposal,'is_scheduling_tuning',False) or is_scheduling_proposal(name):
+            plan_hash,plan=execution_plan(candidate,module['engine'],timed)
+            if plan_hash in plans:
+                skipped.append(dict(name=name,reason='same-execution-plan'));continue
+            plans.add(plan_hash)
+        mismatch=c.micro_correct(baseline,module)
+        rows.append(dict(name=name,candidate_hash=raw,semantic_hash=sem,plan_hash=plan_hash,micro_mismatch=mismatch))
+    except Exception as error:
+        errors.append(dict(name=name,error=f'{type(error).__name__}: {error}'))
+result=dict(base_hash=leader_hash,semantic_base=semantic_leader,historical_pairs=len(past),
+            historical_semantic_pairs=len(semantic_past),correctness_cases=len(cases),timed_cases=len(timed),
+            eligible=len(rows),eligible_tuning=sum(r['plan_hash'] is not None for r in rows),
+            excluded=sorted(excluded),candidates=rows,skipped=skipped,errors=errors)
+(review/'preflight.json').write_text(json.dumps(result,indent=2)+'\n')
+print(json.dumps({k:v for k,v in result.items() if k not in ('candidates','skipped')},indent=2))
+assert not errors and len(rows)>=100
