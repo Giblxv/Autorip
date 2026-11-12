@@ -86,3 +86,19 @@ def test_each_strategy_executes_its_batch_plan(tmp_path, monkeypatch, name, hypo
     else:
         rows = int(strategy.split('-')[1])
         assert shapes == [(min(rows, 257-start), 47, 4) for start in range(0, 257, rows)]
+
+
+def test_strategies_can_be_reconsidered_after_an_acceptance():
+    original = bundle()
+    for source_name, _, source_proposal in CANDIDATES:
+        leader = source_proposal(original)
+        # Simulate an independent accepted scheduling improvement, which must
+        # survive every strategy switch. Reapplying the same strategy is inert.
+        leader['engine'] = leader['engine'].replace('STRIP = 512', 'STRIP = 384', 1)
+        expected_base = dict(original, engine=original['engine'].replace('STRIP = 512', 'STRIP = 384', 1))
+        for destination_name, _, destination_proposal in CANDIDATES:
+            switched = destination_proposal(leader)
+            if source_name == destination_name:
+                assert switched is None
+            else:
+                assert switched == destination_proposal(expected_base)

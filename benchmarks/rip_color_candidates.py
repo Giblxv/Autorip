@@ -5,8 +5,21 @@ def color_batch(bundle, strategy):
     source = bundle['engine']
     marker = '    # ---------- branco ----------'
     anchor = '                idx = {"C": 0, "M": 1, "Y": 2, "K": 3}'
-    if '_builtin_halftone' in source or marker not in source or anchor not in source:
+    if marker not in source or anchor not in source:
         return None
+    # Switch the strategy on an accepted leader, preserving independent changes
+    # to color conversion, thresholds, morphology, packing and scheduling.
+    if '    _builtin_halftone = _halftone\n\n' in source:
+        start = source.index('                color_levels = None\n')
+        end = source.index(anchor, start)
+        source = source[:start] + source[end:]
+        source = source.replace('    _builtin_halftone = _halftone\n\n', '', 1)
+        source = source.replace(
+            'levels = (color_levels[..., idx[name]] if color_levels is not None\n'
+            '                              else self._halftone(cmyk[..., idx[name]], r0, color_thresholds))',
+            'levels = self._halftone(cmyk[..., idx[name]], r0, color_thresholds)', 1)
+        source = source.replace('del color_levels, color_thresholds, thresholds, cmyk, rgb, arr, strip',
+                                'del color_thresholds, thresholds, cmyk, rgb, arr, strip', 1)
     source = source.replace(marker, '    _builtin_halftone = _halftone\n\n' + marker, 1)
     if strategy == 'interleaved':
         compute = '                    color_levels = self._halftone(cmyk, r0, color_thresholds[..., None])\n'
@@ -34,7 +47,7 @@ def color_batch(bundle, strategy):
                             '                              else self._halftone(cmyk[..., idx[name]], r0, color_thresholds))', 1)
     source = source.replace('del color_thresholds, thresholds, cmyk, rgb, arr, strip',
                             'del color_levels, color_thresholds, thresholds, cmyk, rgb, arr, strip', 1)
-    return dict(bundle, engine=source)
+    return dict(bundle, engine=source) if source != bundle['engine'] else None
 
 
 CANDIDATES = [
