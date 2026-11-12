@@ -18,11 +18,11 @@ ROOT=Path('/workspace/Autorip-campaign100')
 REVIEW=Path('/workspace/autorip-review/campaign100-2026-11-12')
 PYTHON='/workspace/Autorip/.venv/bin/python'
 REPO='Giblxv/Autorip'
-BASE='263209a1d9f98bd967feea906275a83af615412e'
+BASE='7d9420e4e63bf0a91e3e46a6b26df850709653bc'
 BRANCH='perf/campaign-100-2026-11-12'
 VERSION='0.8.25'
 TAG='v'+VERSION
-PR=68
+PR=None
 
 
 def command(*args):
@@ -89,20 +89,49 @@ def large_source_guard(out):
 
 
 def readiness():
+    global BASE
     meta=json.loads((REVIEW/'campaign.json').read_text())
     assert meta['required_without_gain']==100
     assert datetime.fromisoformat(meta['deadline']).utcoffset() is not None
     assert command('git','branch','--show-current')==BRANCH
     assert command('gh','repo','view','--json','nameWithOwner','--jq','.nameWithOwner')==REPO
-    assert api('git/ref/heads/main')['object']['sha']==BASE, 'Concurrent main changes; publication needs a new review'
+    current_main=api('git/ref/heads/main')['object']['sha']
+    if current_main!=BASE:
+        # Accept only our already-reviewed branch incorporated by a concurrent
+        # merge, with exactly its known tree. Unrelated changes still block.
+        command('git','fetch','origin','main')
+        framework=(REVIEW/'framework-head.txt').read_text().strip()
+        known=False
+        for pull in api(f'commits/{current_main}/pulls'):
+            if not pull.get('merged_at') or pull['head']['ref']!=BRANCH:continue
+            sha=pull['head']['sha']
+            ancestor=subprocess.run(['git','merge-base','--is-ancestor',sha,framework],cwd=ROOT,
+                                    stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0
+            if ancestor and command('git','rev-parse',current_main+'^{tree}')==command('git','rev-parse',sha+'^{tree}'):
+                known=True;break
+        assert known, 'Concurrent unrelated main changes; preserve them and leave a concrete branch'
+        BASE=current_main
     assert not command('git','ls-remote','origin',f'refs/tags/{TAG}'), 'Version already exists; never overwrite a tag'
     for filename in ('audit.py','runner.py','verify_release25.py'):
         ast.parse((REVIEW/filename).read_text())
-    pull=api(f'pulls/{PR}')
-    assert pull['state']=='open' and pull['head']['ref']==BRANCH and pull['base']['sha']==BASE
     assert Path(PYTHON).is_file() and Path('/usr/bin/chromium').is_file()
     return dict(ready=True,pr=PR,branch=BRANCH,version=VERSION,main=BASE,
                 no_remote_writes=True,deadline=meta['deadline'])
+
+
+def ensure_pr(head,body,title):
+    global PR
+    pulls=json.loads(command('gh','pr','list','--head',BRANCH,'--base','main','--state','open',
+                             '--json','number,headRefOid'))
+    if pulls:
+        assert len(pulls)==1 and pulls[0]['headRefOid']==head, 'Concurrent PR head changed'
+        PR=pulls[0]['number']
+    else:
+        url=command('gh','pr','create','--draft','--base','main','--head',BRANCH,
+                    '--title',title,'--body-file',str(body))
+        PR=int(re.search(r'/pull/(\d+)',url)[1])
+    save('publication-pr.json',dict(number=PR,head=head))
+    command('gh','api',f'repos/{REPO}/pulls/{PR}','--method','PATCH','-F','body=@'+str(body),'-f','title='+title)
 
 
 def wait_checks(head):
@@ -111,7 +140,7 @@ def wait_checks(head):
     started=time.monotonic(); dispatched=set()
     while time.monotonic()-started<2700:
         pull=json.loads(command('gh','pr','view',str(PR),'--json','headRefOid,state,statusCheckRollup'))
-        assert pull['state']=='OPEN' and pull['headRefOid']==head, 'PR changed during validation'
+        assert pull['state'] in ('OPEN','MERGED') and pull['headRefOid']==head, 'PR changed during validation'
         checks=[x for x in pull['statusCheckRollup'] if x.get('name') in expected]
         stage('waiting-for-pr-ci',head=head,checks=[dict(name=x['name'],status=x['status'],conclusion=x.get('conclusion')) for x in checks])
         failed=[x for x in checks if x['status']=='COMPLETED' and x.get('conclusion')!='SUCCESS']
@@ -227,15 +256,18 @@ A auditoria independente verificou fontes, histórico, contagem, planos de execu
     body=REVIEW/'pr-final.md'
     body.write_text(notes+f'\nValidação local: suíte Python completa, smoke do aplicativo e 36 cenários no Chromium. Commit de revisão: `{head}`. A publicação exige a matriz e o empacotamento aprovados neste mesmo commit.\n')
     title=('Otimizar planejamento e escalonamento do RIP' if result['rip_accepted'] else 'Evitar cópias descartadas no encaixe da folha')+' (v'+VERSION+')'
-    command('gh','api',f'repos/{REPO}/pulls/{PR}','--method','PATCH','-F','body=@'+str(body),'-f','title='+title)
+    ensure_pr(head,body,title)
     ci=wait_checks(head)
-    assert api('git/ref/heads/main')['object']['sha']==BASE, 'Concurrent main changes; leave concrete tested PR'
     pull=api(f'pulls/{PR}')
-    assert pull['head']['sha']==head and pull['state']=='open'
-    if pull['draft']:command('gh','pr','ready',str(PR))
-    stage('merging-reviewed-head',head=head)
-    command('gh','pr','merge',str(PR),'--merge','--match-head-commit',head)
-    pull=api(f'pulls/{PR}');assert pull['merged']
+    assert pull['head']['sha']==head
+    if not pull.get('merged'):
+        assert pull['state']=='open'
+        assert api('git/ref/heads/main')['object']['sha']==BASE, 'Concurrent main changes; leave concrete tested PR'
+        if pull['draft']:command('gh','pr','ready',str(PR))
+        stage('merging-reviewed-head',head=head)
+        command('gh','pr','merge',str(PR),'--merge','--match-head-commit',head)
+        pull=api(f'pulls/{PR}')
+    assert pull['merged']
     merged=pull['merge_commit_sha']
     command('git','fetch','origin','main')
     assert command('git','rev-parse',head+'^{tree}')==command('git','rev-parse',merged+'^{tree}')

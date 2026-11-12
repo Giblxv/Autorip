@@ -101,7 +101,7 @@ jobs:
           if (Test-Path 'dist\PrintExpAgent\PrintExpAgent.exe') { Get-Item 'dist\PrintExpAgent\PrintExpAgent.exe' | Select-Object FullName, Length }
 
       - name: Smoke test installed executable
-        shell: powershell
+        shell: pwsh
         run: |
           $version = python -c "from autorip import __version__; print(__version__)"
           .\tools\smoke_windows_installer.ps1 -SetupPath Output\AutoRIP_Setup.exe -ExpectedVersion $version -ExercisePortFallback

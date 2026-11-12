@@ -12,12 +12,19 @@ assert latest['id']==r['id'] and r['tag_name']==tag
 remote=subprocess.check_output(['git','ls-remote','origin',f'refs/tags/{tag}^{{}}'],text=True).split()[0]
 assert remote==expected
 assets={a['name']:a for a in r['assets']}
-assert set(assets)=={'AutoRIP.exe','AutoRIP_Setup.exe','SHA256SUMS.txt'}
+assert set(assets)=={'AutoRIP.exe','PrintExpAgent.exe','AutoRIP_Setup.exe','SHA256SUMS.txt'}
 folder=Path('/workspace/autorip-review/campaign100-2026-11-12/release-v0.8.25')
 folder.mkdir(exist_ok=True)
 subprocess.run(['gh','release','download',tag,'--repo',repo,'--dir',str(folder),'--clobber'],check=True)
-manifest={name:sha for sha,name in [line.split() for line in (folder/'SHA256SUMS.txt').read_text().splitlines() if line.strip()]}
-assert set(manifest)=={'AutoRIP.exe','AutoRIP_Setup.exe'}
+manifest={}
+for line in (folder/'SHA256SUMS.txt').read_text().splitlines():
+ if not line.strip():continue
+ sha,name=line.split(maxsplit=1)
+ name=name.replace('\\','/').rsplit('/',1)[-1]
+ assert name not in manifest, 'Duplicate manifest asset'
+ assert len(sha)==64 and all(c in '0123456789abcdef' for c in sha), 'Invalid SHA256'
+ manifest[name]=sha
+assert set(manifest)=={'AutoRIP.exe','PrintExpAgent.exe','AutoRIP_Setup.exe'}
 verified=[]
 for name,a in assets.items():
  path=folder/name
