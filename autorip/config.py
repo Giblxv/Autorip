@@ -33,6 +33,8 @@ class Settings:
     white_fill_holes_mm: float = 0.30
     white_planes: list = field(default_factory=lambda: [4])
     offline_mode: bool = True
+    printexp_host: str = ""
+    printexp_port: int = 9100
     # Marca e aparencia
     brand_name: str = "AutoRIP"
     brand_logo: str = ""
@@ -94,6 +96,13 @@ class Settings:
                 raise ValueError(f"Configuracao invalida: {name} precisa ser verdadeiro ou falso.")
 
         number("dpi_x", 72, 9600, integer=True)
+        from .printexp_network import validate_endpoint
+        if self.printexp_host:
+            validate_endpoint(self.printexp_host, self.printexp_port)
+        elif type(self.printexp_host) is not str:
+            raise ValueError("O IPv4 PrintExp precisa ser texto.")
+        if type(self.printexp_port) is not int or not 1 <= self.printexp_port <= 65535:
+            raise ValueError("A porta PrintExp precisa estar entre 1 e 65535.")
         number("dpi_y", 72, 9600, integer=True)
         number("intent", 0, 3, integer=True)
         number("margin_top_in", 0, 10)

@@ -6,7 +6,7 @@ pyinstaller --noconfirm --clean --onefile --name AutoRIP --distpath dist\AutoRIP
 if exist "agent\print_agent.py" (
   echo Compilando PrintExpAgent.exe...
   if exist "agent\requirements.txt" python -m pip install -r agent\requirements.txt || goto :err
-  pyinstaller --noconfirm --clean --onefile --name PrintExpAgent --distpath dist\PrintExpAgent --workpath build\pyinstaller-agent --noconsole agent\print_agent.py || goto :err
+  pyinstaller --noconfirm --clean --onefile --name PrintExpAgent --paths . --distpath dist\PrintExpAgent --workpath build\pyinstaller-agent --noconsole agent\print_agent.py || goto :err
 ) else (
   echo AVISO: agent\print_agent.py nao encontrado; o instalador sera gerado sem o agente.
 )

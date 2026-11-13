@@ -193,6 +193,43 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
    let requests=0;page.on('request',r=>{if(/^\/api\/(state|prints|hot-files)$/.test(new URL(r.url()).pathname))requests++});
    await page.evaluate(async()=>{__setPageHidden(true);__setPageHidden(false);await Promise.all([poll(),pollPrints(),pollHotFiles()])});assert.equal(requests,0);assert.equal(await page.evaluate(()=>__activeIntervals.size),0);return{requestsAfterShutdown:requests,intervalsAfterShutdown:0};
   },{livePolling:true});
+  if(!baseline){
+   const openNetwork=async page=>{await page.evaluate(()=>openCfg());await page.locator('#discoverPrintExp').waitFor()};
+   await test('IPv4 discovery fills a single candidate without silently saving',async page=>{
+    let saves=0;await page.route('**/api/settings',async route=>{if(route.request().method()==='POST')saves++;await route.continue()});
+    await page.route('**/api/printexp/discover',r=>r.fulfill({json:{receivers:[{name:'Receiver',host:'192.168.0.215',port:9100}]}}));
+    await page.route('**/api/printexp/check',r=>r.fulfill({json:{reachable:true,message:'Conexão TCP estabelecida'}}));
+    await openNetwork(page);await page.locator('#discoverPrintExp').click();await page.waitForFunction(()=>document.querySelector('#f_printexp_host').value==='192.168.0.215');
+    assert.equal(await page.locator('#f_printexp_port').inputValue(),'9100');assert.equal(saves,0);
+    await page.waitForFunction(()=>!document.querySelector('#discoverPrintExp').disabled);
+    await page.locator('#discoverPrintExp').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(output,'printexp-ipv4-desktop.png')});
+   });
+   await test('multiple IPv4 candidates require selection and render labels as text',async page=>{
+    await page.route('**/api/printexp/discover',r=>r.fulfill({json:{receivers:[{name:'<img src=x onerror=alert(1)>',host:'192.168.0.20',port:9100},{name:'Other',host:'192.168.0.21',port:9100}]}}));
+    await openNetwork(page);await page.locator('#f_printexp_host').fill('192.168.0.99');await page.locator('#discoverPrintExp').click();await page.waitForFunction(()=>document.querySelector('#printexpNetwork').textContent.includes('Selecione'));
+    assert.equal(await page.locator('#f_printexp_host').inputValue(),'192.168.0.99');assert.equal(await page.locator('#printexpNetwork img').count(),0);
+   });
+   await test('delayed IPv4 discovery preserves an address edited by the user',async page=>{
+    const started=deferred(),release=deferred();await page.route('**/api/printexp/discover',async route=>{started.resolve();await release.promise;await route.fulfill({json:{receivers:[{name:'Receiver',host:'192.168.0.215',port:9100}]}})});
+    await openNetwork(page);await page.locator('#discoverPrintExp').click();await started.promise;await page.locator('#f_printexp_host').fill('192.168.0.88');release.resolve();await page.waitForFunction(()=>!document.querySelector('#discoverPrintExp').disabled);
+    assert.equal(await page.locator('#f_printexp_host').inputValue(),'192.168.0.88');
+   });
+   await test('IPv4 discovery after closing settings cannot change fields',async page=>{
+    const started=deferred(),release=deferred();await page.route('**/api/printexp/discover',async route=>{started.resolve();await release.promise;await route.fulfill({json:{receivers:[{name:'Receiver',host:'192.168.0.215',port:9100}]}})});
+    await openNetwork(page);await page.locator('#f_printexp_host').fill('192.168.0.77');await page.locator('#discoverPrintExp').click();await started.promise;await page.evaluate(()=>document.querySelector('#dlg').close());release.resolve();await page.waitForTimeout(100);
+    assert.equal(await page.locator('#f_printexp_host').inputValue(),'192.168.0.77');
+   });
+   await test('empty IPv4 discovery preserves a manually configured destination',async page=>{
+    await page.route('**/api/printexp/discover',r=>r.fulfill({json:{receivers:[]}}));await openNetwork(page);
+    await page.locator('#f_printexp_host').fill('192.168.0.33');await page.locator('#discoverPrintExp').click();await page.waitForFunction(()=>!document.querySelector('#discoverPrintExp').disabled);
+    assert.equal(await page.locator('#f_printexp_host').inputValue(),'192.168.0.33');assert((await page.locator('#printexpNetwork').innerText()).includes('Nenhum agente encontrado'));
+   });
+   await test('IPv4 discovery controls fit a mobile viewport',async page=>{
+    await openNetwork(page);await page.locator('#discoverPrintExp').scrollIntoViewIfNeeded();
+    for(const id of ['discoverPrintExp','checkPrintExp']){const box=await page.locator('#'+id).boundingBox();assert(box.x>=0&&box.x+box.width<=390)}
+    await page.screenshot({path:path.join(output,'printexp-ipv4-mobile.png')});
+   },{viewport:{width:390,height:844}});
+  }
   const source=html||fs.readFileSync(path.join(__dirname,'../autorip/ui/index.html'),'utf8');const report={baseline:baseline||null,browser:browser.version(),uiSha256:crypto.createHash('sha256').update(source).digest('hex'),passed:results.every(r=>r.passed),cases:results.length,results};fs.writeFileSync(path.join(output,'browser-results.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));if(!report.passed&&!baseline)process.exitCode=1;
  }finally{if(browser)await browser.close();if(child.exitCode===null&&child.signalCode===null){const exited=new Promise(r=>child.once('exit',r));child.stdin.end(JSON.stringify({operation:'stop'})+'\n');await exited}lines.close()}
 })().catch(e=>{console.error(e);process.exit(1)});

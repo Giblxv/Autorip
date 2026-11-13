@@ -237,6 +237,7 @@ body.tab-hidden *{animation-play-state:paused!important}
  <p style="font-size:13px">Prévia de planejamento por retângulos. As artes permanecem na pasta; esta etapa não compõe nem envia um PRT.</p>
 </dialog>
 <script src="/planner.js"></script>
+<script src="/printexp-network.js"></script>
 <dialog id="qrDlg" aria-labelledby="qrTitle"><h2 id="qrTitle" style="margin-top:0">📱 Conectar celular</h2><div class="qr-layout"><p>Abra o app AutoRIP no telefone e escaneie este código.</p><img id="mobileQr" class="qr-image" alt="QR code com o endereço local do AutoRIP"><div id="mobileQrUrl" class="qr-address"></div><p id="mobileQrMessage" class="qr-note" role="status" aria-live="polite">Entre no painel para gerar um QR.</p><div class="row"><button class="c" onclick="copyMobileUrl()">Copiar endereço</button><button onclick="qrDlg.close()">Fechar</button></div><p style="font-size:13px;max-width:52ch">O QR contém apenas IP e porta. A senha do AutoRIP continua necessária e nunca é compartilhada pelo QR.</p></div></dialog>
  <dialog id="helpDlg" aria-labelledby="helpTitle"><h2 id="helpTitle" style="margin-top:0">❔ Ajuda — AutoRIP e PrintExp</h2>
   <p class="help-note"><b>AutoRIP</b> prepara a arte: lê PNG, TIFF ou JPEG, aplica o perfil ICC quando configurado, cria CMYK, base branca e o arquivo <b>.PRT</b>. <b>PrintExp</b> é o software que recebe o PRT e controla o fluxo da impressora. O <b>agente PrintExp</b> observa a pasta de saída e automatiza as ações permitidas na interface do PrintExp.</p>
@@ -443,6 +444,7 @@ const SCHEMA=[["h","Pastas e perfil"],["icc_path","Perfil ICC (caminho completo)
 ["h","Impressão"],["dpi_x","DPI horizontal","n"],["dpi_y","DPI vertical","n"],["mirror","Espelhar (DTF)","b"],["margin_top_in","Margem topo (pol)","n"],["margin_bottom_in","Margem fim (pol)","n"],["small_drop_ratio","Volume gota pequena / grande","n"],
 ["h","Branco automático"],["white_enabled","Gerar branco","b"],["white_density","Densidade do branco (0 a 1)","n"],["white_choke_mm","Recuo do branco (mm)","n"],["white_fill_holes_mm","Fechar furos (mm)","n"],["white_alpha_threshold","Alpha mínimo (0 a 1)","n"],
 ["h","Rede"],["offline_mode","Modo offline (sem internet: desliga integrações e agente)","b"],
+["h","Conexão PrintExp"],["printexp_host","IPv4 do computador PrintExp","t"],["printexp_port","Porta de trabalhos PrintExp","n"],["@printexp"],
 ["h","Marca do cliente"],["brand_name","Nome do programa","t"],["label_enabled","Etiqueta (arquivo e medidas) nas margens","b"],["watermark_opacity","Opacidade da marca d'água (0 a 1)","n"],["@logo"],["@wm"],
 ["h","Integrações de pedidos"],["webhook_url","Webhook (URL, recebe JSON ao concluir)","t",1],["trello_key","Trello — API key","p"],["trello_token","Trello — token","p"],["trello_in_list","Trello — ID da lista de ENTRADA (anexos viram arte)","t"],["trello_out_list","Trello — ID da lista de PRONTOS","t"],["notion_token","Notion — token","p"],["notion_db","Notion — ID do banco (título: Name)","t"],["jira_url","Jira — URL (https://empresa.atlassian.net)","t"],["jira_email","Jira — e-mail","t"],["jira_token","Jira — API token","p"],["jira_project","Jira — chave do projeto","t"],
 ["h","Agente de IA"],["anthropic_key","Chave da API Anthropic","p",1],["anthropic_model","Modelo","t"],
@@ -454,6 +456,7 @@ async function doLogin(){let r;if(hasPass)r=await api("/api/login",{method:"POST
  if(r.stale)return;if(r.ok){lockPanel();token=r.d.token;showCfg();poll(true);pollPrints(true);pollHotFiles(true)}else $("lmsg").textContent=r.d.error}
 async function showCfg(){const request=++cfgRequest,r=await api("/api/settings");if(r.stale||request!==cfgRequest||!$("dlg").open)return;const {ok,d}=r;if(!ok){actionFailed(r,"Não foi possível carregar as configurações.");return}$("loginBox").style.display="none";$("cfgBox").style.display="";
  const g=$("grid");g.replaceChildren();window._cfg=d;SCHEMA.forEach(f=>{if(f[0]==="h"){const h=document.createElement("h3");h.textContent=f[1];g.appendChild(h);return}
+  if(f[0]==="@printexp"){renderPrintExpNetwork(g,request);return}
   if(f[0]==="@logo"||f[0]==="@wm"){const label=document.createElement("label");label.appendChild(document.createTextNode(f[0]==="@logo"?"Logo da marca (PNG)":"Marca d'água (PNG)"));const file=document.createElement("input");file.type="file";file.accept="image/*";file.addEventListener("change",()=>upImg(f[0]==="@logo"?"logo":"watermark",file));label.appendChild(file);g.appendChild(label);return}
   const [k,lab,t,full]=f,label=document.createElement("label"),input=document.createElement("input");if(full)label.classList.add("full");input.id="f_"+k;
   if(t==="b"){input.type="checkbox";input.checked=Boolean(d[k]);label.append(input,document.createTextNode(" "+lab))}

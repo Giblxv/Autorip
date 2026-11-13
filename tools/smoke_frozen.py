@@ -83,6 +83,12 @@ def smoke(executable, expected_version):
                 if state.get("version") != expected_version:
                     raise RuntimeError(f"Versao do executavel inesperada: {state.get('version')}")
                 token = api("/api/setpass", {"new": "Smoke-test-only-123"})["token"]
+                network = api('/api/printexp/network')
+                if not isinstance(network.get('local_ipv4s'), list):
+                    raise RuntimeError('Consulta IPv4 ausente do pacote')
+                with urlopen(base + '/printexp-network.js', timeout=10) as response:
+                    if b'renderPrintExpNetwork' not in response.read():
+                        raise RuntimeError('JavaScript de configuração IPv4 ausente do pacote')
                 artwork = Image.new("RGBA", (72, 72), (20, 140, 210, 255))
                 alpha = Image.new("L", artwork.size)
                 alpha.putdata([x * 255 // 71 for _ in range(72) for x in range(72)])

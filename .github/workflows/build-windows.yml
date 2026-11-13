@@ -76,6 +76,16 @@ jobs:
       - name: Build one-file executables and installer
         run: .\build_windows.bat
 
+      - name: Smoke test IPv4 discovery dependencies in packaged agent
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP 'autorip-agent-network.json'
+          $process = Start-Process -FilePath 'dist\PrintExpAgent\PrintExpAgent.exe' -ArgumentList @('--network-info', ('"{0}"' -f $report)) -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Falha ao consultar IPv4 no agente empacotado.' }
+          $data = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          if ($null -eq $data.PSObject.Properties['local_ipv4s']) { throw 'Relatorio IPv4 ausente.' }
+          if (-not $data.discovery_library) { throw 'Biblioteca de descoberta ausente do pacote.' }
+
       - name: Smoke test do executavel empacotado
         shell: pwsh
         run: |

@@ -17,7 +17,7 @@ from .watcher import EXTS, _signature, _stable_files
 from .paths import (ProcessLock, safe_filename, move_unique, next_available_path,
                     read_archive_marker, remove_archive_marker, write_archive_marker,
                     file_sha256, find_marked_output, source_signature_matches, write_json_atomic)
-from . import integrations, agent, updater
+from . import integrations, agent, updater, printexp_network
 from PIL import ImageDraw, ImageOps
 from .imaging import Image
 import segno
@@ -219,6 +219,7 @@ class App:
         self.lock = threading.RLock()
         self.settings_lock = threading.RLock()
         self.print_lock = threading.Lock()
+        self.printexp_network_lock = threading.Lock()
         self.print_catalog = PrintCatalog()
         self._outbox_counter = integrations.OutboxCounter()
         self.upload_lock = threading.Lock()
@@ -1479,8 +1480,8 @@ class H(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
-        if u.path == "/planner.js":
-            with open(res_path("ui", "planner.js"), "rb") as source:
+        if u.path in ("/planner.js", "/printexp-network.js"):
+            with open(res_path("ui", u.path[1:]), "rb") as source:
                 return self._send(200, source.read(), "application/javascript; charset=utf-8")
         mobile_qr_assets = {
             "/mobile-android-qr.png": "mobile-android-qr.png",
@@ -1564,6 +1565,12 @@ class H(BaseHTTPRequestHandler):
             return self._send(404, {})
         if u.path == "/api/settings":
             return self._send(200, self._settings_public()) if self._auth() else self._send(401, {"error": "login"})
+        if u.path == "/api/printexp/network":
+            if not self._auth(): return self._send(401, {"error": "login"})
+            try:
+                return self._send(200, {"local_ipv4s": printexp_network.local_ipv4s()})
+            except OSError:
+                return self._send(503, {"error": "Consulta de IPv4 indisponível; use configuração manual."})
         if u.path == "/api/mobile/qr":
             if not self._auth():
                 return self._send(401, {"error": "login"})
@@ -1582,6 +1589,17 @@ class H(BaseHTTPRequestHandler):
         if not self._origin_allowed():
             return self._send(403, {"error": "origem da requisicao nao autorizada"})
         try:
+            if u.path in ("/api/printexp/discover", "/api/printexp/check"):
+                if not self._auth(): return self._send(401, {"error": "login"})
+                data = self._json(max_bytes=2048)
+                if not APP.printexp_network_lock.acquire(blocking=False):
+                    return self._send(429, {"error": "Uma verificação de rede está em andamento; aguarde."})
+                try:
+                    if u.path.endswith("/discover"):
+                        return self._send(200, {"receivers": printexp_network.discover_receivers()})
+                    return self._send(200, printexp_network.check_connection(data.get("host"), data.get("port")))
+                finally:
+                    APP.printexp_network_lock.release()
             if u.path == "/api/layout/plan":
                 if not self._auth(): return self._send(401, {"error": "login"})
                 if not APP._layout_lock.acquire(blocking=False):
