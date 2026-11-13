@@ -9,8 +9,11 @@ O AutoRIP atual gera arquivos PRT e mantém uma fila de arquivos. Ele ainda não
 implementa um cliente TCP de recepção do PrintExp nem o protocolo da controladora.
 O usuário informou que sua instalação do PrintExp aceita TCP. As imagens
 fornecidas em 13/11/2026 mostram a versão `5.7.6.5.122.R.BS`, TCP selecionado,
-IP local `192.168.0.215` e destino exibido `192.168.127.10:5001`. A porta de
-entrada dos trabalhos de outro RIP ainda precisa ser identificada.
+IP local `192.168.0.215` e destino exibido `192.168.127.10:5001`. A imagem
+seguinte mostra o FlexiPRINT MiniTX F-PRINT Edition com `TCP/IP` e destino
+`192.168.127.11:9100` na janela Mudar porta. Esse é o endereço candidato para
+receber os trabalhos; ainda faltam confirmar a aplicação da configuração,
+o resultado do teste/envio e o processo receptor.
 
 Os campos Server IP/port aparecem acinzentados e os valores coincidem com a
 comunicação da placa na distribuição de referência abaixo. Portanto, o envio
@@ -41,9 +44,11 @@ O endereço de loopback também não prova que o receptor esteja exposto à LAN.
 ## Dados necessários e validação
 
 - IP do computador que executa o receptor PrintExp/NWReceive, identificado
-  separadamente do IP da placa da impressora.
-- Porta e modalidade de recepção/saída configuradas no PrintExp/FlexiPrint;
-  a versão PrintExp mostrada pelo usuário já está registrada no plano.
+  separadamente do IP da placa da impressora; confirmar o papel de
+  `192.168.127.11` e a interface local mostrada como `192.168.0.215`.
+- Confirmar que a configuração FlexiPrint `TCP/IP → 192.168.127.11:9100`
+  foi aplicada e funciona; a versão PrintExp e os valores exibidos já estão
+  registrados no plano.
 - Protocolo documentado/SDK ou exemplo autorizado da troca entre FlexiPrint e
   PrintExp: abertura do trabalho, tamanho/nome, dados, confirmações e encerramento.
 - Um PRT de teste já aceito pela mesma versão do PrintExp, para separar problemas
@@ -80,6 +85,25 @@ o papel desse destino. O listener que recebe os trabalhos pode pertencer a
 outro executável: se não houver resultado, confira o nome do receptor instalado.
 Essas consultas apenas leem o estado do Windows; não enviam arquivos nem mudam
 IP, porta, firmware ou parâmetros da impressora.
+
+Para identificar especificamente o dono da porta candidata, execute no
+computador que possui o endereço `192.168.127.11`:
+
+```powershell
+Get-NetTCPConnection -State Listen -LocalPort 9100 | ForEach-Object {
+    $connection = $_
+    [pscustomobject]@{
+        LocalAddress = $connection.LocalAddress
+        LocalPort = $connection.LocalPort
+        ProcessId = $connection.OwningProcess
+        ProcessName = (Get-Process -Id $connection.OwningProcess).ProcessName
+    }
+}
+```
+
+O comando consulta a máquina em que é executado; não interroga outro computador
+da rede. Se o destino for outro equipamento, essa consulta local não resolve a
+identidade remota. Registrar também o resultado de Testar no FlexiPrint.
 
 Use o IP da interface conectada à mesma rede do computador que enviará os
 arquivos. `0.0.0.0` e `::` são endereços de escuta, não o IP a configurar no

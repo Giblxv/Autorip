@@ -16,7 +16,7 @@ O [levantamento TCP existente](PRINTEXP-TCP.md) distingue a comunicação com a 
 
 ### Instalação mostrada nas imagens do usuário
 
-As duas telas fornecidas em 13/11/2026 mostram:
+As telas do PrintExp e a janela de porta do FlexiPrint fornecidas em 13/11/2026 mostram:
 
 | Campo | Valor observado | Alcance da evidência |
 | --- | --- | --- |
@@ -27,12 +27,19 @@ As duas telas fornecidas em 13/11/2026 mostram:
 | Ethernet | `Ethernet` | Adaptador selecionado na interface |
 | Local IP | `192.168.0.215` | Endereço local exibido, a confirmar no sistema operacional |
 | Server IP / Server port | `192.168.127.10:5001` | Valores exibidos em campos acinzentados; não demonstram um listener para trabalhos de outro RIP |
+| Aplicativo de origem | `FlexiPRINT MiniTX F-PRINT Edition` | Edição mostrada no título; build numérico ainda não informado |
+| Porta na janela Mudar porta | `TCP/IP` | Modalidade selecionada na janela de configuração |
+| Endereço TCP/IP e Número da Porta | `192.168.127.11:9100` | Destino mostrado pelo FlexiPrint; aplicação da mudança, teste e recepção ainda não confirmados |
 
 O destino e a porta coincidem com a seção de comunicação da placa na distribuição pública de referência. Isso sustenta a hipótese de comunicação PrintExp → controladora; a função efetiva e a conexão ativa devem ser confirmadas no computador. A indicação visual `Device Ready` não é uma verificação de rede realizada neste estudo. Endereços de sub-redes diferentes podem envolver máscaras, rotas ou interfaces adicionais não mostradas.
 
 O [registro estruturado da observação](research/rip-study-2026-11-13/printexp-installation.json) separa dados visíveis e inferências. O plano não atribui automaticamente `5001` ao envio AutoRIP → PrintExp.
 
-Dados ainda pendentes: processo e endereço/porta de escuta que recebem os trabalhos; modo de saída configurado no FlexiPrint; confirmação do papel da conexão da placa; um PRT aceito e uma troca de referência ou especificação/SDK do receptor. A versão do software e o modo TCP da tela já foram identificados visualmente e não precisam ser solicitados novamente.
+O destino candidato para o adaptador de trabalhos passa a ser `192.168.127.11:9100`. Ele é diferente do destino `192.168.127.10:5001` mostrado no PrintExp. Falta confirmar qual computador ou processo atende em `.11:9100` e se esse endereço pertence ao computador PrintExp, eventualmente em outra interface. O IP local `.0.215` mostrado anteriormente não permite resolver essa identidade sozinho.
+
+A janela Mudar porta ainda está aberta, com botões Aplicar/OK/Testar. Há também uma aba ao fundo com sufixo `@FILE:`; a imagem não prova que ela represente a mesma configuração editada. Portanto, o estudo registra o destino exibido, mantendo a aplicação efetiva e o resultado do envio como pendentes. A porta `9100` por si só não demonstra envio de PRT bruto, handshake ou confirmação de impressão.
+
+Dados ainda pendentes: confirmação de que o FlexiPrint já usa esse destino com sucesso ou resultado do botão Testar; processo e endereço de escuta em `.11:9100`; confirmação do papel da conexão da placa; um PRT aceito e uma troca de referência ou especificação/SDK do receptor. A versão PrintExp, a edição FlexiPrint e os valores de rede exibidos já foram registrados e não precisam ser solicitados novamente.
 
 ## Arquitetura proposta
 

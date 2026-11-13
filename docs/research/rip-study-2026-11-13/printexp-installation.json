@@ -1,6 +1,6 @@
 {
   "observed_date": "2026-11-13",
-  "source": "Two screenshots supplied by the user in this chat",
+  "source": "Two PrintExp screenshots and one FlexiPrint port dialog supplied by the user in this chat",
   "method": "Visual transcription; no executable, socket or device interrogation",
   "observed": {
     "software_version": "5.7.6.5.122.R.BS",
@@ -13,20 +13,35 @@
     "server_ip_displayed": "192.168.127.10",
     "server_port_displayed": 5001,
     "server_fields_appear_disabled": true,
-    "status_label": "Device Ready"
+    "status_label": "Device Ready",
+    "flexiprint": {
+      "edition_title": "FlexiPRINT MiniTX F-PRINT Edition",
+      "dialog_title": "Mudar porta",
+      "port_type_displayed": "TCP/IP",
+      "destination_ip_displayed": "192.168.127.11",
+      "destination_port_displayed": 9100,
+      "dialog_still_open": true,
+      "background_setup_label_contains_file_suffix": true,
+      "background_setup_is_same_as_edited_target": null,
+      "configuration_applied": null,
+      "connection_test_succeeded": null,
+      "successful_job_delivery_reported": null
+    }
   },
   "interpretation": {
     "probable_link_role": "PrintExp to printer controller; matches COMM_CONFIG reference values",
     "link_role_verified_on_host": false,
     "rip_receiver_listener_identified": false,
+    "rip_output_destination_observed": true,
     "native_job_protocol_identified": false,
     "network_connectivity_tested": false,
     "file_sent": false,
     "channel_mapping_inferred_from_firmware_name": false
   },
   "pending": [
-    "Actual PrintExp/NWReceive listening process, address and port for receiving RIP jobs",
-    "FlexiPrint output connection mode and destination",
+    "Confirmation that the displayed FlexiPrint configuration is applied and works",
+    "Actual listening process and host role for 192.168.127.11:9100",
+    "Relationship between the PrintExp displayed local IP and the FlexiPrint destination host",
     "An accepted PRT and job exchange reference or protocol specification"
   ]
 }
