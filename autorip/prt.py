@@ -12,6 +12,15 @@ HEADER_SIZE = 48
 MAGIC = 0x5555
 MAX_CHANNELS = 12
 
+# 256 entradas × 4 níveis: descompactação de bytes PRT sem quatro
+# arrays temporários de shifts. Somente o caminho uint8 usa esta tabela.
+_UNPACK2_TABLE = np.empty((256, 4), dtype=np.uint8)
+_unpack_bytes = np.arange(256, dtype=np.uint8)
+for _column, _shift in enumerate((6, 4, 2, 0)):
+    _UNPACK2_TABLE[:, _column] = (_unpack_bytes >> _shift) & 3
+_UNPACK2_TABLE.flags.writeable = False
+del _unpack_bytes, _column, _shift
+
 
 def plane_bytes_for(n_dots: int, align: int = 32) -> int:
     if type(n_dots) is not int or n_dots <= 0:
@@ -45,7 +54,12 @@ def unpack2(b: np.ndarray, n_dots: int) -> np.ndarray:
         raise ValueError("dados compactados precisam ser uma matriz 2-D de inteiros.")
     if type(n_dots) is not int or n_dots <= 0 or n_dots > b.shape[1] * 4:
         raise ValueError("n_dots nao cabe nos bytes fornecidos.")
-    d = np.stack([(b >> 6) & 3, (b >> 4) & 3, (b >> 2) & 3, b & 3], axis=-1)
+    # PRTs reais usam uint8. np.take gera a saída em uma única operação
+    # vetorizada; para outros inteiros preserva o comportamento/dtype antigo.
+    if b.dtype == np.uint8:
+        d = np.take(_UNPACK2_TABLE, b, axis=0)
+    else:
+        d = np.stack([(b >> 6) & 3, (b >> 4) & 3, (b >> 2) & 3, b & 3], axis=-1)
     return d.reshape(b.shape[0], -1)[:, :n_dots]
 
 
