@@ -11,6 +11,7 @@ import platform
 import statistics
 import sys
 import time
+import tracemalloc
 from pathlib import Path
 
 import numpy as np
@@ -50,6 +51,18 @@ def paired(a, b, packed, n_dots, pairs):
     }
 
 
+
+def peak_memory_mib(fn, packed, n_dots):
+    """Pico das alocações rastreadas durante uma descompactação isolada."""
+    tracemalloc.start()
+    try:
+        result = fn(packed, n_dots)
+        del result
+        return round(tracemalloc.get_traced_memory()[1] / (1024 * 1024), 3)
+    finally:
+        tracemalloc.stop()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pairs", type=int, default=15)
@@ -71,6 +84,10 @@ def main():
         report["scenarios"][name] = {
             "AB": paired(baseline, unpack2, packed, n_dots, args.pairs),
             "AA_control": paired(baseline, baseline, packed, n_dots, args.pairs),
+            "tracemalloc_peak_mib": {
+                "baseline": peak_memory_mib(baseline, packed, n_dots),
+                "candidate": peak_memory_mib(unpack2, packed, n_dots),
+            },
         }
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
