@@ -1,0 +1,22 @@
+{
+  "repository_commit": "ed9ac95153aa01bb84e461e555866d21e394bf8f",
+  "real_hardware_used": false,
+  "network_connections": false,
+  "manual_review_retried": {
+    "reproduced": true,
+    "first_state": "revisao_manual",
+    "second_state": "revisao_manual",
+    "synthetic_print_requests": 2
+  },
+  "unrelated_job_confirmed": {
+    "reproduced": true,
+    "actual_current_job": "waiting",
+    "wait_confirmation_returned": true
+  },
+  "unchanged_pending_file_rehashed": {
+    "reproduced": true,
+    "cycles": 2,
+    "sha256_calls": 2
+  },
+  "scope": "Isolated SQLite/temp files and fake driver; confirms code behavior, not PrintExp compatibility"
+}

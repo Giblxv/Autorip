@@ -1,5 +1,10 @@
 # Verificação da integração TCP com PrintExp
 
+O [plano de integração](PRINTEXP-INTEGRACAO-PLANO.md), de 13/11/2026, detalha o
+agente Windows, a ponte de arquivos, o adaptador TCP nativo, os estados e os
+critérios de validação. O [estudo comparativo dos RIPs](research/RIP-COMPARATIVO.md)
+registra as referências e os achados reproduzidos no agente atual.
+
 O AutoRIP atual gera arquivos PRT e mantém uma fila de arquivos. Ele ainda não
 implementa um cliente TCP de recepção do PrintExp nem o protocolo da controladora.
 O usuário informou que sua instalação do PrintExp aceita TCP; IP, porta e versão
