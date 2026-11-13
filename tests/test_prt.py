@@ -135,3 +135,17 @@ def test_unpack2_outros_inteiros_preservam_dtype_e_semantica(dtype):
     result = unpack2(values, 13)
     assert result.dtype == dtype
     assert np.array_equal(result, expected)
+
+
+def test_unpack2_todos_256_bytes_e_layout_nao_contiguo():
+    raw = np.arange(256, dtype=np.uint8).reshape(16, 16)
+    for packed in (raw, raw[:, ::2], raw.T):
+        for padding in range(4):
+            n_dots = packed.shape[1] * 4 - padding
+            expected = np.stack(
+                [(packed >> 6) & 3, (packed >> 4) & 3,
+                 (packed >> 2) & 3, packed & 3], axis=-1
+            ).reshape(packed.shape[0], -1)[:, :n_dots]
+            result = unpack2(packed, n_dots)
+            assert result.dtype == np.uint8
+            assert np.array_equal(result, expected)
