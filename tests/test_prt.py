@@ -104,3 +104,34 @@ def test_rip_nao_publica_arquivo_se_fsync_falhar(tmp_path, sample_png, monkeypat
             str(sample_png), str(result), width_cm=2.54)
     assert not result.exists()
     assert not list(tmp_path.glob("*.part"))
+
+
+@pytest.mark.parametrize("rows,packed_width", [(1, 1), (7, 8), (23, 1424)])
+def test_unpack2_uint8_tabela_preserva_niveis_e_padding(rows, packed_width):
+    """Todos os bytes, alinhamentos e cortes mantêm a ordem exata dos 2 bits."""
+    rng = np.random.default_rng(rows * 10000 + packed_width)
+    raw = rng.integers(0, 256, (rows, packed_width), dtype=np.uint8)
+    # Acesso ao memmap da leitura PRT pode entregar matrizes com strides.
+    for packed in (raw, raw[:, ::2]):
+        for padding in (0, 1, 2, 3):
+            dots = packed.shape[1] * 4 - padding
+            reference = np.stack(
+                [(packed >> 6) & 3, (packed >> 4) & 3,
+                 (packed >> 2) & 3, packed & 3], axis=-1
+            ).reshape(rows, -1)[:, :dots]
+            decoded = unpack2(packed, dots)
+            assert decoded.shape == reference.shape
+            assert decoded.dtype == reference.dtype
+            assert np.array_equal(decoded, reference)
+
+
+@pytest.mark.parametrize("dtype", [np.int16, np.uint16, np.int64])
+def test_unpack2_outros_inteiros_preservam_dtype_e_semantica(dtype):
+    values = np.array([[0, 255, 170, 85], [3, 127, 15, 64]], dtype=dtype)
+    expected = np.stack(
+        [(values >> 6) & 3, (values >> 4) & 3,
+         (values >> 2) & 3, values & 3], axis=-1
+    ).reshape(2, -1)[:, :13]
+    result = unpack2(values, 13)
+    assert result.dtype == dtype
+    assert np.array_equal(result, expected)
