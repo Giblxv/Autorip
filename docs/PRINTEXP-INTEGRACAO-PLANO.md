@@ -14,7 +14,25 @@ O [levantamento TCP existente](PRINTEXP-TCP.md) distingue a comunicação com a 
 - O [Project.ini de uma distribuição de 2022](https://cncu.co.za/Other-Softwares/AM.CO.ZA%20PrintEXP%20Printer%20Control%20%26%20Alignment%20Software/PrintExp_X64_V5.7.6.5.103.BS_20220530/Project.ini) contém exemplos distintos: comunicação da placa em `5001`, configuração RIP/impressão em `9100` e interface de plataforma desabilitada com `5678/5679`. Esses números descrevem aquela distribuição; não são configuração recomendada para a instalação do usuário.
 - [`agent/print_agent.py`](../agent/print_agent.py) já contém observação da pasta de saída, SQLite e UI Automation. Ainda não há transporte de trabalhos pela rede nem confirmação confiável vinculada ao trabalho atual.
 
-Dados pendentes: versão/build e modo do PrintExp; processo receptor, IP e porta reais; modo de saída configurado no FlexiPrint; identificação separada do endereço da controladora; um PRT aceito e uma troca de referência ou especificação/SDK do receptor. O usuário já informou que existe recepção TCP em sua instalação; os detalhes não foram presumidos.
+### Instalação mostrada nas imagens do usuário
+
+As duas telas fornecidas em 13/11/2026 mostram:
+
+| Campo | Valor observado | Alcance da evidência |
+| --- | --- | --- |
+| Software Version | `5.7.6.5.122.R.BS` | Versão da interface PrintExp/Hosonsoft apresentada |
+| MB Program Version | `5.7.6.5.65.R.BS` | Versão de programa da placa apresentada |
+| Firmware Configure/Parameter Info | `EPSON-2H4C_DTF+W_D4-5.7.6.5.65_20221102` | Identificador exibido; não estabelece sozinho o mapeamento de canais do PRT |
+| Communication set | `TCP` selecionado | Modo da tela Net Setting; a modalidade de recepção de trabalhos ainda precisa ser identificada |
+| Ethernet | `Ethernet` | Adaptador selecionado na interface |
+| Local IP | `192.168.0.215` | Endereço local exibido, a confirmar no sistema operacional |
+| Server IP / Server port | `192.168.127.10:5001` | Valores exibidos em campos acinzentados; não demonstram um listener para trabalhos de outro RIP |
+
+O destino e a porta coincidem com a seção de comunicação da placa na distribuição pública de referência. Isso sustenta a hipótese de comunicação PrintExp → controladora; a função efetiva e a conexão ativa devem ser confirmadas no computador. A indicação visual `Device Ready` não é uma verificação de rede realizada neste estudo. Endereços de sub-redes diferentes podem envolver máscaras, rotas ou interfaces adicionais não mostradas.
+
+O [registro estruturado da observação](research/rip-study-2026-11-13/printexp-installation.json) separa dados visíveis e inferências. O plano não atribui automaticamente `5001` ao envio AutoRIP → PrintExp.
+
+Dados ainda pendentes: processo e endereço/porta de escuta que recebem os trabalhos; modo de saída configurado no FlexiPrint; confirmação do papel da conexão da placa; um PRT aceito e uma troca de referência ou especificação/SDK do receptor. A versão do software e o modo TCP da tela já foram identificados visualmente e não precisam ser solicitados novamente.
 
 ## Arquitetura proposta
 

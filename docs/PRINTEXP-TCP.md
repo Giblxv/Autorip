@@ -7,8 +7,15 @@ registra as referências e os achados reproduzidos no agente atual.
 
 O AutoRIP atual gera arquivos PRT e mantém uma fila de arquivos. Ele ainda não
 implementa um cliente TCP de recepção do PrintExp nem o protocolo da controladora.
-O usuário informou que sua instalação do PrintExp aceita TCP; IP, porta e versão
-ainda precisam ser informados para validar a integração real.
+O usuário informou que sua instalação do PrintExp aceita TCP. As imagens
+fornecidas em 13/11/2026 mostram a versão `5.7.6.5.122.R.BS`, TCP selecionado,
+IP local `192.168.0.215` e destino exibido `192.168.127.10:5001`. A porta de
+entrada dos trabalhos de outro RIP ainda precisa ser identificada.
+
+Os campos Server IP/port aparecem acinzentados e os valores coincidem com a
+comunicação da placa na distribuição de referência abaixo. Portanto, o envio
+AutoRIP → PrintExp não deve assumir esse destino. O [plano atualizado](PRINTEXP-INTEGRACAO-PLANO.md#instalação-mostrada-nas-imagens-do-usuário)
+registra a observação e o que ainda depende de verificação no computador.
 
 ## Evidência encontrada
 
@@ -35,7 +42,8 @@ O endereço de loopback também não prova que o receptor esteja exposto à LAN.
 
 - IP do computador que executa o receptor PrintExp/NWReceive, identificado
   separadamente do IP da placa da impressora.
-- Versão do PrintExp, porta e modalidade TCP configuradas no PrintExp/FlexiPrint.
+- Porta e modalidade de recepção/saída configuradas no PrintExp/FlexiPrint;
+  a versão PrintExp mostrada pelo usuário já está registrada no plano.
 - Protocolo documentado/SDK ou exemplo autorizado da troca entre FlexiPrint e
   PrintExp: abertura do trabalho, tamanho/nome, dados, confirmações e encerramento.
 - Um PRT de teste já aceito pela mesma versão do PrintExp, para separar problemas
@@ -59,6 +67,19 @@ $printExpIds = @(Get-Process -Name 'PrintExp*', 'NWReceive*' -ErrorAction Silent
 Get-NetTCPConnection -State Listen | Where-Object { $_.OwningProcess -in $printExpIds } | Select-Object OwningProcess, LocalAddress, LocalPort
 Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' } | Select-Object InterfaceAlias, IPAddress
 ```
+
+Para distinguir uma conexão de saída para a placa de uma porta de recepção,
+consulte também as conexões estabelecidas dos mesmos processos:
+
+```powershell
+Get-NetTCPConnection -State Established | Where-Object { $_.OwningProcess -in $printExpIds } | Select-Object OwningProcess, LocalAddress, LocalPort, RemoteAddress, RemotePort
+```
+
+Uma conexão desses processos para `192.168.127.10:5001` ajudaria a confirmar
+o papel desse destino. O listener que recebe os trabalhos pode pertencer a
+outro executável: se não houver resultado, confira o nome do receptor instalado.
+Essas consultas apenas leem o estado do Windows; não enviam arquivos nem mudam
+IP, porta, firmware ou parâmetros da impressora.
 
 Use o IP da interface conectada à mesma rede do computador que enviará os
 arquivos. `0.0.0.0` e `::` são endereços de escuta, não o IP a configurar no

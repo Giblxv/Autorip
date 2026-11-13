@@ -1,0 +1,32 @@
+{
+  "observed_date": "2026-11-13",
+  "source": "Two screenshots supplied by the user in this chat",
+  "method": "Visual transcription; no executable, socket or device interrogation",
+  "observed": {
+    "software_version": "5.7.6.5.122.R.BS",
+    "mb_program_version": "5.7.6.5.65.R.BS",
+    "firmware_configure_info": "EPSON-2H4C_DTF+W_D4-5.7.6.5.65_20221102",
+    "firmware_parameter_info": "EPSON-2H4C_DTF+W_D4-5.7.6.5.65_20221102",
+    "communication_selection": "TCP",
+    "adapter_label": "Ethernet",
+    "local_ip_displayed": "192.168.0.215",
+    "server_ip_displayed": "192.168.127.10",
+    "server_port_displayed": 5001,
+    "server_fields_appear_disabled": true,
+    "status_label": "Device Ready"
+  },
+  "interpretation": {
+    "probable_link_role": "PrintExp to printer controller; matches COMM_CONFIG reference values",
+    "link_role_verified_on_host": false,
+    "rip_receiver_listener_identified": false,
+    "native_job_protocol_identified": false,
+    "network_connectivity_tested": false,
+    "file_sent": false,
+    "channel_mapping_inferred_from_firmware_name": false
+  },
+  "pending": [
+    "Actual PrintExp/NWReceive listening process, address and port for receiving RIP jobs",
+    "FlexiPrint output connection mode and destination",
+    "An accepted PRT and job exchange reference or protocol specification"
+  ]
+}
