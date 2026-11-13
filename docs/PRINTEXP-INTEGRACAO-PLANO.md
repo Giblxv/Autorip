@@ -41,6 +41,30 @@ A janela Mudar porta ainda está aberta, com botões Aplicar/OK/Testar. Há tamb
 
 Dados ainda pendentes: confirmação de que o FlexiPrint já usa esse destino com sucesso ou resultado do botão Testar; processo e endereço de escuta em `.11:9100`; confirmação do papel da conexão da placa; um PRT aceito e uma troca de referência ou especificação/SDK do receptor. A versão PrintExp, a edição FlexiPrint e os valores de rede exibidos já foram registrados e não precisam ser solicitados novamente.
 
+### Uso em dois computadores na mesma LAN
+
+O usuário informou a orientação recebida da SAi: quando FlexiPRINT e PrintEXP estão em computadores diferentes, substituir `127.0.0.1` pelo IPv4 da rede local do computador que executa o PrintEXP, obtido com `ipconfig`. Trata-se de informação de suporte relatada pelo usuário; a conversa original com a SAi não foi consultada independentemente.
+
+`127.0.0.1` representa o próprio computador que inicia a conexão. Para a implantação prevista:
+
+| Máquina | Função | Configuração de destino |
+| --- | --- | --- |
+| Computador A | AutoRIP prepara o arquivo e, após implementação e validação do adaptador, o envia | Host configurável: IPv4 alcançável do computador B; porta de trabalhos observada: `9100` |
+| Computador B | PrintExp e seu receptor recebem o trabalho e operam a impressora | Receptor deve atender na interface acessível a A; comunicação B → placa permanece separada |
+
+Exemplo condicionado à confirmação por `ipconfig`: se a interface do computador B ligada à mesma rede do computador A tiver IPv4 `192.168.0.215`, o destino de trabalhos será `192.168.0.215:9100`. O valor `.127.11` da imagem só deve ser usado se for o endereço alcançável de B nessa implantação. O endereço `.127.10:5001` continua associado à hipótese de comunicação com a placa.
+
+Um computador PrintExp pode possuir uma interface para a rede da empresa e outra para a impressora. Selecionar a interface compartilhada pelos dois computadores; a tela da impressora não define sozinha esse destino. O plano prevê configuração por destino, sem endereços fixos no código, e prefere endereço estável ou reserva DHCP para a máquina receptora.
+
+Antes de transmitir um trabalho, consultar no computador A:
+
+```powershell
+# Use o IPv4 real do computador B; este é apenas o exemplo condicionado acima.
+Test-NetConnection -ComputerName 192.168.0.215 -Port 9100
+```
+
+Verificar `TcpTestSucceeded`; o resultado verifica alcançabilidade naquele momento, não o protocolo ou a aceitação de um PRT. Caso falhe, conferir receptor, interface de escuta e regra específica de firewall da rede local. A orientação da SAi esclarece o endereçamento entre máquinas; o contrato de transmissão nativo ainda precisa de confirmação.
+
 ## Arquitetura proposta
 
 ```mermaid

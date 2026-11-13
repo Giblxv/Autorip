@@ -38,6 +38,17 @@
     "file_sent": false,
     "channel_mapping_inferred_from_firmware_name": false
   },
+  "deployment": {
+    "user_intends_two_computers": true,
+    "support_guidance_source": "SAi recommendation quoted by the user; original support exchange not independently consulted",
+    "support_guidance": "When FlexiPRINT and PrintEXP run on separate computers on the same LAN, replace 127.0.0.1 with the LAN IPv4 of the computer running PrintEXP, obtained through ipconfig",
+    "planned_autorip_destination_host": "Configurable reachable LAN IPv4 of the PrintExp computer",
+    "observed_job_port": 9100,
+    "actual_shared_lan_receiver_ipv4_confirmed_by_ipconfig": null,
+    "conditional_example_if_receiver_ipv4_is_confirmed": "192.168.0.215:9100",
+    "loopback_only_reaches_sender_computer": true,
+    "no_native_sender_implemented_by_this_documentation_change": true
+  },
   "pending": [
     "Confirmation that the displayed FlexiPrint configuration is applied and works",
     "Actual listening process and host role for 192.168.127.11:9100",

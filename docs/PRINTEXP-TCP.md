@@ -20,6 +20,20 @@ comunicação da placa na distribuição de referência abaixo. Portanto, o envi
 AutoRIP → PrintExp não deve assumir esse destino. O [plano atualizado](PRINTEXP-INTEGRACAO-PLANO.md#instalação-mostrada-nas-imagens-do-usuário)
 registra a observação e o que ainda depende de verificação no computador.
 
+## Dois computadores
+
+Segundo a orientação da SAi repassada pelo usuário, substituir `127.0.0.1`
+pelo IPv4 do computador PrintExp na rede compartilhada. O loopback se refere
+à própria máquina de origem, portanto não alcança o PrintExp de outra máquina.
+Usar `ipconfig` no computador receptor e escolher a interface da mesma LAN do
+AutoRIP/FlexiPrint. Manter a porta `9100` observada para os trabalhos, sujeita
+à confirmação do receptor instalado.
+
+Se o `ipconfig` confirmar que essa interface é `192.168.0.215`, o destino será
+`192.168.0.215:9100`. `192.168.127.11` só serve se for o IP alcançável do receptor;
+não é um endereço universal. A configuração da placa em `.127.10:5001` é uma
+comunicação separada. Veja a [implantação em duas máquinas](PRINTEXP-INTEGRACAO-PLANO.md#uso-em-dois-computadores-na-mesma-lan).
+
 ## Evidência encontrada
 
 O [guia da Ricoma](https://support.ricoma.com/hc/en-us/articles/40213625226771-DTF-Aire-PrintExp-Hosonsoft-Software-Installation)
