@@ -1,0 +1,138 @@
+"""Session-independent, bounded supervisor for the authorized campaign."""
+from datetime import datetime, timezone
+import json
+import hashlib
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import time
+
+if not __debug__:
+    raise RuntimeError('Run campaign safety checks without Python -O')
+
+ROOT=Path('/workspace/Autorip-campaign101')
+REVIEW=Path('/workspace/autorip-review/campaign100-2026-11-13')
+PYTHON='/workspace/Autorip/.venv/bin/python'
+DEADLINE='2026-11-13T22:00:00-03:00'
+TARGET=100
+BRANCH='perf/campaign-100-2026-11-13'
+cancelled=False
+
+def utc():
+    return datetime.now(timezone.utc).isoformat()
+
+def write(path,value):
+    temporary=path.with_suffix(path.suffix+'.tmp')
+    temporary.write_text(json.dumps(value,indent=2)+'\n')
+    temporary.replace(path)
+
+def cancel(*_):
+    global cancelled
+    cancelled=True
+
+def progress():
+    value=dict(consecutive_without_gain=state.get('initial_without_gain',0),last_completed_round=0)
+    try:value.update(json.loads((REVIEW/'rip/status.json').read_text()))
+    except (FileNotFoundError,json.JSONDecodeError):pass
+    try:
+        with (REVIEW/'rip.log').open('rb') as stream:
+            stream.seek(0,2);end=stream.tell();stream.seek(max(0,end-65536))
+            lines=stream.read().decode(errors='replace').splitlines()
+        for line in reversed(lines):
+            try:record=json.loads(line)
+            except (ValueError,TypeError):continue
+            if 'consecutive_without_gain' in record:
+                value.update(last_completed_round=record.get('round'),
+                             consecutive_without_gain=record['consecutive_without_gain'])
+                break
+    except FileNotFoundError:pass
+    return value
+
+def supervise(command,log,deadline=None):
+    child=subprocess.Popen(command,cwd=ROOT,stdout=log,stderr=subprocess.STDOUT,
+                           stdin=subprocess.DEVNULL,start_new_session=True)
+    state.update(child_pid=child.pid)
+    last=0; sent=None
+    while child.poll() is None:
+        now=time.time()
+        if now-last>=15:
+            state.update(updated_at_utc=utc(),progress=progress())
+            write(REVIEW/'status.json',state);last=now
+        if (cancelled or (deadline is not None and now>=deadline+5)) and sent is None:
+            state['external_interrupt']='signal-interruption' if cancelled else 'deadline-watchdog'
+            try:os.killpg(child.pid,signal.SIGINT)
+            except ProcessLookupError:pass
+            sent=now
+        elif sent is not None and now-sent>=10:
+            try:os.killpg(child.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+        time.sleep(2)
+    return child.returncode
+
+
+if __name__=='__main__':
+    sys.path.insert(0,str(ROOT))
+    from autorip.paths import ProcessLock
+    signal.signal(signal.SIGTERM,cancel)
+    signal.signal(signal.SIGINT,cancel)
+    lock=ProcessLock(str(REVIEW/'runner.lock')).acquire()
+    state=dict(pid=os.getpid(),phase='starting',started_at_utc=utc(),updated_at_utc=utc(),
+               requested_at_utc='2026-11-12T14:04:15+00:00',deadline=DEADLINE,
+               required_without_gain=TARGET,branch=BRANCH,worktree=str(ROOT))
+    try:
+        actual=subprocess.check_output(['git','branch','--show-current'],cwd=ROOT,text=True).strip()
+        assert actual==BRANCH
+        setup=(REVIEW/'setup-commit.txt').read_text().strip()
+        framework=REVIEW/'framework-head.txt'
+        expected=framework.read_text().strip() if framework.exists() else setup
+        if '--finalize-only' not in sys.argv:
+            assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()==expected
+        state.update(setup_commit=setup)
+        meta=json.loads((REVIEW/'campaign.json').read_text())
+        state['prefix_accepted_gains']=sum(x['accepted'] for x in meta['prefix_rounds'])
+        state['initial_without_gain']=meta['initial_rip_without_gain']
+        write(REVIEW/'status.json',state)
+        if '--finalize-only' not in sys.argv:
+            command=['taskset','-c','0-3',PYTHON,'benchmarks/rip_campaign.py',
+                     '--suite','large-io-v3','--candidate-family','all-tuning',
+                     '--baseline-ref',setup,'--avoid-history','benchmarks/campaign_runs',
+                     '--work-dir',str(REVIEW/'rip'),'--icc',
+                     '/workspace/Autorip/Sublinks_DTF_E602 LM720x2400 8Pass .icc',
+                     '--rounds-without-gain',str(TARGET),'--repeats','15',
+                     '--initial-without-gain',str(meta['initial_rip_without_gain']),
+                     '--deadline',DEADLINE,'--exclude','writer-identity-cache','edt-hypot','halftone-multiply',
+                     'subpixel-morph','halftone-full',
+                     '--apply','--validate-accept','--initial-safety','--freeze-inputs']
+            if '--resume' in sys.argv:command.append('--resume')
+            write(REVIEW/'command.json',command)
+            state['phase']='searching'
+            with (REVIEW/'rip.log').open('a') as output:
+                code=supervise(command,output,datetime.fromisoformat(DEADLINE).timestamp())
+            state.update(search_exit_code=code,search_stopped_at_utc=utc())
+            write(REVIEW/'status.json',state)
+            if cancelled:raise InterruptedError('Campaign cancelled; safe checkpoint retained')
+            report=json.loads((REVIEW/'rip/report.json').read_text())
+            criterion=report.get('stop_reason') in ('deadline','consecutive-without-gain')
+            if not criterion and not (state.get('external_interrupt')=='deadline-watchdog'):
+                raise RuntimeError('Search stopped without reaching a criterion; incomplete rounds/errors do not count')
+            if code!=0 and state.get('external_interrupt')!='deadline-watchdog':
+                raise RuntimeError(f'Search failed (exit {code}); inspect rip.log; no convergence claimed')
+        state.update(phase='verifying-and-publishing',updated_at_utc=utc())
+        write(REVIEW/'status.json',state)
+        with (REVIEW/'finalize.log').open('a') as output:
+            code=supervise([PYTHON,str(REVIEW/'finalize.py')],output)
+        if code!=0:raise RuntimeError(f'Final checks/publication blocked (exit {code}); inspect finalize.log')
+        result=json.loads((REVIEW/'result.json').read_text())
+        assert result['verified'] and result['published']
+        state.update(phase='complete',result=result,updated_at_utc=utc())
+    except BaseException as error:
+        state.update(phase='cancelled' if cancelled else 'blocked',error=f'{type(error).__name__}: {error}',
+                     updated_at_utc=utc())
+        print(state['error'],flush=True)
+    finally:
+        write(REVIEW/'status.json',state)
+        lock.release()
+    if state['phase']!='complete':
+        sys.exit(1)
