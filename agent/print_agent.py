@@ -11,9 +11,14 @@ import sqlite3
 import subprocess
 import sys
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+if not __package__ and not getattr(sys, 'frozen', False):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from autorip.printexp_network import advertise_receiver, local_ipv4s
 
 try:
     import portalocker
@@ -44,6 +49,8 @@ class Config:
     log_file: Path
     auto_print: bool = False
     dry_run: bool = False
+    network_discovery: bool = True
+    printexp_port: int = 9100
     poll_seconds: float = DEFAULT_POLL_SECONDS
     stable_seconds: float = DEFAULT_STABLE_SECONDS
     confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT
@@ -92,6 +99,8 @@ class Config:
             log_file=log_file,
             auto_print=bool(raw.get("auto_print", False)),
             dry_run=bool(raw.get("dry_run", dry_run)),
+            network_discovery=raw.get("network_discovery", True),
+            printexp_port=raw.get("printexp_port", 9100),
             poll_seconds=float(raw.get("poll_seconds", DEFAULT_POLL_SECONDS)),
             stable_seconds=float(raw.get("stable_seconds", DEFAULT_STABLE_SECONDS)),
             confirm_timeout=float(raw.get("confirm_timeout", DEFAULT_CONFIRM_TIMEOUT)),
@@ -104,6 +113,10 @@ class Config:
         return config
 
     def validate(self) -> None:
+        if type(self.network_discovery) is not bool:
+            raise ValueError('network_discovery precisa ser booleano.')
+        if type(self.printexp_port) is not int or not 1 <= self.printexp_port <= 65535:
+            raise ValueError('printexp_port precisa estar entre 1 e 65535.')
         if self.poll_seconds < 0.5 or self.stable_seconds < 0.5:
             raise ValueError("poll_seconds e stable_seconds devem ser pelo menos 0.5.")
         if self.confirm_timeout < 5:
@@ -347,12 +360,13 @@ def run(config: Config, log: logging.Logger, once: bool = False) -> None:
     try:
         log.info("PrintExpAgent %s iniciado", VERSION)
         log.info("Monitorando %s", config.output_folder)
-        while True:
-            for path in sorted(config.output_folder.glob("*.PRT"), key=lambda item: item.stat().st_mtime):
-                process(path, config, state, driver, log)
-            if once:
-                return
-            time.sleep(config.poll_seconds)
+        with (advertise_receiver(config.printexp_port, log) if config.network_discovery and not once else nullcontext()):
+            while True:
+                for path in sorted(config.output_folder.glob("*.PRT"), key=lambda item: item.stat().st_mtime):
+                    process(path, config, state, driver, log)
+                if once:
+                    return
+                time.sleep(config.poll_seconds)
     finally:
         state.close()
         portalocker.unlock(lock_handle)
@@ -366,7 +380,26 @@ def main() -> int:
     parser.add_argument("--once", action="store_true", help="processa os PRTs existentes e encerra")
     parser.add_argument("--inspect", action="store_true", help="lista controles visíveis do PrintExp e encerra")
     parser.add_argument("--version", action="version", version=VERSION)
+    parser.add_argument('--network-info', type=Path, help='grava os IPv4 locais em JSON e encerra, sem imprimir')
+    parser.add_argument('--network-discovery', action='store_true', help='anuncia este computador na LAN sem observar ou imprimir arquivos')
+    parser.add_argument('--print-port', type=int, default=9100, help='porta candidata anunciada para o PrintExp')
     args = parser.parse_args()
+
+    if args.network_info:
+        import zeroconf
+        args.network_info.write_text(json.dumps({'local_ipv4s': local_ipv4s(), 'discovery_library': zeroconf.__version__}, ensure_ascii=False), encoding='utf-8')
+        return 0
+    if args.network_discovery:
+        if not 1 <= args.print_port <= 65535:
+            parser.error('--print-port precisa estar entre 1 e 65535')
+        try:
+            with advertise_receiver(args.print_port) as active:
+                if not active:
+                    return 1
+                while True:
+                    time.sleep(1)
+        except KeyboardInterrupt:
+            return 0
 
     default_config = Path(os.environ.get("APPDATA", Path.home())) / "AutoRIP" / "print-agent.json"
     config_path = (args.config or default_config).expanduser().resolve()

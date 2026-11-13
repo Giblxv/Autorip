@@ -2,6 +2,19 @@
 
 Agente Windows para observar a pasta de saída do AutoRIP, controlar a fila de PRTs e operar o PrintExp via pywinauto.
 
+## Descoberta do computador receptor
+
+O agente anuncia seus IPv4 na rede local para a configuração do AutoRIP. Há um
+modo dedicado que não observa arquivos nem imprime:
+
+```powershell
+.\PrintExpAgent.exe --network-discovery --print-port 9100
+```
+
+Veja [descoberta IPv4 e configuração em dois computadores](../docs/PRINTEXP-DESCOBERTA-IPV4.md).
+O anúncio também fica ativo na execução normal; `network_discovery: false`
+desativa-o. A porta anunciada pode ser configurada por `printexp_port`.
+
 ## Segurança padrão
 
 O agente começa com `auto_print: false` no `print-agent.json`. Nesse modo, ele calcula o hash e registra o PRT como `aguardando_autorizacao`, sem clicar em imprimir. Depois de inspecionar a interface real do PrintExp, altere `auto_print` para `true`.

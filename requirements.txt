@@ -3,3 +3,5 @@ scipy
 Pillow
 pyinstaller
 segno==1.6.6
+ifaddr>=0.2,<1
+zeroconf>=0.132,<1
