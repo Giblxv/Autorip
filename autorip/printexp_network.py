@@ -74,17 +74,27 @@ def receivers_from_info(info):
 
 def discover_receivers():
     from zeroconf import IPVersion, ServiceBrowser, ServiceStateChange, Zeroconf
-    results = {}
+    services = {}
     lock = threading.Lock()
     deadline = time.monotonic() + 1.8
     def changed(zeroconf, service_type, name, state_change):
-        if state_change == ServiceStateChange.Removed or time.monotonic() >= deadline:
+        if state_change == ServiceStateChange.Removed:
+            with lock:
+                services.pop(name, None)
             return
-        info = zeroconf.get_service_info(service_type, name, timeout=150)
+        if time.monotonic() >= deadline:
+            return
         with lock:
-            for item in receivers_from_info(info):
-                if len(results) < 32:
-                    results[(item['host'], item['port'])] = item
+            if name not in services and len(services) >= 32:
+                return
+            # A distinct entry invalidates an older, still resolving update.
+            entry = {'receivers': []}
+            services[name] = entry
+        info = zeroconf.get_service_info(service_type, name, timeout=150)
+        receivers = receivers_from_info(info)
+        with lock:
+            if services.get(name) is entry:
+                entry['receivers'] = receivers
     with Zeroconf(ip_version=IPVersion.V4Only) as network:
         browser = ServiceBrowser(network, SERVICE_TYPE, handlers=[changed])
         try:
@@ -92,39 +102,109 @@ def discover_receivers():
         finally:
             browser.cancel()
     with lock:
-        return sorted(results.values(), key=lambda item: (int(ipaddress.IPv4Address(item['host'])), item['port']))
+        results = {(item['host'], item['port']): item
+                   for entry in services.values() for item in entry['receivers']}
+        return sorted(results.values(), key=lambda item: (int(ipaddress.IPv4Address(item['host'])), item['port']))[:32]
+
+
+class ReceiverAdvertisement:
+    """Rebind mDNS when DHCP/interfaces change; retry transient network failures."""
+
+    def __init__(self, port=9100, log=None, refresh_seconds=5.0):
+        if type(port) is not int or not 1 <= port <= 65535:
+            raise ValueError('A porta precisa ser um inteiro entre 1 e 65535.')
+        if refresh_seconds <= 0:
+            raise ValueError('O intervalo de atualização precisa ser positivo.')
+        self.port, self.log = port, log
+        self.refresh_seconds = refresh_seconds
+        self.active = False
+        self._network = self._info = self._fingerprint = None
+        self._last_error = None
+        self._stop = threading.Event()
+        self._thread = None
+        self._name = (re.sub(r'[^A-Za-z0-9-]', '-', socket.gethostname())[:40].strip('-') or 'PrintExp')
+
+    def _warning(self, error):
+        message = str(error)
+        if self.log and message != self._last_error:
+            self.log.warning('Descoberta IPv4 aguardando rede; nova tentativa automática: %s', message)
+        self._last_error = message
+
+    def _close_network(self):
+        network, info = self._network, self._info
+        self._network = self._info = None
+        self.active = False
+        if network is None:
+            return
+        try:
+            network.unregister_service(info)
+        except Exception as exc:
+            self._warning(exc)
+        finally:
+            try:
+                network.close()
+            except Exception as exc:
+                self._warning(exc)
+
+    def refresh(self):
+        from zeroconf import IPVersion, ServiceInfo, Zeroconf
+        if self._stop.is_set():
+            return
+        try:
+            interfaces = tuple(sorted({(lan_ipv4(x['address']), x.get('interface', '')) for x in local_ipv4s()}))
+            if self.active and interfaces == self._fingerprint:
+                self._last_error = None
+                return
+            # Recreate sockets too: an announcement update alone can leave
+            # Zeroconf listening on an address removed by DHCP.
+            self._close_network()
+            if not interfaces:
+                raise OSError('Nenhum IPv4 privado disponível neste computador.')
+            addresses = sorted({address for address, _ in interfaces})
+            info = ServiceInfo(SERVICE_TYPE, f'AutoRIP-{self._name}.{SERVICE_TYPE}',
+                               addresses=[socket.inet_aton(x) for x in addresses], port=self.port,
+                               properties={b'protocol': b'autorip-discovery-1'}, server=self._name + '.local.')
+            network = Zeroconf(ip_version=IPVersion.V4Only)
+            try:
+                network.register_service(info, allow_name_change=True)
+            except BaseException:
+                network.close()
+                raise
+            self._network, self._info, self._fingerprint = network, info, interfaces
+            self.active = True
+            self._last_error = None
+            if self.log:
+                self.log.info('Descoberta IPv4 atualizada: %s (porta %s).', ', '.join(addresses), self.port)
+        except Exception as exc:
+            self._warning(exc)
+
+    def start(self):
+        if self._thread is not None or self._stop.is_set():
+            raise RuntimeError('Este anúncio de rede já foi iniciado ou encerrado.')
+        self.refresh()
+        def monitor():
+            try:
+                while not self._stop.wait(self.refresh_seconds):
+                    self.refresh()
+            finally:
+                self._close_network()
+        self._thread = threading.Thread(target=monitor, name='autorip-ipv4', daemon=True)
+        self._thread.start()
+
+    def close(self):
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=3)
+        else:
+            self._close_network()
 
 
 @contextmanager
 def advertise_receiver(port=9100, log=None):
-    """Advertise this agent's candidate PrintExp endpoint, not a print server."""
-    from zeroconf import IPVersion, ServiceInfo, Zeroconf
-    network = None
-    info = None
-    registered = False
+    """Advertise the candidate endpoint; discovery never transfers print data."""
+    advertisement = ReceiverAdvertisement(port, log)
     try:
-        addresses = local_ipv4s()
-        if not addresses:
-            raise OSError('Nenhum IPv4 privado encontrado neste computador.')
-        validate_endpoint(addresses[0]['address'], port)
-        hostname = re.sub(r'[^A-Za-z0-9-]', '-', socket.gethostname())[:40] or 'PrintExp'
-        info = ServiceInfo(SERVICE_TYPE, f'AutoRIP-{hostname}.{SERVICE_TYPE}',
-                           addresses=[socket.inet_aton(x['address']) for x in addresses], port=port,
-                           properties={b'protocol': b'autorip-discovery-1'}, server=hostname + '.local.')
-        network = Zeroconf(ip_version=IPVersion.V4Only)
-        network.register_service(info, allow_name_change=True)
-        registered = True
-        if log:
-            log.info('Descoberta IPv4 local ativa para o agente PrintExp (porta candidata %s).', port)
-    except Exception as exc:
-        if log:
-            log.warning('Descoberta IPv4 indisponível; configuração manual continua disponível: %s', exc)
-    try:
-        yield registered
+        advertisement.start()
+        yield advertisement.active
     finally:
-        if network is not None:
-            try:
-                if registered:
-                    network.unregister_service(info)
-            finally:
-                network.close()
+        advertisement.close()

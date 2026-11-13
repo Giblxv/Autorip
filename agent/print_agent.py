@@ -31,7 +31,7 @@ try:
 except ImportError:  # pragma: no cover - mensagem amigável no computador do usuário
     Application = Desktop = send_keys = None
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 DEFAULT_POLL_SECONDS = 2.0
 DEFAULT_STABLE_SECONDS = 3.0
 DEFAULT_CONFIRM_TIMEOUT = 120.0
@@ -387,15 +387,13 @@ def main() -> int:
 
     if args.network_info:
         import zeroconf
-        args.network_info.write_text(json.dumps({'local_ipv4s': local_ipv4s(), 'discovery_library': zeroconf.__version__}, ensure_ascii=False), encoding='utf-8')
+        args.network_info.write_text(json.dumps({'local_ipv4s': local_ipv4s(), 'discovery_library': zeroconf.__version__, 'agent_version': VERSION}, ensure_ascii=False), encoding='utf-8')
         return 0
     if args.network_discovery:
         if not 1 <= args.print_port <= 65535:
             parser.error('--print-port precisa estar entre 1 e 65535')
         try:
-            with advertise_receiver(args.print_port) as active:
-                if not active:
-                    return 1
+            with advertise_receiver(args.print_port):
                 while True:
                     time.sleep(1)
         except KeyboardInterrupt:

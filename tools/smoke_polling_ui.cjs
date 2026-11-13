@@ -229,6 +229,30 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
     for(const id of ['discoverPrintExp','checkPrintExp']){const box=await page.locator('#'+id).boundingBox();assert(box.x>=0&&box.x+box.width<=390)}
     await page.screenshot({path:path.join(output,'printexp-ipv4-mobile.png')});
    },{viewport:{width:390,height:844}});
+   await test('editing a verified IPv4 destination invalidates its connection message',async page=>{
+    await page.route('**/api/printexp/check',r=>r.fulfill({json:{reachable:true,message:'Conexão TCP estabelecida'}}));
+    await openNetwork(page);await page.locator('#f_printexp_host').fill('192.168.0.215');await page.locator('#checkPrintExp').click();
+    await page.waitForFunction(()=>document.querySelector('#printexpNetwork [role=status]').textContent.includes('Conexão TCP estabelecida'));
+    await page.locator('#f_printexp_port').fill('9101');
+    assert((await page.locator('#printexpNetwork [role=status]').innerText()).includes('Destino alterado'));
+    assert(!(await page.locator('#printexpNetwork [role=status]').innerText()).includes('Conexão TCP estabelecida'));
+   });
+   await test('new discovery refreshes local IPv4 interfaces',async page=>{
+    let calls=0;await page.route('**/api/printexp/network',r=>r.fulfill({json:{local_ipv4s:[{address:++calls===1?'192.168.0.10':'192.168.0.11',interface:'LAN'}]}}));
+    await page.route('**/api/printexp/discover',r=>r.fulfill({json:{receivers:[]}}));
+    await openNetwork(page);await page.waitForFunction(()=>document.querySelector('#printexpNetwork').textContent.includes('192.168.0.10'));
+    await page.locator('#discoverPrintExp').click();await page.waitForFunction(()=>document.querySelector('#printexpNetwork').textContent.includes('192.168.0.11'));
+    assert(calls>=2);
+   });
+   await test('late local IPv4 result cannot replace the refreshed interfaces',async page=>{
+    const started=deferred(),release=deferred();let calls=0;
+    await page.route('**/api/printexp/network',async route=>{const call=++calls;if(call===1){started.resolve();await release.promise}await route.fulfill({json:{local_ipv4s:[{address:call===1?'192.168.0.10':'192.168.0.11',interface:'LAN'}]}})});
+    await page.route('**/api/printexp/discover',r=>r.fulfill({json:{receivers:[]}}));
+    await openNetwork(page);await started.promise;await page.locator('#discoverPrintExp').click();
+    await page.waitForFunction(()=>document.querySelector('#printexpNetwork').textContent.includes('192.168.0.11'));release.resolve();
+    await page.waitForTimeout(100);
+    assert(!(await page.locator('#printexpNetwork').innerText()).includes('192.168.0.10'));
+   });
   }
   const source=html||fs.readFileSync(path.join(__dirname,'../autorip/ui/index.html'),'utf8');const report={baseline:baseline||null,browser:browser.version(),uiSha256:crypto.createHash('sha256').update(source).digest('hex'),passed:results.every(r=>r.passed),cases:results.length,results};fs.writeFileSync(path.join(output,'browser-results.json'),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report,null,2));if(!report.passed&&!baseline)process.exitCode=1;
  }finally{if(browser)await browser.close();if(child.exitCode===null&&child.signalCode===null){const exited=new Promise(r=>child.once('exit',r));child.stdin.end(JSON.stringify({operation:'stop'})+'\n');await exited}lines.close()}

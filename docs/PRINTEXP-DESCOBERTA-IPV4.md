@@ -26,7 +26,9 @@ O texto **IPv4 deste computador (AutoRIP)** identifica as interfaces do servidor
 - São aceitos IPv4 privados `10.x`, `172.16–31.x` e `192.168.x`. Loopback, link-local e IPv6 ficam fora dessa configuração para duas máquinas.
 - O anúncio é uma indicação do agente, sem autenticação de identidade. A seleção continua no formulário e o teste TCP não certifica o software remoto.
 - Wi-Fi com isolamento de clientes, VLANs ou firewall podem impedir descoberta. Nesse caso, use o IPv4 do receptor obtido com `ipconfig`, a porta configurada e **Verificar conexão**. Confira as regras específicas da rede local.
-- Se os endereços do computador receptor mudarem durante a execução, reinicie seu agente e repita a busca. Prefira reserva DHCP para manter o destino salvo estável.
+- A partir da v0.8.27, o agente acompanha mudanças de IP/interface e recria o anúncio de rede automaticamente. A consulta é periódica, a cada cinco segundos, além do tempo de registro mDNS. Após uma mudança, repita a busca no painel e use **Salvar** para atualizar o destino persistido. Prefira reserva DHCP para manter esse destino estável.
+- Se o agente iniciar antes de a rede obter IPv4 ou encontrar uma falha temporária de anúncio, ele permanece aguardando e tenta novamente. O modo dedicado não precisa carregar a configuração de produção para fazer essa recuperação.
+- Anúncios removidos e endereços substituídos durante uma busca são descartados. A busca também atualiza a lista das interfaces locais; respostas antigas não substituem a consulta mais recente.
 - A descoberta usa os endereços atuais de cada interface; não fixa os IPs das imagens de exemplo no código e não modifica configurações da controladora.
 
 ## Diagnóstico sem imprimir
@@ -43,6 +45,8 @@ O modo de descoberta isolada permanece ativo até encerrar o processo. Ao execut
 ```powershell
 python agent\print_agent.py --network-discovery
 ```
+
+O JSON de diagnóstico inclui a versão do agente. A atualização de recuperação de rede acompanha o `PrintExpAgent` 0.1.1; atualize o executável também no computador receptor.
 
 ## Escopo desta entrega
 

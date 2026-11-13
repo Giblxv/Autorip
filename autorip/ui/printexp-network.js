@@ -11,6 +11,8 @@ function renderPrintExpNetwork(grid, requestVersion) {
  const current=()=>box.isConnected&&document.getElementById('dlg').open&&requestVersion===cfgRequest&&Boolean(token)&&!appClosed;
  const host=()=>document.getElementById('f_printexp_host'),port=()=>document.getElementById('f_printexp_port');
  let busy=false;
+ let localRequest=0;
+ for(const field of [host(),port()])field.addEventListener('input',()=>{if(current())message.textContent='Destino alterado. Verifique a conexão antes de salvar.'});
  async function run(button,operation){if(busy)return;busy=true;discover.disabled=check.disabled=true;try{await operation()}catch(e){if(current())message.textContent='Não foi possível consultar a rede. Você pode configurar o IPv4 manualmente.'}finally{busy=false;if(current())discover.disabled=check.disabled=false}}
  async function verify(){const snapshot=[host().value,port().value];message.textContent='Verificando a conexão TCP…';
   const r=await api('/api/printexp/check',{method:'POST',body:JSON.stringify({host:snapshot[0],port:Number(snapshot[1])})});
@@ -19,6 +21,7 @@ function renderPrintExpNetwork(grid, requestVersion) {
  }
  check.onclick=()=>run(check,verify);
  discover.onclick=()=>run(discover,async()=>{
+  refreshLocalAddresses();
   const snapshot=[host().value,port().value];message.textContent='Procurando agentes na rede local…';results.replaceChildren();
   const r=await api('/api/printexp/discover',{method:'POST',body:'{}'});if(!current()||r.stale)return;
   if(!r.ok){message.textContent=r.d.error||'Falha na descoberta.';return}
@@ -31,5 +34,8 @@ function renderPrintExpNetwork(grid, requestVersion) {
    choose.style.maxWidth='100%';choose.style.overflowWrap='anywhere';
    choose.onclick=()=>{if(current()&&!busy){use(item);run(check,verify)}};row.append(choose);results.append(row)}
  });
- api('/api/printexp/network').then(r=>{if(!current()||r.stale)return;local.textContent=r.ok?'IPv4 deste computador (AutoRIP): '+(r.d.local_ipv4s.map(x=>`${x.address} (${x.interface})`).join('; ')||'nenhum IPv4 privado encontrado'):'Não foi possível listar os IPv4 deste computador.'}).catch(()=>{if(current())local.textContent='Consulta de IPv4 indisponível; configuração manual disponível.'});
+ function refreshLocalAddresses(){const request=++localRequest;
+  api('/api/printexp/network').then(r=>{if(!current()||r.stale||request!==localRequest)return;local.textContent=r.ok?'IPv4 deste computador (AutoRIP): '+(r.d.local_ipv4s.map(x=>`${x.address} (${x.interface})`).join('; ')||'nenhum IPv4 privado encontrado'):'Não foi possível listar os IPv4 deste computador.'}).catch(()=>{if(current()&&request===localRequest)local.textContent='Consulta de IPv4 indisponível; configuração manual disponível.'});
+ }
+ refreshLocalAddresses();
 }
