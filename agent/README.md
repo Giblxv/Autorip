@@ -14,6 +14,8 @@ modo dedicado que não observa arquivos nem imprime:
 Veja [descoberta IPv4 e configuração em dois computadores](../docs/PRINTEXP-DESCOBERTA-IPV4.md).
 O anúncio também fica ativo na execução normal; `network_discovery: false`
 desativa-o. A porta anunciada pode ser configurada por `printexp_port`.
+O agente 0.1.1 acompanha mudanças de IPv4/interface, retoma o anúncio após
+reconexão e tenta novamente quando a rede ainda não está disponível ao iniciar.
 
 ## Segurança padrão
 
