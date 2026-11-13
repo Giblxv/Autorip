@@ -54,10 +54,16 @@ def unpack2(b: np.ndarray, n_dots: int) -> np.ndarray:
         raise ValueError("dados compactados precisam ser uma matriz 2-D de inteiros.")
     if type(n_dots) is not int or n_dots <= 0 or n_dots > b.shape[1] * 4:
         raise ValueError("n_dots nao cabe nos bytes fornecidos.")
-    # PRTs reais usam uint8. np.take gera a saída em uma única operação
-    # vetorizada; para outros inteiros preserva o comportamento/dtype antigo.
+    # Em uint8, a tabela evita shifts e o empilhamento de quatro matrizes.
+    # np.take sobre toda a imagem materializaria índices intp grandes; limitar
+    # cada lote a 64 KiB de origem também limita o pico de memória temporária.
     if b.dtype == np.uint8:
-        d = np.take(_UNPACK2_TABLE, b, axis=0)
+        rows, width = b.shape
+        d = np.empty((rows, width, 4), dtype=np.uint8)
+        batch_rows = max(1, min(rows, (64 * 1024) // width))
+        for start in range(0, rows, batch_rows):
+            np.take(_UNPACK2_TABLE, b[start:start + batch_rows], axis=0,
+                    out=d[start:start + batch_rows])
     else:
         d = np.stack([(b >> 6) & 3, (b >> 4) & 3, (b >> 2) & 3, b & 3], axis=-1)
     return d.reshape(b.shape[0], -1)[:, :n_dots]
