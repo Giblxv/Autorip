@@ -23,6 +23,12 @@ O agente começa com `auto_print: false` no `print-agent.json`. Nesse modo, ele 
 
 Use `--dry-run` para testar a descoberta de arquivos sem abrir o PrintExp.
 
+## UIPI e privilégios do Windows
+
+Por padrão, `uipi_guard` fica ligado. Antes de focar a janela, o agente compara o nível de integridade do próprio processo com o nível do processo do PrintExp. Se o PrintExp estiver elevado e o agente estiver em nível comum, a automação é interrompida com uma mensagem explicando que ambos devem rodar no mesmo nível de privilégio ou que deve ser instalado um helper elevado revisado. O agente não tenta contornar o UIPI com cliques forçados.
+
+Para diagnóstico controlado, `uipi_guard: false` desativa essa checagem, mas isso não concede permissões e pode continuar impedindo a automação. Não use essa opção em produção sem validar o comportamento da instalação.
+
 ## Calibração
 
 A primeira versão usa `Ctrl+O` para abrir e `Ctrl+P` para imprimir. Os textos de confirmação são configuráveis em `confirmation_regexes`. Como as versões do PrintExp podem ter idiomas, telas e controles diferentes, os seletores devem ser validados com Inspect.exe ou `print_control_identifiers()` antes de produção.

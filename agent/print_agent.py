@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import hashlib
 import json
 import logging
@@ -34,6 +35,69 @@ VERSION = "0.1.1"
 DEFAULT_POLL_SECONDS = 2.0
 DEFAULT_STABLE_SECONDS = 3.0
 DEFAULT_CONFIRM_TIMEOUT = 120.0
+TOKEN_QUERY = 0x0008
+TOKEN_INTEGRITY_LEVEL = 25
+
+
+class UIPICompatibilityError(RuntimeError):
+    """Raised when the agent cannot safely automate a higher-integrity process."""
+
+
+def integrity_level_name(level: int | None) -> str:
+    names = {0x1000: "low", 0x2000: "medium", 0x3000: "high", 0x4000: "system"}
+    return names.get(level, "unknown")
+
+
+def process_integrity_level(pid: int | None = None) -> int | None:
+    """Return a Windows mandatory integrity RID, or ``None`` when unavailable."""
+    if os.name != "nt":
+        return None
+    process_handle = None
+    token_handle = ctypes.c_void_p()
+    try:
+        kernel32 = ctypes.windll.kernel32
+        advapi32 = ctypes.windll.advapi32
+        kernel32.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_bool, ctypes.c_ulong]
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+        kernel32.GetSidSubAuthorityCount.argtypes = [ctypes.c_void_p]
+        kernel32.GetSidSubAuthorityCount.restype = ctypes.c_void_p
+        kernel32.GetSidSubAuthority.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+        kernel32.GetSidSubAuthority.restype = ctypes.c_void_p
+        advapi32.OpenProcessToken.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_void_p)]
+        advapi32.OpenProcessToken.restype = ctypes.c_bool
+        advapi32.GetTokenInformation.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong)]
+        advapi32.GetTokenInformation.restype = ctypes.c_bool
+        process_handle = kernel32.GetCurrentProcess() if pid is None else kernel32.OpenProcess(0x1000, False, pid)
+        if not process_handle or not advapi32.OpenProcessToken(process_handle, TOKEN_QUERY, ctypes.byref(token_handle)):
+            return None
+        size = ctypes.c_ulong(0)
+        advapi32.GetTokenInformation(token_handle, TOKEN_INTEGRITY_LEVEL, None, 0, ctypes.byref(size))
+        buffer = ctypes.create_string_buffer(size.value)
+        if not advapi32.GetTokenInformation(token_handle, TOKEN_INTEGRITY_LEVEL, buffer, size, ctypes.byref(size)):
+            return None
+        sid_pointer = ctypes.cast(buffer, ctypes.POINTER(ctypes.c_void_p))[0]
+        count = ctypes.cast(kernel32.GetSidSubAuthorityCount(sid_pointer), ctypes.POINTER(ctypes.c_ubyte))[0]
+        return ctypes.cast(kernel32.GetSidSubAuthority(sid_pointer, count - 1), ctypes.POINTER(ctypes.c_ulong))[0]
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
+    finally:
+        if token_handle.value:
+            ctypes.windll.kernel32.CloseHandle(token_handle)
+        if pid is not None and process_handle:
+            ctypes.windll.kernel32.CloseHandle(process_handle)
+
+
+def ensure_uipi_compatible(agent_level: int | None, target_level: int | None) -> None:
+    """Block UI automation when the target process has a higher integrity level."""
+    if agent_level is None or target_level is None or agent_level >= target_level:
+        return
+    raise UIPICompatibilityError(
+        "UIPI bloqueou a automação: o PrintExp está em nível "
+        f"{integrity_level_name(target_level)} e o agente em "
+        f"{integrity_level_name(agent_level)}. Execute ambos no mesmo nível "
+        "de privilégio ou configure um helper elevado; não é seguro clicar automaticamente."
+    )
 
 
 @dataclass
@@ -49,6 +113,7 @@ class Config:
     auto_print: bool = False
     dry_run: bool = False
     network_discovery: bool = True
+    uipi_guard: bool = True
     printexp_port: int = 9100
     poll_seconds: float = DEFAULT_POLL_SECONDS
     stable_seconds: float = DEFAULT_STABLE_SECONDS
@@ -99,6 +164,7 @@ class Config:
             auto_print=bool(raw.get("auto_print", False)),
             dry_run=bool(raw.get("dry_run", dry_run)),
             network_discovery=raw.get("network_discovery", True),
+            uipi_guard=raw.get("uipi_guard", True),
             printexp_port=raw.get("printexp_port", 9100),
             poll_seconds=float(raw.get("poll_seconds", DEFAULT_POLL_SECONDS)),
             stable_seconds=float(raw.get("stable_seconds", DEFAULT_STABLE_SECONDS)),
@@ -114,6 +180,8 @@ class Config:
     def validate(self) -> None:
         if type(self.network_discovery) is not bool:
             raise ValueError('network_discovery precisa ser booleano.')
+        if type(self.uipi_guard) is not bool:
+            raise ValueError('uipi_guard precisa ser booleano.')
         if type(self.printexp_port) is not int or not 1 <= self.printexp_port <= 65535:
             raise ValueError('printexp_port precisa estar entre 1 e 65535.')
         if self.poll_seconds < 0.5 or self.stable_seconds < 0.5:
@@ -198,7 +266,18 @@ class PrintExpDriver:
 
         self.window = self.app.window(title_re=self.config.printexp_title_regex)
         self.window.wait("visible", timeout=15)
+        self._check_uipi()
         self.window.set_focus()
+
+    def _check_uipi(self) -> None:
+        if not self.config.uipi_guard:
+            self.log.warning("Guarda UIPI desativada; a automação pode falhar ou ser insegura.")
+            return
+        try:
+            target_pid = self.window.process_id()
+        except (AttributeError, RuntimeError):
+            target_pid = None
+        ensure_uipi_compatible(process_integrity_level(), process_integrity_level(target_pid))
 
     def inspect(self) -> list[str]:
         """Retorna os identificadores visíveis para calibrar uma instalação nova."""

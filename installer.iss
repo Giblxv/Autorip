@@ -213,6 +213,7 @@ begin
            '  "agent_exe": "' + JsonEscape(ExpandConstant('{app}\PrintExpAgent.exe')) + '",' + #13#10 +
            '  "printexp_exe": "' + JsonEscape(PrintExpPage.Values[0]) + '",' + #13#10 +
            '  "auto_print": false,' + #13#10 +
+           '  "uipi_guard": true,' + #13#10 +
            '  "dry_run": false,' + #13#10 +
            '  "hot_folder": "' + JsonEscape(FoldersPage.Values[0]) + '",' + #13#10 +
            '  "output_folder": "' + JsonEscape(FoldersPage.Values[1]) + '",' + #13#10 +

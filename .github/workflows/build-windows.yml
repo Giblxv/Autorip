@@ -75,6 +75,9 @@ jobs:
           python -m pip install -r requirements-dev.txt pyinstaller
           if (Test-Path 'agent/requirements.txt') { python -m pip install -r agent/requirements.txt }
 
+      - name: Run PrintExp agent and UIPI tests
+        run: python -m pytest -q tests/test_print_agent.py
+
       - name: Install Inno Setup
         shell: powershell
         run: choco install innosetup --no-progress -y
@@ -156,11 +159,25 @@ jobs:
         with:
           name: AutoRIP-Windows-${{ github.sha }}
 
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          notes="docs/releases/${GITHUB_REF_NAME}.md"
+          if [[ -f "$notes" ]]; then
+            cp "$notes" release-notes.md
+          else
+            printf 'AutoRIP %s\n\nArtefatos Windows compilados e validados pelo GitHub Actions.\n' "$GITHUB_REF_NAME" > release-notes.md
+          fi
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           name: AutoRIP ${{ github.ref_name }}
-          body_path: docs/releases/${{ github.ref_name }}.md
+          body_path: release-notes.md
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
           files: |
             dist/AutoRIP/AutoRIP.exe
             dist/PrintExpAgent/PrintExpAgent.exe
