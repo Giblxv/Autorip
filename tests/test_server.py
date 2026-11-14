@@ -242,6 +242,41 @@ def test_journal_recupera_upload_manual_pendente(app, sample_png):
     assert app.auto is False
 
 
+def test_journal_notificacao_move_false_preserva_origem(app, sample_png, monkeypatch):
+    from autorip import integrations
+
+    source = os.path.join(app.processing_folder, "notificar-sem-mover.png")
+    os.makedirs(app.processing_folder, exist_ok=True)
+    with open(sample_png, "rb") as origin, open(source, "wb") as target:
+        target.write(origin.read())
+    output = os.path.join(app.s.output_folder, "notificar-sem-mover.PRT")
+    writer = PrtWriter(output, 300, 300, 1, 8)
+    writer.write_block([np.zeros((1, 8), dtype=np.uint8)] * 12)
+    writer.close()
+    info = {"width_cm": 1.0, "height_cm": 1.0, "dpi_x": 300, "dpi_y": 300,
+            "n_rows": 1, "n_dots": 8, "has_alpha": True}
+    calls = []
+
+    def remember_outbox(*args, **kwargs):
+        calls.append((args, kwargs))
+        return True
+
+    monkeypatch.setattr(integrations, "outbox_add", remember_outbox)
+    write_archive_marker(source, {
+        "phase": "success", "target": "notify", "move_source": False,
+        "output": os.path.basename(output), "output_dir": app.s.output_folder,
+        "output_sha256": file_sha256(output), "job_id": "notify-only",
+        "name": os.path.basename(source), "info": info, "metadata_written": True,
+        "outbox_handled": False, "required_services": ["webhook"],
+        "source_signature": _source_signature(source),
+    })
+
+    assert app._recover_marked_source(source, app.s) is True
+    assert os.path.isfile(source)
+    assert not os.path.exists(source + ".autorip.json")
+    assert len(calls) == 1
+
+
 def test_limpeza_de_upload_manual_re_tenta_lock_temporario(app, monkeypatch):
     folder = os.path.join(app.inbox, "retry-cleanup")
     os.makedirs(folder)

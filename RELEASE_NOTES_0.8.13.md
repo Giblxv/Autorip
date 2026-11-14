@@ -10,4 +10,6 @@ O instalador Linux agora valida o CIDR informado antes de instalar XRDP/Cockpit 
 
 As URLs de artefatos do wizard agora exigem HTTPS sem credenciais embutidas, os manifests têm limite de leitura e a execução do PowerShell usa o caminho do sistema no Windows. Usuários configuráveis do serviço Linux são validados e `root` é recusado.
 
-Validação local: 196 testes passando, Ruff, compilação Python, Bash e verificação de diferenças sem erros. A impressão física e a assinatura do Rufus não são simuladas pelo ambiente Linux; a verificação Authenticode ocorre no executável Windows.
+Jobs que não movimentam a origem agora preservam um journal de notificação quando a outbox não pode ser gravada; após reinício, o sistema recria a notificação sem repetir o RIP nem arquivar a arte. A manutenção das 03:00 cancela a limpeza se não conseguir parar o worker ou se ele continuar ativo.
+
+Validação local: 197 testes passando, Ruff, compilação Python, Bash e verificação de diferenças sem erros. A impressão física e a assinatura do Rufus não são simuladas pelo ambiente Linux; a verificação Authenticode ocorre no executável Windows.

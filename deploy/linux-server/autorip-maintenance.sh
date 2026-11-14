@@ -18,7 +18,14 @@ if [[ ! "${AGE_MINUTES}" =~ ^[0-9]+$ ]]; then
 fi
 
 log "iniciando manutenção; temporários com mais de ${AGE_MINUTES} minutos serão removidos"
-systemctl stop autorip.service 2>/dev/null || true
+if ! systemctl stop autorip.service; then
+  log "não foi possível parar o serviço AutoRIP; manutenção cancelada"
+  exit 1
+fi
+if systemctl is-active --quiet autorip.service; then
+  log "o serviço AutoRIP continua ativo; manutenção cancelada"
+  exit 1
+fi
 
 # Respeita as regras do sistema (incluindo /tmp e /var/tmp) e evita remover
 # arquivos recém-criados que ainda possam estar sendo usados por processos.

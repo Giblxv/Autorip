@@ -159,7 +159,7 @@ def read_archive_marker(source):
             return None
         if marker.get("phase") not in ("processing", "success", "error"):
             return None
-        if marker.get("target") not in ("done", "error"):
+        if marker.get("target") not in ("done", "error", "notify"):
             return None
         return marker
     except (OSError, ValueError, TypeError):

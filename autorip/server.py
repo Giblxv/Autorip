@@ -307,6 +307,10 @@ class App:
                 if services and not settings.offline_mode:
                     threading.Thread(target=integrations.outbox_flush,
                                      args=(settings, self.home, self.log), daemon=True).start()
+            if marker.get("move_source") is False:
+                remove_archive_marker(source)
+                self.log(f"Notificacao recuperada sem mover a origem: {os.path.basename(source)}")
+                return True
             target, label = settings.done_folder, "pasta de concluidos"
         else:
             target, label = settings.error_folder, "pasta de erros"
@@ -432,7 +436,8 @@ class App:
                 source_signature = None
             marker = {"phase": "processing", "target": "done", "job_id": job["id"],
                       "name": job["name"], "output_dir": settings.output_folder,
-                      "started_ns": time.time_ns(), "metadata_written": False,
+                      "move_source": move, "started_ns": time.time_ns(),
+                      "metadata_written": False,
                       "outbox_handled": False, "required_services": sorted(services),
                       "source_signature": list(source_signature or ())}
             try:
@@ -448,11 +453,11 @@ class App:
                 def before_publish(temporary_path, preview):
                     named = rip_output_name(job["name"], preview["width_cm"], preview["height_cm"])
                     preferred = next_available_path(settings.output_folder, named)
+                    marker["output_sha256"] = file_sha256(temporary_path)
+                    marker["info"] = {key: preview[key] for key in
+                                       ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
+                    marker["output"] = os.path.basename(preferred)
                     if move:
-                        marker["output_sha256"] = file_sha256(temporary_path)
-                        marker["info"] = {key: preview[key] for key in
-                                           ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
-                        marker["output"] = os.path.basename(preferred)
                         write_archive_marker(path, marker)
                     return preferred
                 info = rip.process(path, out, width_cm, progress=prog, before_publish=before_publish)
@@ -493,6 +498,13 @@ class App:
                 outbox_handled = True
             except Exception as integration_error:
                 self.log(f"Aviso: RIP pronto, mas nao foi possivel enfileirar notificacao: {integration_error}")
+                if not move:
+                    marker.update(phase="success", target="notify", output=os.path.basename(out),
+                                  metadata_written=metadata_written, outbox_handled=False)
+                    try:
+                        write_archive_marker(path, marker)
+                    except OSError as marker_error:
+                        self.log(f"Aviso: journal de notificacao nao foi preservado ({type(marker_error).__name__}).")
             journal_persisted = not move
             if move:
                 marker.update(phase="success", target="done", output=os.path.basename(out),
@@ -515,6 +527,8 @@ class App:
                     with self.lock:
                         job["archive_pending"] = True
                     self.log(f"Recuperacao pendente; entrada preservada em processamento: {job['name']}")
+            elif outbox_handled:
+                remove_archive_marker(path)
             self._release_source(path)
             self._finish_output_use()
 
