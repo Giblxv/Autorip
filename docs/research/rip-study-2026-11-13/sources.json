@@ -1,0 +1,268 @@
+{
+  "consulted_date": "2026-11-13",
+  "recorded_at_utc": "2026-11-13T04:16:13.008662+00:00",
+  "repository_base_commit": "ed9ac95153aa01bb84e461e555866d21e394bf8f",
+  "method": "Public HTML/configuration retrieval and repository inspection. Proprietary binaries, SDKs and real traffic were not analyzed.",
+  "references": [
+    {
+      "key": "sai-flexi-product",
+      "url": "https://www.thinksai.com/products-flexi/",
+      "final_url": "https://www.thinksai.com/products-flexi/",
+      "status": 200,
+      "sha256": "447fabac55c5f2f14d706dbb47c6c3865d13a44b9fb569755ab8a3f68bff6110",
+      "chars": 12763
+    },
+    {
+      "key": "sai-dtf",
+      "url": "https://www.thinksai.com/products-flexi-dtfpro/",
+      "final_url": "https://www.thinksai.com/products-flexi-dtfpro/",
+      "status": 200,
+      "sha256": "abf6be0de5928633a2d85dd1130d60a1995cb8b523787c9a80bafe1db7d0e047",
+      "chars": 12614
+    },
+    {
+      "key": "onyx",
+      "url": "https://onyxgfx.com/products/onyx-thrive/",
+      "final_url": "https://onyxgfx.com/products/onyx-thrive/",
+      "status": 200,
+      "sha256": "0a163f2ffbaadfeea8cbde9564c42fcb8b2adb1968be20d6dd0c332bda71087c",
+      "chars": 11693
+    },
+    {
+      "key": "caldera",
+      "url": "https://www.caldera.com/calderarip/",
+      "final_url": "https://www.caldera.com/solutions/calderarip-your-rip-software-for-mac-and-linux/",
+      "status": 200,
+      "sha256": "866d4242739915b408d7778d39d83550fefb5caf61eb5519d6b581f9b94af5c3",
+      "chars": 14979
+    },
+    {
+      "key": "ergosoft",
+      "url": "https://ergosoft.net/products/ergosoft-rip/",
+      "final_url": "https://ergosoft.net/en/products/ergosoft-rip",
+      "status": 200,
+      "sha256": "07e20165b270876b1c1140cb5886c4cb4a3f392df271e9284ddd11e4403cc6a3",
+      "chars": 4334
+    },
+    {
+      "key": "fiery-dtf-current",
+      "url": "https://www.fiery.com/products/digital-factory-dtf/",
+      "final_url": "https://www.fiery.com/products/digital-factory-dtf/",
+      "status": 200,
+      "sha256": "ffb7bd2357967ed762c7ba526b09aa5070e862b75af5e3af1728a83985f4ec63"
+    },
+    {
+      "key": "wasatch-automation-current",
+      "url": "https://wasatch.com/solutions/automation/",
+      "final_url": "https://wasatch.com/solutions/automation/",
+      "status": 200,
+      "sha256": "9821f41ee855a84f25a7ca5a7bcc72df3d1abda4a370fa3e3b1217dddd1849b1",
+      "chars": 1169
+    },
+    {
+      "key": "printfactory-workflow",
+      "url": "https://printfactory.cloud/workflow/",
+      "final_url": "https://printfactory.cloud/workflow/",
+      "status": 200,
+      "sha256": "2d3ed0838f25463625a44e9bbf56f68de7c8557cbafbf262c4d8145027a4bdbb",
+      "chars": 6158
+    },
+    {
+      "key": "printfactory-dtf",
+      "url": "https://printfactory.cloud/dtf/",
+      "final_url": "https://printfactory.cloud/dtf/",
+      "status": 200,
+      "sha256": "a5ff8bb229115b668cf0e8a011ec89026a78457522d9adbc952a2bf91c1b51a2",
+      "chars": 12023
+    },
+    {
+      "key": "ricoma",
+      "url": "https://support.ricoma.com/hc/en-us/articles/40213625226771-DTF-Aire-PrintExp-Hosonsoft-Software-Installation",
+      "final_url": "https://support.ricoma.com/hc/en-us/articles/40213625226771-DTF-Aire-PrintExp-Hosonsoft-Software-Installation",
+      "status": 200,
+      "sha256": "552b5f1f4716da202fb204e827b7bca732d449b2d0d08bcc244a0b2d2a3b61f4",
+      "chars": 5489
+    },
+    {
+      "key": "project-ini",
+      "url": "https://cncu.co.za/Other-Softwares/AM.CO.ZA%20PrintEXP%20Printer%20Control%20%26%20Alignment%20Software/PrintExp_X64_V5.7.6.5.103.BS_20220530/Project.ini",
+      "final_url": "https://cncu.co.za/Other-Softwares/AM.CO.ZA%20PrintEXP%20Printer%20Control%20%26%20Alignment%20Software/PrintExp_X64_V5.7.6.5.103.BS_20220530/Project.ini",
+      "status": 200,
+      "sha256": "6188f57d90fc6c010f9f5949ede41ce279f1081d051c27873dd2d5dd2a0033a7",
+      "chars": 1502
+    }
+  ],
+  "attempts": [
+    {
+      "key": "sai",
+      "url": "https://www.thinksai.com/products/flexi/",
+      "final_url": "https://www.thinksai.com/",
+      "status": 200,
+      "sha256": "f59f85f47a610e9b96d7082fba75010a227dbec6008783e38a10c0a34c3c5923",
+      "chars": 10334
+    },
+    {
+      "key": "onyx",
+      "url": "https://onyxgfx.com/products/onyx-thrive/",
+      "final_url": "https://onyxgfx.com/products/onyx-thrive/",
+      "status": 200,
+      "sha256": "0a163f2ffbaadfeea8cbde9564c42fcb8b2adb1968be20d6dd0c332bda71087c",
+      "chars": 11693
+    },
+    {
+      "key": "caldera",
+      "url": "https://www.caldera.com/calderarip/",
+      "final_url": "https://www.caldera.com/solutions/calderarip-your-rip-software-for-mac-and-linux/",
+      "status": 200,
+      "sha256": "866d4242739915b408d7778d39d83550fefb5caf61eb5519d6b581f9b94af5c3",
+      "chars": 14979
+    },
+    {
+      "key": "ergosoft",
+      "url": "https://ergosoft.net/products/ergosoft-rip/",
+      "final_url": "https://ergosoft.net/en/products/ergosoft-rip",
+      "status": 200,
+      "sha256": "07e20165b270876b1c1140cb5886c4cb4a3f392df271e9284ddd11e4403cc6a3",
+      "chars": 4334
+    },
+    {
+      "key": "cadlink",
+      "url": "https://www.cadlink.com/product/digital-factory-direct-to-film-edition/",
+      "error": "HTTP Error 503: Service Unavailable"
+    },
+    {
+      "key": "wasatch",
+      "url": "https://wasatch.com/softrip/",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "key": "printfactory",
+      "url": "https://printfactory.cloud/software/",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "key": "ricoma",
+      "url": "https://support.ricoma.com/hc/en-us/articles/40213625226771-DTF-Aire-PrintExp-Hosonsoft-Software-Installation",
+      "final_url": "https://support.ricoma.com/hc/en-us/articles/40213625226771-DTF-Aire-PrintExp-Hosonsoft-Software-Installation",
+      "status": 200,
+      "sha256": "552b5f1f4716da202fb204e827b7bca732d449b2d0d08bcc244a0b2d2a3b61f4",
+      "chars": 5489
+    },
+    {
+      "key": "project-ini",
+      "url": "https://cncu.co.za/Other-Softwares/AM.CO.ZA%20PrintEXP%20Printer%20Control%20%26%20Alignment%20Software/PrintExp_X64_V5.7.6.5.103.BS_20220530/Project.ini",
+      "final_url": "https://cncu.co.za/Other-Softwares/AM.CO.ZA%20PrintEXP%20Printer%20Control%20%26%20Alignment%20Software/PrintExp_X64_V5.7.6.5.103.BS_20220530/Project.ini",
+      "status": 200,
+      "sha256": "6188f57d90fc6c010f9f5949ede41ce279f1081d051c27873dd2d5dd2a0033a7",
+      "chars": 1502
+    },
+    {
+      "key": "wasatch-home",
+      "url": "https://wasatch.com/",
+      "final_url": "https://wasatch.com/",
+      "status": 200,
+      "sha256": "81c5fe254529f11dc694c4c1c27620531c50d7e55fd4a16034a1b3554c307620",
+      "chars": 1495
+    },
+    {
+      "key": "printfactory-home",
+      "url": "https://printfactory.cloud/",
+      "final_url": "https://printfactory.cloud/",
+      "status": 200,
+      "sha256": "590d20ee98a02726a34e13e61d74fc4c165a77bcc9180501f853022d2b9ba71c",
+      "chars": 8229
+    },
+    {
+      "key": "cadlink-home",
+      "url": "https://www.cadlink.com/",
+      "error": "HTTP Error 503: Service Unavailable"
+    },
+    {
+      "key": "sai-flexi",
+      "url": "https://www.thinksai.com/flexi/",
+      "final_url": "https://www.thinksai.com/",
+      "status": 200,
+      "sha256": "f59f85f47a610e9b96d7082fba75010a227dbec6008783e38a10c0a34c3c5923",
+      "chars": 10334
+    },
+    {
+      "key": "sai-support",
+      "url": "https://support.thinksai.com/hc/en-us",
+      "final_url": "https://support.thinksai.com/hc/en-us",
+      "status": 200,
+      "sha256": "86e8f3bb1a5c56b8f3900206a242cc3f50e0fe2ee5448bd23004e16cc26352ec",
+      "chars": 5926
+    },
+    {
+      "key": "sai-flexi-product",
+      "url": "https://www.thinksai.com/products-flexi/",
+      "final_url": "https://www.thinksai.com/products-flexi/",
+      "status": 200,
+      "sha256": "447fabac55c5f2f14d706dbb47c6c3865d13a44b9fb569755ab8a3f68bff6110",
+      "chars": 12763
+    },
+    {
+      "key": "sai-dtf",
+      "url": "https://www.thinksai.com/products-flexi-dtfpro/",
+      "final_url": "https://www.thinksai.com/products-flexi-dtfpro/",
+      "status": 200,
+      "sha256": "abf6be0de5928633a2d85dd1130d60a1995cb8b523787c9a80bafe1db7d0e047",
+      "chars": 12614
+    },
+    {
+      "key": "wasatch-automation",
+      "url": "https://wasatch.com/automation.html",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "key": "cadlink-alt",
+      "url": "https://www.cadlink.com/products/digital-factory/direct-to-film/",
+      "error": "HTTP Error 503: Service Unavailable"
+    },
+    {
+      "key": "printfactory-workflow",
+      "url": "https://printfactory.cloud/workflow/",
+      "final_url": "https://printfactory.cloud/workflow/",
+      "status": 200,
+      "sha256": "2d3ed0838f25463625a44e9bbf56f68de7c8557cbafbf262c4d8145027a4bdbb",
+      "chars": 6158
+    },
+    {
+      "key": "wasatch-automation-current",
+      "url": "https://wasatch.com/solutions/automation/",
+      "final_url": "https://wasatch.com/solutions/automation/",
+      "status": 200,
+      "sha256": "9821f41ee855a84f25a7ca5a7bcc72df3d1abda4a370fa3e3b1217dddd1849b1",
+      "chars": 1169
+    },
+    {
+      "key": "fiery-dtf",
+      "url": "https://www.fiery.com/products/inkjet-printing-and-cutting/digital-factory-direct-to-film/",
+      "error": "HTTP Error 404: Not Found"
+    },
+    {
+      "key": "fiery-digitalfactory",
+      "url": "https://www.fiery.com/products/inkjet-printing-and-cutting/digital-factory/",
+      "final_url": "https://www.fiery.com/products/inkjet-printing-and-cutting/digital-factory/",
+      "status": 200,
+      "sha256": "d6b66511adeb368b58d9e369e296bc3e82556ee65d84baa924dbb87f22f06e98",
+      "chars": 4442
+    },
+    {
+      "key": "printfactory-dtf",
+      "url": "https://printfactory.cloud/dtf/",
+      "final_url": "https://printfactory.cloud/dtf/",
+      "status": 200,
+      "sha256": "a5ff8bb229115b668cf0e8a011ec89026a78457522d9adbc952a2bf91c1b51a2",
+      "chars": 12023
+    },
+    {
+      "key": "fiery-dtf-current",
+      "url": "https://www.fiery.com/products/digital-factory-dtf/",
+      "final_url": "https://www.fiery.com/products/digital-factory-dtf/",
+      "status": 200,
+      "sha256": "ffb7bd2357967ed762c7ba526b09aa5070e862b75af5e3af1728a83985f4ec63"
+    }
+  ],
+  "scope": "Hashes identify retrieved bodies; resources can change. Vendor feature descriptions are not independent performance measurements. Cached full pages remain outside the repository."
+}
