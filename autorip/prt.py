@@ -45,6 +45,18 @@ def unpack2(b: np.ndarray, n_dots: int) -> np.ndarray:
         raise ValueError("dados compactados precisam ser uma matriz 2-D de inteiros.")
     if type(n_dots) is not int or n_dots <= 0 or n_dots > b.shape[1] * 4:
         raise ValueError("n_dots nao cabe nos bytes fornecidos.")
+    if b.dtype == np.uint8:
+        # Em aritmética uint32, o overflow é intencional: esta identidade
+        # distribui os quatro pares de bits em bytes consecutivos, no mesmo
+        # ordenamento do np.stack anterior. Faz operações in-place e evita
+        # quatro arrays intermediários do tamanho do plano.
+        d = np.array(b, dtype=np.uint32, order="C", copy=True)
+        np.multiply(d, np.uint32(0x40100401), out=d)
+        np.right_shift(d, 6, out=d)
+        np.bitwise_and(d, np.uint32(0x03030303), out=d)
+        if not np.little_endian:
+            d.byteswap(inplace=True)
+        return d.view(np.uint8).reshape(b.shape[0], -1)[:, :n_dots]
     d = np.stack([(b >> 6) & 3, (b >> 4) & 3, (b >> 2) & 3, b & 3], axis=-1)
     return d.reshape(b.shape[0], -1)[:, :n_dots]
 
