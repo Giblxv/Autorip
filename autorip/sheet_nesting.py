@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 import math
-from typing import Iterable
+from collections.abc import Iterable
 
 from .layout import (DEFAULT_GAP_CM, DEFAULT_MARGIN_CM, MAX_SHEET_WIDTH_CM, LayoutItem,
                      _dimensions, auto_pack, sheet_height, validate_items)

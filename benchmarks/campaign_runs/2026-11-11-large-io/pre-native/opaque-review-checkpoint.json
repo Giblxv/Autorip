@@ -1,8 +1,0 @@
-{
-  "completed_rounds": 20,
-  "consecutive_without_gain": 20,
-  "interrupted_candidate": "ink-identity-limit",
-  "partial_round_counted": false,
-  "reason": "Investigate native opaque RGB to avoid full-frame RGBA and RGBa copies; isolated worktree, no production code applied yet.",
-  "leader_hash": "bda5f0a679323c877a0e1438347b4ca2619792471f6c0b5d14719654358c99fe"
-}

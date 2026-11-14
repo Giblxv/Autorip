@@ -79,7 +79,7 @@ espera até o próximo polling, notificações ou geração das miniaturas do pa
 Validação local: **280 testes aprovados em 43,44 s**, além do smoke v0.8.14 com
 login, upload, geração do PRT 720 × 2400 dpi e encerramento.
 
-[Dados integrais e hashes](../../benchmarks/campaign_runs/2026-11-09-batch/report.json)
+Dados integrais e hashes (artefato histórico não versionado)
 e [benchmark reproduzível](../../benchmarks/benchmark_batch_flow.py):
 
 ```bash

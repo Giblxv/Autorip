@@ -69,7 +69,7 @@ agora fica oculta diretamente. A abertura animada normal continua encerrando.
 ![Fila no desktop com rolagem e vaga liberada após cancelamento](assets/queue-100-desktop.png)
 
 [Captura mobile](assets/queue-100-mobile.png) e
-[resultado estruturado do navegador](../../benchmarks/campaign_runs/2026-11-09-queue/browser-results.json).
+resultado estruturado do navegador (artefato histórico não versionado).
 
 ## Validação
 

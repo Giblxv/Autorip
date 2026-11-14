@@ -8,7 +8,6 @@ import os
 import re
 import shutil
 import sqlite3
-import subprocess
 import sys
 import time
 from contextlib import nullcontext

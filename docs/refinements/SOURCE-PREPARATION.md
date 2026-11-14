@@ -154,11 +154,11 @@ A otimização de preparação foi medida separadamente pelas duas baterias de s
 cenários acima. A sequência de parada foi novamente atendida depois desse ganho,
 nos cenários e critérios descritos.
 
-- [Primeira bateria de tempo/RSS e SHA-256 dos PRTs](../../benchmarks/campaign_runs/2026-11-09-source/report.json).
-- [Confirmação independente](../../benchmarks/campaign_runs/2026-11-09-source/confirmation.json).
-- [Dados das 15 rodadas adicionais](../../benchmarks/campaign_runs/2026-11-09-source/campaign.json).
-- [Ambiente e validação local](../../benchmarks/campaign_runs/2026-11-09-source/environment.json).
-- [Auditoria dos 15 PRTs e identidade dos módulos](../../benchmarks/campaign_runs/2026-11-09-source/verification.json).
+- Primeira bateria de tempo/RSS e SHA-256 dos PRTs (artefato histórico não versionado).
+- Confirmação independente (artefato histórico não versionado).
+- Dados das 15 rodadas adicionais (artefato histórico não versionado).
+- Ambiente e validação local (artefato histórico não versionado).
+- Auditoria dos 15 PRTs e identidade dos módulos (artefato histórico não versionado).
 
 ```bash
 python benchmarks/rip_campaign.py --suite extended --baseline-ref a9e4406 --work-dir /tmp/source-campaign --icc /caminho/perfil-cmyk.icc --repeats 5

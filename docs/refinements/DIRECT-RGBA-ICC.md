@@ -189,18 +189,18 @@ recusadas por divergência antes da medição.
 | 14 | Comparar EDT transposta sob largura ampliada | Sem ganho aceito |
 | 15 | Duas ufuncs no lugar de clip | Sem ganho aceito |
 
-A [auditoria independente](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/verification.json)
+A auditoria independente (artefato histórico não versionado)
 regenerou e conferiu os **23 PRTs**, a sequência de 15 recusas e a identidade de
 engine/prt/morph finais com o checkout. O código final continua igual a `ac8166a`
 nesses três módulos; nenhum ganho de tempo é atribuído à comparação final A/A
-interna da campanha. [Relatório completo](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/campaign.json).
+interna da campanha. Relatório completo (artefato histórico não versionado).
 
 ## Reprodução
 
-- [Dados, snapshots e identificação das baterias](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/README.md).
-- [Primeira bateria](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/report.json) e [segunda bateria](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/confirmation.json).
-- [Controles de largura/cache](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/wide.json), [confirmação pequena](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/small-confirmation.json) e [A/A](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/aa-control.json).
-- [Validação GitHub da versão preparada](../../benchmarks/campaign_runs/2026-11-10-rgba-direct/github-validation.json).
+- Dados, snapshots e identificação das baterias (artefato histórico não versionado).
+- Primeira bateria (artefato histórico não versionado) e segunda bateria (artefato histórico não versionado).
+- Controles de largura/cache (artefato histórico não versionado), confirmação pequena (artefato histórico não versionado) e A/A (artefato histórico não versionado).
+- Validação GitHub da versão preparada (artefato histórico não versionado).
 
 ```bash
 taskset -c 0-3 python benchmarks/benchmark_source_icc.py --suite rgba-direct --baseline-ref b5b0228 --repeat 15 --paired-workers --icc /caminho/cmyk.icc --output /tmp/rgba-direct.json

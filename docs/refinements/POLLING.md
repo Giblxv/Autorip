@@ -79,7 +79,7 @@ nas campanhas anteriores.
   prevista, máximo de quatro simultâneas, limites de cache/TTL e troca de sessão.
 - Launcher local v0.8.14: login, upload, PRT e encerramento; versão do instalador consistente.
 
-[Dados estruturados: base e refinado](../../benchmarks/campaign_runs/2026-11-09-polling/browser-results.json).
+Dados estruturados: base e refinado (artefato histórico não versionado).
 
 ```bash
 python -m pytest -q

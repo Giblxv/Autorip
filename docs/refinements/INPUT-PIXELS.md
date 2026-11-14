@@ -48,4 +48,4 @@ python -m pytest -q
 O teste real usa arquivos temporários e remove as artes/PRTs ao terminar; deixa
 somente o relatório JSON solicitado. Use um caminho de saída adequado ao Windows.
 
-[Relatório do teste real](../../benchmarks/campaign_runs/2026-11-10-input-pixels/large-input-validation.json) e [ambiente/código testado](../../benchmarks/campaign_runs/2026-11-10-input-pixels/environment.json).
+Relatório do teste real (artefato histórico não versionado) e ambiente/código testado (artefato histórico não versionado).

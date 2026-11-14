@@ -1,9 +1,0 @@
-{
-  "ready": true,
-  "pr": null,
-  "branch": "perf/campaign-100-2026-11-13",
-  "version": "0.8.26",
-  "main": "69512bc384383c29c7aeb8276a2b23ef813f96c5",
-  "no_remote_writes": true,
-  "deadline": "2026-11-13T22:00:00-03:00"
-}

@@ -100,9 +100,9 @@ auditoria dos 15 PRTs e smoke do launcher v0.8.14 com login, upload, saída
 720 × 2400 dpi e encerramento. O build Windows também executa o smoke contra
 o executável empacotado, conforme o workflow existente.
 
-- [Dados integrais das 15 rodadas](../../benchmarks/campaign_runs/2026-11-09-wide/report.json).
-- [Auditoria e SHA-256 dos 15 PRTs](../../benchmarks/campaign_runs/2026-11-09-wide/verification.json).
-- [Ambiente e identidade dos módulos](../../benchmarks/campaign_runs/2026-11-09-wide/environment.json).
+- Dados integrais das 15 rodadas (artefato histórico não versionado).
+- Auditoria e SHA-256 dos 15 PRTs (artefato histórico não versionado).
+- Ambiente e identidade dos módulos (artefato histórico não versionado).
 - [Hipóteses reproduzíveis](../../benchmarks/rip_wide_candidates.py).
 
 ```bash

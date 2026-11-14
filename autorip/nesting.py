@@ -6,7 +6,7 @@ import math
 from itertools import chain
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 from .layout import LayoutItem
-from .sheet_nesting import nest as nest_layout, check_layout, utilization
+from .sheet_nesting import check_layout, nest as nest_layout, utilization
 
 
 class Placements(list):

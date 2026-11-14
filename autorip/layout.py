@@ -10,7 +10,7 @@ import html
 import math
 import os
 from dataclasses import asdict, dataclass
-from typing import Iterable
+from collections.abc import Iterable
 
 from .imaging import Image
 

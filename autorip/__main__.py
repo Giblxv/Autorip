@@ -2,7 +2,6 @@ import argparse
 import hashlib
 import json
 import os
-import sys
 import time
 import secrets
 from . import __version__

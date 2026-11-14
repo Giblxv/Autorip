@@ -28,7 +28,7 @@ Foram usados **44 processos novos do Chromium**, ordem pareada aleatória, 100 c
 
 Esses valores descrevem o cenário sintético e incluem a variação do ambiente. Não medem velocidade total do aplicativo, bateria, hardware Android/iOS ou FPS em um telefone. A redução de chamadas e de reconstrução de cartões é a evidência principal de trabalho evitado.
 
-[Relatórios brutos, decisão e fontes](../../benchmarks/campaign_runs/2026-11-11-panel-performance/).
+Relatórios brutos, decisão e fontes (artefato histórico não versionado).
 
 ```sh
 AUTORIP_PYTHON=.venv/bin/python node tools/smoke_polling_ui.cjs /tmp/panel-current
@@ -41,6 +41,6 @@ Requer Playwright e Chromium. O script aceita `AUTORIP_CHROMIUM` para usar um na
 A investigação do RIP foi pausada após sete hipóteses sem ganho sobre `cab0b05`, sem contar a rodada parcial 8. O contador reinicia após estas duas melhorias validadas. As sequências anteriores permanecem separadas.
 
 
-A campanha final terminou às 20:12:54 de São Paulo com 25 hipóteses consecutivas sem novo ganho validado; verificação independente: 30 PRTs idênticos e cadeia de hashes/checkout conferidos. [Campanha final](../../benchmarks/campaign_runs/2026-11-11-large-io/final-programs/README.md).
+A campanha final terminou às 20:12:54 de São Paulo com 25 hipóteses consecutivas sem novo ganho validado; verificação independente: 30 PRTs idênticos e cadeia de hashes/checkout conferidos. Campanha final (artefato histórico não versionado).
 
 As propostas de orçamento de 384 e 256 MiB alteraram o PRT no cenário de arte larga com alfa e foram rejeitadas antes da cronometragem. O orçamento de produção foi preservado. As outras 23 hipóteses não confirmaram ganho pelos critérios da campanha. Nenhuma proposta adicional foi aplicada.

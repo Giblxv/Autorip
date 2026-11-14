@@ -79,7 +79,7 @@ preparação, liberação para `99 / 100` e identidade dos cards preservada dura
 essa mudança. Teclado, foco, rolagem, mobile, cancelamento e movimento reduzido
 continuaram aprovados, com zero erros JavaScript.
 
-[Resultado do navegador](../../benchmarks/campaign_runs/2026-11-09-admission/browser-results.json).
+Resultado do navegador (artefato histórico não versionado).
 O smoke local v0.8.14 com login, upload, PRT 720 × 2400 dpi e encerramento passou.
 
 ```bash

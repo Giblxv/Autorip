@@ -1,1 +1,0 @@
-20 hipóteses concluídas sem aceite sobre a main 7095fe0. Campanha interrompida para avaliar e aceitar RGB nativo. A rodada parcial 21 não conta. Esta sequência NÃO encerra nem se soma à campanha final sobre RGB nativo. A confirmação fresca de retícula estreita (462 workers) foi inconclusiva e ficou rejeitada; todos os dados estão preservados.

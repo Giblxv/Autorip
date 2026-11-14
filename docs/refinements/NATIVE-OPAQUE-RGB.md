@@ -23,7 +23,7 @@ Os controles A/A deram razões 0,891 (RGB), 0,991 (RGBA), 1,124 (CMYK) e 1,137 (
 
 A suíte completa do protótipo passou 1084 testes no Pillow 13; a seleção de compatibilidade passou 296 no Pillow 12.3; 60 testes específicos cobrem ownership, fechamento, leitura somente, ICC, EXIF, fallbacks, hooks e 32 configurações de PRT comparadas ao caminho RGBA. Os 30 PRTs da suíte de campanha e os limites numéricos da morfologia coincidiram.
 
-[Relatórios brutos e decisão](../../benchmarks/campaign_runs/2026-11-11-opaque-rgb/). Os arquivos grandes não são versionados; `benchmark_reused_preview.py` gera os casos e `make_opaque_rgb_exif.py` acrescenta EXIF sem recodificar pixels.
+Relatórios brutos e decisão (artefato histórico não versionado). Os arquivos grandes não são versionados; `benchmark_reused_preview.py` gera os casos e `make_opaque_rgb_exif.py` acrescenta EXIF sem recodificar pixels.
 
 A campanha anterior sobre `7095fe0` foi interrompida após 20 rejeições, sem aceite. O contador reinicia sobre RGB nativo; nenhuma sequência de bases distintas é somada. A primeira passagem sobre `4326a12`, com 25 rejeições, também permanece separada. A campanha final será registrada com seu motivo real de parada, 25 rejeições consecutivas ou 22h de São Paulo.
 
@@ -31,6 +31,6 @@ A campanha anterior sobre `7095fe0` foi interrompida após 20 rejeições, sem a
 A main recebeu depois o PR #63, com cache LRU de até 16 retículas imutáveis. Esse cache foi incorporado antes da campanha final combinada. As 15 hipóteses concluídas sobre RGB nativo sem esse cache ficam arquivadas separadamente em `pre-noise-cache`; a rodada parcial 16 não conta. As 25 repetições de regressão do PR #64 verificam estabilidade, não equivalem a 25 hipóteses de desempenho.
 
 
-A campanha final terminou às 20:12:54 de São Paulo com 25 hipóteses consecutivas sem novo ganho validado; verificação independente: 30 PRTs idênticos e cadeia de hashes/checkout conferidos. [Campanha final](../../benchmarks/campaign_runs/2026-11-11-large-io/final-programs/README.md).
+A campanha final terminou às 20:12:54 de São Paulo com 25 hipóteses consecutivas sem novo ganho validado; verificação independente: 30 PRTs idênticos e cadeia de hashes/checkout conferidos. Campanha final (artefato histórico não versionado).
 
 As propostas de orçamento de 384 e 256 MiB alteraram o PRT no cenário de arte larga com alfa e foram rejeitadas antes da cronometragem. O orçamento de produção foi preservado. As outras 23 hipóteses não confirmaram ganho pelos critérios da campanha. Nenhuma proposta adicional foi aplicada.

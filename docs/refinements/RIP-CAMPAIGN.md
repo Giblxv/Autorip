@@ -105,8 +105,8 @@ outros componentes também consomem RAM. O ganho varia com CPUs, arte, ICC e dis
 
 ## Evidências e reprodução
 
-- [Registro integral das 26 rodadas](../../benchmarks/campaign_runs/2026-11-09/report.json).
-- [Auditoria da contagem e SHA-256 dos dez PRTs](../../benchmarks/campaign_runs/2026-11-09/verification.json).
+- Registro integral das 26 rodadas (artefato histórico não versionado).
+- Auditoria da contagem e SHA-256 dos dez PRTs (artefato histórico não versionado).
 - [Hipóteses reproduzíveis](../../benchmarks/rip_candidates.py).
 - [Executor da campanha](../../benchmarks/rip_campaign.py).
 

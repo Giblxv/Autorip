@@ -94,8 +94,8 @@ entradas, expiração, aborto em voo ao trocar sessão, ausência de pintura tar
 fallback sem observador e mobile 390/320, com zero erros JavaScript. O smoke
 completo de controles de fila e o launcher v0.8.14 também passaram.
 
-- [Dados do benchmark e SHA-256 dos JPEGs](../../benchmarks/campaign_runs/2026-11-09-thumbnails/report.json).
-- [Resultado estruturado do navegador](../../benchmarks/campaign_runs/2026-11-09-thumbnails/browser-results.json).
+- Dados do benchmark e SHA-256 dos JPEGs (artefato histórico não versionado).
+- Resultado estruturado do navegador (artefato histórico não versionado).
 
 ```bash
 python benchmarks/benchmark_thumbnails.py --baseline-ref 57aea5b --output /tmp/thumbs.json

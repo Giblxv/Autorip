@@ -1,9 +1,0 @@
-{
-  "main": "7d9420e4e63bf0a91e3e46a6b26df850709653bc",
-  "preserved_by_merge": true,
-  "scope": "Existing PrintExp agent, installer and UI changes preserved; not a campaign performance gain",
-  "windows_failure_run": 43153809771,
-  "windows_failure_step": "Smoke test installed executable",
-  "compatibility_fix": "Restore PowerShell 7 shell previously used by the installed executable smoke test",
-  "release_verifier": "Verify all four assets including PrintExpAgent.exe; normalize Windows manifest paths and reject duplicate asset names"
-}

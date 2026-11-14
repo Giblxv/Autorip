@@ -70,7 +70,7 @@ armazenamento de rede, dispositivos móveis ou impressão física.
 
 ## Resultados preservados
 
-Os [oito relatórios](../../benchmarks/campaign_runs/2026-11-11-reused-preview/README.md)
+Os oito relatórios (artefato histórico não versionado)
 registram 284 workers isolados, incluindo a variante inicial rejeitada e controles
 A/A. Os casos correspondentes coincidiram também entre baterias. São Python
 3.12.14/Pillow 13 em Linux compartilhado, CPUs 0–3; controles pequenos adicionais
@@ -112,7 +112,7 @@ somente PRT continua sem precisar da captura, com source_ready ausente.
 ## Encerramento do refinamento
 
 Após aceitar esta melhoria, o contador foi zerado. A
-[campanha final com ICC/RGBA](../../benchmarks/campaign_runs/2026-11-11-icc-campaign25/README.md)
+campanha final com ICC/RGBA (artefato histórico não versionado)
 terminou às 12:11:35 de 11/11/2026 em São Paulo, antes das 22h, com 25 hipóteses
 únicas consecutivas sem novo ganho validado. Não houve mudança adicional no
 motor. A verificação independente conferiu fontes, contagem e 23 PRTs idênticos.

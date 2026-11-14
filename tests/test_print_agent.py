@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from agent.print_agent import Config, State, move_unique, sha256
 

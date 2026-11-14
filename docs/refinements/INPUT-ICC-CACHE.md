@@ -169,11 +169,11 @@ A hipótese EXIF já implementada não conta como rodada. São 15 rodadas adicio
 foi avaliado separadamente nas duas baterias de nove cenários. A condição de
 parada foi novamente atendida depois de incorporá-lo, nos critérios descritos.
 
-- [Primeira bateria, contagens, memória e PRTs](../../benchmarks/campaign_runs/2026-11-09-input-icc/report.json).
-- [Confirmação independente](../../benchmarks/campaign_runs/2026-11-09-input-icc/confirmation.json).
-- [Dados das 15 rodadas adicionais](../../benchmarks/campaign_runs/2026-11-09-input-icc/campaign.json).
-- [Auditoria dos 18 PRTs e identidade dos módulos](../../benchmarks/campaign_runs/2026-11-09-input-icc/verification.json).
-- [Ambiente e validação local](../../benchmarks/campaign_runs/2026-11-09-input-icc/environment.json).
+- Primeira bateria, contagens, memória e PRTs (artefato histórico não versionado).
+- Confirmação independente (artefato histórico não versionado).
+- Dados das 15 rodadas adicionais (artefato histórico não versionado).
+- Auditoria dos 18 PRTs e identidade dos módulos (artefato histórico não versionado).
+- Ambiente e validação local (artefato histórico não versionado).
 
 ```bash
 python benchmarks/rip_campaign.py --suite input-icc --baseline-ref 6eabb44 --work-dir /tmp/input-icc-campaign --icc /caminho/cmyk.icc --repeats 5

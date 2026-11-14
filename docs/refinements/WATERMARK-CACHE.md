@@ -146,8 +146,8 @@ repetido, três prévias idênticas usando a mesma marca e encerramento. As vers
 Python/instalador continuam consistentes. Os smokes de fila, miniaturas e 23 cenários de consultas do painel passaram
 novamente, sem erros JavaScript; os detalhes e a CI constam na validação do PR.
 
-- [Primeira bateria de RIP/prévia, contagens, RSS e hashes](../../benchmarks/campaign_runs/2026-11-09-watermarks/report.json).
-- [Confirmação independente](../../benchmarks/campaign_runs/2026-11-09-watermarks/confirmation.json).
-- [Ambiente e regressões locais](../../benchmarks/campaign_runs/2026-11-09-watermarks/environment.json).
+- Primeira bateria de RIP/prévia, contagens, RSS e hashes (artefato histórico não versionado).
+- Confirmação independente (artefato histórico não versionado).
+- Ambiente e regressões locais (artefato histórico não versionado).
 
 Continuação: [menos buffers na entrada do RIP com ICC e transparência](SOURCE-ALPHA.md).

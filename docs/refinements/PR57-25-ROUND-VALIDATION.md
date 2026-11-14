@@ -31,7 +31,7 @@ python benchmarks/verify_rip_campaign.py \
 Saída: `verified: true`, `rounds: 25`, `consecutive_without_gain: 25`,
 `identical_prt_cases: 10`. O `--check-checkout` confirmou que os módulos finais
 coincidem com o checkout do PR. Os artefatos completos estão em
-[`benchmarks/campaign_runs/2026-11-11-pr57/`](../../benchmarks/campaign_runs/2026-11-11-pr57/).
+artefatos históricos de benchmark (não versionados).
 
 Esta campanha encerra a busca automática de hipóteses sobre o motor nesta base;
 não é uma prova de ótimo global para todo hardware, imagem, perfil ICC ou

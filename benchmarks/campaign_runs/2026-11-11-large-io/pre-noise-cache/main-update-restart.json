@@ -1,6 +1,0 @@
-{
-  "previous_base": "873d3e50ca0996037eab4eafbf2ebd3dab27b4cf",
-  "completed_without_gain": 15,
-  "partial_round_not_counted": 16,
-  "reason": "Merge current main PR63 bounded blue-noise cache; preserve PR64 remote documentation; restart counter on combined production source"
-}

@@ -1,5 +1,0 @@
-# Segunda melhoria de planejamento
-
-Bordas da poda são calculadas uma vez por caixa, com as mesmas somas/tolerâncias; ordens de índices iguais não repetem a busca e são reutilizadas entre heurísticas/rotações. A referência destas medições é a primeira melhoria desta campanha, não a release publicada. Houve exploração, confirmação de cinco pares em peças variadas, confirmação de três pares em peças repetidas e controles A/A correspondentes. Todos usam workers novos, respostas completas/ SVGs idênticos e código fonte identificado. Os controles oscilaram, mas o ganho ficou acima deles. A confirmação de 120 peças variadas passou de 2,81 para 0,98 s. Não se multiplica esta razão pela da primeira etapa.
-
-A comparação funcional direta contra a implementação publicada verificou 336 layouts/SVGs, 2000 podas e imutabilidade da entrada. 1130 testes e o smoke do aplicativo passaram. Este aceite zera a sequência: as seis rejeições válidas de RIP anteriores continuam preservadas, mas não entram na sequência final depois deste ganho.

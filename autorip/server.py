@@ -2,7 +2,7 @@
 import ipaddress
 import os, sys, json, time, math, hashlib, secrets, tempfile, threading, queue, traceback, webbrowser, io, shutil, stat
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs, urlencode
+from urllib.parse import urlparse, parse_qs
 from dataclasses import asdict
 from contextlib import contextmanager
 from . import __version__

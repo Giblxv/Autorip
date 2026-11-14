@@ -1,7 +1,0 @@
-{
-  "reason": "Agent maintenance pause to support comparing alternate CMYK strategies after an accepted gain",
-  "completed_rounds": 0,
-  "partial_rounds_counted": false,
-  "source_app_changes": false,
-  "previous_setup": "79fb8ee201bab99ea231f2f75ab32692dcd5c59a"
-}

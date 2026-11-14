@@ -1,9 +1,0 @@
-{
-  "completed_rounds": 15,
-  "partial_round_not_counted": 16,
-  "runtime_hash_unchanged": true,
-  "reason": "Environment transport disconnected; resumed after environment recovered",
-  "python_now": "3.12.14",
-  "platform_now": "Linux-6.18.57-x86_64-with-glibc2.41",
-  "previous_platform": "Linux-6.18.57-x86_64-with-glibc2.41"
-}

@@ -107,9 +107,9 @@ O smoke local usa três uploads com alfa variável, sem ICC e com primeiro/repet
 sRGB. Os três PRTs e as três prévias com marca são idênticos; login, medidas e
 encerramento também passam. O mesmo script verifica o executável Windows no CI.
 
-- [Primeira bateria](../../benchmarks/campaign_runs/2026-11-10-input-alpha/report.json).
-- [Confirmação independente](../../benchmarks/campaign_runs/2026-11-10-input-alpha/confirmation.json).
-- [Ambiente, módulos e validação local](../../benchmarks/campaign_runs/2026-11-10-input-alpha/environment.json).
+- Primeira bateria (artefato histórico não versionado).
+- Confirmação independente (artefato histórico não versionado).
+- Ambiente, módulos e validação local (artefato histórico não versionado).
 
 ```bash
 python benchmarks/benchmark_source_icc.py --suite alpha --baseline-ref feb3214 --icc /caminho/cmyk.icc --output /tmp/input-alpha.json
@@ -166,8 +166,8 @@ São 15 rodadas novas além das 71 anteriores, somando **86**, em bases e cargas
 registradas separadamente. O critério de parada foi atendido novamente; não
 constitui prova de ótimo global.
 
-- [Resultados das 15 rodadas](../../benchmarks/campaign_runs/2026-11-10-input-alpha/campaign.json).
-- [Auditoria dos 21 PRTs e dos módulos](../../benchmarks/campaign_runs/2026-11-10-input-alpha/verification.json).
+- Resultados das 15 rodadas (artefato histórico não versionado).
+- Auditoria dos 21 PRTs e dos módulos (artefato histórico não versionado).
 
 ```bash
 python benchmarks/rip_campaign.py --suite source-alpha --baseline-ref 7718ba1 --work-dir /tmp/source-alpha-campaign --icc /caminho/cmyk.icc --repeats 5 --apply

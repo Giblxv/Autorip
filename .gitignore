@@ -41,3 +41,6 @@ erro/
 # Binarios de backup ficam no historico Git; releases no GitHub sao o canal de entrega.
 backup/**/*.exe
 backup/**/*.msi
+# Artefatos de benchmark e distribuição; mantenha apenas scripts reproduzíveis.
+benchmarks/campaign_runs/
+backup/

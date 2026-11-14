@@ -10,9 +10,7 @@ Os arquivos de distribuição `AutoRIP.exe` e `AutoRIP_Setup.exe` não devem ser
 
 ## Histórico de backup
 
-Os dois binários do caminho `backup/AutoRIP-Windows-e5f5022/` foram retirados apenas da **árvore atual**, em proposta sujeita à aprovação. Não houve reescrita ou limpeza do histórico Git; continuam recuperáveis do commit histórico que os continha. O checkout normal de branches novas fica menor, mas o tamanho do histórico completo do Git não é automaticamente reduzido.
-
-**Antes de fazer merge:** confirme que não há dependência operacional de obter esses backups pelo botão "Download ZIP" da branch principal. Caso precise preservá-los como downloads diretos, publique primeiro os artefatos em Releases ou outro repositório de binários.
+Backups e binários de distribuição não fazem parte da árvore fonte. As compilações devem ser obtidas pelos artifacts do GitHub Actions ou pelas Releases, com SHA-256 publicado junto. O histórico Git antigo pode continuar contendo objetos removidos; isso não afeta o checkout atual.
 
 ## Critérios para releases
 

@@ -84,7 +84,7 @@ aceleração universal. A confirmação usa novos processos e outra ordem.
 
 ## Resultados e limites
 
-Foram preservados [sete relatórios completos](../../benchmarks/campaign_runs/2026-11-10-large-artwork/README.md),
+Foram preservados sete relatórios completos (artefato histórico não versionado),
 com **384 processos de medição**: bateria inicial com 24 cenários/fases,
 confirmação com 26 e controles adicionais. Todos os PRTs, metadados e JPEGs
 coincidiram entre os lados e entre as baterias correspondentes; todas as

@@ -10,7 +10,7 @@ import os
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
 from pathlib import Path
-from typing import Iterable
+from collections.abc import Iterable
 
 from .config import Settings
 from .engine import Rip
