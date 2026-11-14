@@ -8,4 +8,6 @@ Foram adicionados testes de checksum e rollback de download. O CI passou a insta
 
 O instalador Linux agora valida o CIDR informado antes de instalar XRDP/Cockpit e restringe o SMB somente a essa sub-rede, em vez de abrir todas as redes privadas. O serviço systemd recebeu isolamento adicional de kernel, cgroups, módulos, SUID/SGID, realtime e arquitetura de syscalls.
 
-Validação local: 194 testes passando, Ruff, compilação Python, Bash e verificação de diferenças sem erros. A impressão física e a assinatura do Rufus não são simuladas pelo ambiente Linux; a verificação Authenticode ocorre no executável Windows.
+As URLs de artefatos do wizard agora exigem HTTPS sem credenciais embutidas, os manifests têm limite de leitura e a execução do PowerShell usa o caminho do sistema no Windows. Usuários configuráveis do serviço Linux são validados e `root` é recusado.
+
+Validação local: 196 testes passando, Ruff, compilação Python, Bash e verificação de diferenças sem erros. A impressão física e a assinatura do Rufus não são simuladas pelo ambiente Linux; a verificação Authenticode ocorre no executável Windows.

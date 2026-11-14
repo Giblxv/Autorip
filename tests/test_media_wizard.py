@@ -32,6 +32,22 @@ def test_manifest_sha256_exige_nome_exato_e_hash_unico():
         wizard.manifest_sha256("not-a-checksum  pacote.zip\n", "pacote.zip")
 
 
+def test_urls_de_artefato_exigem_https_sem_credenciais():
+    with pytest.raises(ValueError, match="HTTPS"):
+        wizard.validate_https_url("http://example.test/pacote.zip")
+    with pytest.raises(ValueError, match="HTTPS"):
+        wizard.validate_https_url("https://user:pass@example.test/pacote.zip")
+    assert wizard.validate_https_url("https://example.test/pacote.zip").hostname == "example.test"
+
+
+def test_fetch_text_respeita_limite(monkeypatch):
+    monkeypatch.setattr(wizard.urllib.request, "urlopen",
+                        lambda *_args, **_kwargs: FakeResponse(b"manifesto", content_length=8))
+    assert wizard.fetch_text("https://example.test/SHA256SUMS", 16) == "manifesto"
+    with pytest.raises(ValueError, match="limite"):
+        wizard.fetch_text("https://example.test/SHA256SUMS", 4)
+
+
 def test_download_publica_atomically_e_remove_parte_incompleta(monkeypatch, tmp_path):
     target = tmp_path / "bundle.zip"
     target.write_bytes(b"versao anterior")

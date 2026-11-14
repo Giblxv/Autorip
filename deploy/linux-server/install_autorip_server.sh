@@ -33,6 +33,13 @@ except ValueError as exc:
     raise SystemExit(f"CIDR inválido: {exc}")
 PY
 
+for account in "${SERVICE_USER}" "${SHARE_USER}"; do
+  if [[ "${account}" == "root" || ! "${account}" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+    echo "Nome de usuário inválido ou reservado: ${account}" >&2
+    exit 1
+  fi
+done
+
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends \

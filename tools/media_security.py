@@ -6,11 +6,20 @@ import os
 import re
 import shutil
 import subprocess
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
 
+def validate_https_url(url: str) -> urllib.parse.SplitResult:
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+        raise ValueError("A URL do artefato precisa usar HTTPS sem credenciais embutidas.")
+    return parsed
+
+
 def download(url: str, target: Path, report, max_bytes: int):
+    validate_https_url(url)
     target.parent.mkdir(parents=True, exist_ok=True)
     request = urllib.request.Request(url, headers={"User-Agent": "AutoRIP-Media-Wizard"})
     temporary = target.with_name(target.name + ".part")
@@ -45,6 +54,20 @@ def download(url: str, target: Path, report, max_bytes: int):
     return target
 
 
+def fetch_text(url: str, max_bytes: int) -> str:
+    """Lê um manifesto pequeno com o mesmo limite e política HTTPS do downloader."""
+    validate_https_url(url)
+    request = urllib.request.Request(url, headers={"User-Agent": "AutoRIP-Media-Wizard"})
+    with urllib.request.urlopen(request, timeout=60) as source:
+        total = int(source.headers.get("Content-Length", "0") or 0)
+        if total < 0 or total > max_bytes:
+            raise ValueError("Manifesto remoto excede o limite permitido.")
+        payload = source.read(max_bytes + 1)
+        if len(payload) > max_bytes:
+            raise ValueError("Manifesto remoto excede o limite permitido.")
+    return payload.decode("utf-8", "strict")
+
+
 def sha256(path: Path):
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -77,7 +100,8 @@ def verify_rufus_signature(path: Path):
         "if ($s.SignerCertificate.Subject -notmatch 'Akeo Consulting') { exit 2 }"
     )
     result = subprocess.run(
-        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script, str(path)],
+        [str(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"),
+         "-NoProfile", "-NonInteractive", "-Command", script, str(path)],
         capture_output=True, text=True, timeout=30, check=False,
     )
     if result.returncode:

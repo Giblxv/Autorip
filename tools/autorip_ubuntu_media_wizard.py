@@ -4,12 +4,11 @@ from __future__ import annotations
 import json
 import subprocess
 import threading
-import urllib.request
 import webbrowser
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from media_security import download, manifest_sha256, sha256, verify_rufus_signature
+from media_security import download, fetch_text, manifest_sha256, sha256, verify_rufus_signature
 
 VERSION = "0.8.13"
 UBUNTU_URL = "https://releases.ubuntu.com/24.04/ubuntu-24.04.3-desktop-amd64.iso"
@@ -25,12 +24,7 @@ MAX_RUFUS_BYTES = 32 * 1024**2
 
 
 def ubuntu_expected_sha():
-    request = urllib.request.Request(UBUNTU_SUMS_URL, headers={"User-Agent": "AutoRIP-Media-Wizard"})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        for line in response.read().decode("utf-8", "replace").splitlines():
-            if UBUNTU_URL.rsplit("/", 1)[-1] in line:
-                return line.split()[0]
-    raise RuntimeError("O checksum do Ubuntu não foi encontrado.")
+    return manifest_sha256(fetch_text(UBUNTU_SUMS_URL, MAX_MANIFEST_BYTES), UBUNTU_URL.rsplit("/", 1)[-1])
 
 
 def main():
