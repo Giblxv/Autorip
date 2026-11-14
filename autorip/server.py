@@ -842,17 +842,17 @@ class App:
                 marker["output"] = os.path.basename(out)
                 if move:
                     write_archive_marker(path, marker)
-                def prog(p):
+                def prog(p, job=job):
                     with self.lock:
                         job["progress"] = round(p, 3)
-                def before_publish(temporary_path, preview):
+                def before_publish(temporary_path, preview, move=move, marker=marker, path=path):
                     if not move:
                         return
                     marker["output_sha256"] = file_sha256(temporary_path)
                     marker["info"] = {key: preview[key] for key in
                                        ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
                     write_archive_marker(path, marker)
-                def control_check():
+                def control_check(control=control):
                     if control and control["cancel"].is_set():
                         raise JobCancelled()
                     if control and control["pause"].is_set():

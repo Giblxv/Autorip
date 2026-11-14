@@ -95,7 +95,7 @@ def _split_free(free, rx, ry, rw, rh):
 
 
 def _score(heuristic, fr, x, y, w, h):
-    fx, fy, fw, fh = fr
+    _fx, _fy, fw, fh = fr
     if heuristic == "bl":      # canto inferior-esquerdo: menor borda de baixo, depois menor x
         return (y + h, x)
     if heuristic == "bssf":    # melhor encaixe pelo lado curto

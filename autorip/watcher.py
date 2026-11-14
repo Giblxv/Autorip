@@ -230,7 +230,7 @@ def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None):
             marker["output"] = os.path.basename(preferred)
             write_archive_marker(src, marker)
             log(f"[RIP] {os.path.basename(src)} ...")
-            def before_publish(temporary_path, preview):
+            def before_publish(temporary_path, preview, marker=marker, src=src):
                 marker["output_sha256"] = file_sha256(temporary_path)
                 marker["info"] = {key: preview[key] for key in
                                    ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
