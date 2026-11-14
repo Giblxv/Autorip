@@ -277,7 +277,14 @@ class PrintExpDriver:
             target_pid = self.window.process_id()
         except (AttributeError, RuntimeError):
             target_pid = None
-        ensure_uipi_compatible(process_integrity_level(), process_integrity_level(target_pid))
+        agent_level = process_integrity_level()
+        target_level = process_integrity_level(target_pid)
+        if os.name == "nt" and (agent_level is None or target_level is None):
+            raise UIPICompatibilityError(
+                "Não foi possível verificar os níveis de integridade do agente e do PrintExp; "
+                "a automação foi bloqueada por segurança."
+            )
+        ensure_uipi_compatible(agent_level, target_level)
 
     def inspect(self) -> list[str]:
         """Retorna os identificadores visíveis para calibrar uma instalação nova."""

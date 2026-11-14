@@ -1,6 +1,7 @@
 import json
 
 import logging
+from types import SimpleNamespace
 
 import pytest
 
@@ -76,6 +77,91 @@ def test_uipi_allows_equal_lower_or_unknown_levels(agent_level, target_level):
 def test_uipi_blocks_lower_integrity_agent():
     with pytest.raises(UIPICompatibilityError, match="mesmo nível de privilégio"):
         ensure_uipi_compatible(0x2000, 0x3000)
+
+
+@pytest.mark.parametrize(
+    ("level", "expected"),
+    [(0x1000, "low"), (0x2000, "medium"), (0x3000, "high"), (0x4000, "system"), (0x5000, "unknown"), (None, "unknown")],
+)
+def test_integrity_level_names_cover_windows_boundaries(level, expected):
+    assert print_agent.integrity_level_name(level) == expected
+
+
+def test_process_integrity_level_is_unavailable_off_windows(monkeypatch):
+    monkeypatch.setattr(print_agent.os, "name", "posix")
+    assert print_agent.process_integrity_level() is None
+
+
+def test_process_integrity_level_handles_token_api_failure(monkeypatch):
+    class Function:
+        def __init__(self, result):
+            self.result = result
+            self.argtypes = None
+            self.restype = None
+
+        def __call__(self, *_args):
+            return self.result
+
+    kernel32 = SimpleNamespace(
+        OpenProcess=Function(0),
+        GetCurrentProcess=Function(1),
+        GetSidSubAuthorityCount=Function(0),
+        GetSidSubAuthority=Function(0),
+        CloseHandle=Function(True),
+    )
+    advapi32 = SimpleNamespace(
+        OpenProcessToken=Function(False),
+        GetTokenInformation=Function(False),
+    )
+    monkeypatch.setattr(print_agent.os, "name", "nt")
+    monkeypatch.setattr(print_agent.ctypes, "windll", SimpleNamespace(kernel32=kernel32, advapi32=advapi32), raising=False)
+    assert print_agent.process_integrity_level(9999) is None
+
+
+def test_driver_blocks_when_windows_integrity_check_is_inconclusive(tmp_path, monkeypatch):
+    folders = [tmp_path / name for name in ("out", "printed", "error")]
+    config = Config(
+        program_dir=tmp_path,
+        agent_exe=tmp_path / "agent.exe",
+        printexp_exe=None,
+        output_folder=folders[0],
+        printed_folder=folders[1],
+        error_folder=folders[2],
+        state_db=tmp_path / "state.sqlite3",
+        log_file=tmp_path / "agent.log",
+    )
+    config.validate()
+    driver = PrintExpDriver(config, logging.getLogger("test-print-agent-fail-closed"))
+
+    class Window:
+        def process_id(self):
+            return 321
+
+    driver.window = Window()
+    monkeypatch.setattr(print_agent.os, "name", "nt")
+    monkeypatch.setattr(print_agent, "process_integrity_level", lambda _pid=None: None)
+    with pytest.raises(UIPICompatibilityError, match="verificar os níveis de integridade"):
+        driver._check_uipi()
+
+
+def test_invalid_uipi_guard_is_rejected(tmp_path):
+    folders = [tmp_path / name for name in ("out", "printed", "error")]
+    config_path = tmp_path / "print-agent.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "program_dir": str(tmp_path),
+                "agent_exe": str(tmp_path / "PrintExpAgent.exe"),
+                "output_folder": str(folders[0]),
+                "printed_folder": str(folders[1]),
+                "error_folder": str(folders[2]),
+                "uipi_guard": "false",
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="uipi_guard"):
+        Config.load(config_path)
 
 
 def test_driver_checks_uipi_before_focus(tmp_path, monkeypatch):

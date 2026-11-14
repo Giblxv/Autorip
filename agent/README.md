@@ -27,6 +27,8 @@ Use `--dry-run` para testar a descoberta de arquivos sem abrir o PrintExp.
 
 Por padrão, `uipi_guard` fica ligado. Antes de focar a janela, o agente compara o nível de integridade do próprio processo com o nível do processo do PrintExp. Se o PrintExp estiver elevado e o agente estiver em nível comum, a automação é interrompida com uma mensagem explicando que ambos devem rodar no mesmo nível de privilégio ou que deve ser instalado um helper elevado revisado. O agente não tenta contornar o UIPI com cliques forçados.
 
+Se o Windows não permitir ler um dos tokens de integridade, a guarda também bloqueia a automação (fail closed), evitando interpretar uma falha de diagnóstico como autorização para controlar a interface.
+
 Para diagnóstico controlado, `uipi_guard: false` desativa essa checagem, mas isso não concede permissões e pode continuar impedindo a automação. Não use essa opção em produção sem validar o comportamento da instalação.
 
 ## Calibração

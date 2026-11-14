@@ -14,6 +14,8 @@ $setup = (Resolve-Path (Join-Path $repository $SetupPath)).Path
 $smokeRoot = Join-Path $env:RUNNER_TEMP ("AutoRIP-Install-Smoke-" + [guid]::NewGuid().ToString("N"))
 $installation = Join-Path $smokeRoot "programa com espacos"
 $dataHome = Join-Path $smokeRoot "dados"
+$agentConfig = Join-Path $env:APPDATA "AutoRIP\print-agent.json"
+$autoripConfig = Join-Path $env:APPDATA "AutoRIP\autorip.json"
 New-Item -ItemType Directory -Force -Path $dataHome | Out-Null
 $settings = @{
     offline_mode = $true; auto_mode = $false; auto_update = $false; label_enabled = $false
@@ -32,11 +34,19 @@ foreach ($name in @('AUTORIP_HOME', 'AUTORIP_NOBROWSER', 'AUTORIP_BIND_HOST', 'A
 $app = $null
 $listener = $null
 try {
+    foreach ($configPath in @($agentConfig, $autoripConfig)) {
+        if (Test-Path -LiteralPath $configPath) { Remove-Item -LiteralPath $configPath -Force }
+    }
     $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/NOICONS',
         '/TASKS=""', ('/DIR="{0}"' -f $installation), ('/LOG="{0}"' -f (Join-Path $smokeRoot 'install.log')))
     $installed = Start-Process -FilePath $setup -ArgumentList $arguments -Wait -PassThru
     if ($installed.ExitCode -ne 0) { throw "Inno Setup retornou $($installed.ExitCode)." }
     $exe = Join-Path $installation "AutoRIP.exe"
+    $agentExe = Join-Path $installation "PrintExpAgent.exe"
+    if (-not (Test-Path -LiteralPath $agentExe)) { throw 'PrintExpAgent.exe não foi instalado.' }
+    if (-not (Test-Path -LiteralPath $agentConfig)) { throw 'print-agent.json não foi criado pelo instalador.' }
+    $agentSettings = Get-Content -LiteralPath $agentConfig -Raw | ConvertFrom-Json
+    if ($agentSettings.uipi_guard -ne $true) { throw 'O instalador não ativou uipi_guard por padrão.' }
     $compiled = Join-Path $repository "dist\AutoRIP\AutoRIP.exe"
     if ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash -ne
         (Get-FileHash -LiteralPath $compiled -Algorithm SHA256).Hash) {
@@ -92,7 +102,7 @@ try {
     Invoke-RestMethod -Uri "$baseUrl/api/shutdown" -Method Post -ContentType 'application/json' `
         -Headers @{'X-Token' = $login.token} -Body '{}' | Out-Null
     if (-not $app.WaitForExit(30000) -or $app.ExitCode -ne 0) { throw 'O aplicativo instalado não encerrou corretamente.' }
-    Write-Host "SMOKE APROVADO: instalação íntegra, versão $ExpectedVersion, API protegida, porta real e encerramento."
+    Write-Host "SMOKE APROVADO: instalação íntegra, PrintExpAgent instalado, uipi_guard ativo, versão $ExpectedVersion, API protegida, porta real e encerramento."
 } finally {
     if ($null -ne $listener) { $listener.Stop() }
     if ($null -ne $app) {
