@@ -1,46 +1,54 @@
-name: Build Windows
+name: CI/CD Windows
 
 on:
   workflow_dispatch:
   pull_request:
     branches: [main]
-    paths:
-      - '.github/workflows/build-windows.yml'
-      - 'tools/smoke_windows_installer.ps1'
-      - 'tools/smoke_frozen.py'
-      - 'tools/generate_mobile_qrs.py'
-      - 'build_windows.bat'
-      - 'installer.iss'
-      - 'agent/**'
-      - 'vendor/**'
-      - 'installer_assets/**'
-      - 'autorip/**'
-      - 'autorip_gui.py'
-      - 'requirements*.txt'
   push:
     branches: [main]
     tags:
       - 'v*'
-    paths:
-      - '.github/workflows/build-windows.yml'
-      - 'tools/smoke_windows_installer.ps1'
-      - 'tools/smoke_frozen.py'
-      - 'tools/generate_mobile_qrs.py'
-      - 'build_windows.bat'
-      - 'installer.iss'
-      - 'agent/**'
-      - 'vendor/**'
-      - 'installer_assets/**'
-      - 'autorip/**'
-      - 'autorip_gui.py'
-      - 'requirements*.txt'
+
+concurrency:
+  group: autorip-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  tests:
+    name: Testes Python
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run full test suite
+        run: python -m pytest -q
+
+  build-windows:
+    name: Build Windows and Inno Setup
+    needs: tests
     runs-on: windows-2022
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -57,7 +65,7 @@ jobs:
             requirements-dev.txt
             agent/requirements.txt
 
-      - name: Conferir versao da tag e do instalador
+      - name: Check tag version
         if: startsWith(github.ref, 'refs/tags/v')
         run: python tools/check_release_version.py "${{ github.ref_name }}"
 
@@ -67,16 +75,14 @@ jobs:
           python -m pip install -r requirements-dev.txt pyinstaller
           if (Test-Path 'agent/requirements.txt') { python -m pip install -r agent/requirements.txt }
 
-      - name: Verify PyInstaller availability
-        run: python -m PyInstaller --version
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
 
-      - name: Run regression tests before Windows packaging
-        run: python -m pytest -q
-
-      - name: Build one-file executables and installer
+      - name: Build executables and installer
         run: .\build_windows.bat
 
-      - name: Smoke test IPv4 discovery dependencies in packaged agent
+      - name: Smoke test packaged PrintExp agent network discovery
         shell: pwsh
         run: |
           $report = Join-Path $env:RUNNER_TEMP 'autorip-agent-network.json'
@@ -86,20 +92,12 @@ jobs:
           if ($null -eq $data.PSObject.Properties['local_ipv4s']) { throw 'Relatorio IPv4 ausente.' }
           if (-not $data.discovery_library) { throw 'Biblioteca de descoberta ausente do pacote.' }
 
-      - name: Smoke test do executavel empacotado
+      - name: Smoke test packaged AutoRIP
         shell: pwsh
         run: |
           $version = python -c "from autorip import __version__; print(__version__)"
           python tools/smoke_frozen.py dist/AutoRIP/AutoRIP.exe $version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Install Inno Setup
-        shell: powershell
-        run: choco install innosetup --no-progress -y
-
-      - name: Build installer
-        shell: powershell
-        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss'
 
       - name: Verify artifacts
         shell: powershell
@@ -128,11 +126,11 @@ jobs:
             "$hash  $file" | Out-File -Encoding ascii -Append SHA256SUMS.txt
           }
 
-      - name: Upload executable and installer
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v6
         with:
           name: AutoRIP-Windows-${{ github.sha }}
-          if-no-files-found: warn
+          if-no-files-found: error
           path: |
             dist/AutoRIP/AutoRIP.exe
             dist/PrintExpAgent/PrintExpAgent.exe
@@ -141,18 +139,23 @@ jobs:
           retention-days: 14
 
   release:
+    name: Publish GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: build-windows
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@v6
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v6
         with:
           name: AutoRIP-Windows-${{ github.sha }}
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
