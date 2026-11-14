@@ -11,6 +11,7 @@ STATE_ROOT="${AUTORIP_STATE_ROOT:-/var/lib/autorip}"
 ETC_ROOT="${AUTORIP_ETC_ROOT:-/etc/autorip}"
 SERVICE_USER="${AUTORIP_USER:-autorip}"
 SHARE_USER="${AUTORIP_SHARE_USER:-autorip}"
+LAN_CIDR="${AUTORIP_LAN_CIDR:-192.168.0.0/16}"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Execute como root: sudo $0" >&2
@@ -21,6 +22,16 @@ if [[ ! -f "${PROJECT_ROOT}/requirements.txt" || ! -d "${PROJECT_ROOT}/autorip" 
   echo "Execute este script a partir de uma cópia completa do projeto AutoRIP." >&2
   exit 1
 fi
+
+LAN_CIDR="${LAN_CIDR}" python3 - <<'PY'
+import ipaddress
+import os
+
+try:
+    ipaddress.ip_network(os.environ["LAN_CIDR"], strict=False)
+except ValueError as exc:
+    raise SystemExit(f"CIDR inválido: {exc}")
+PY
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
@@ -53,7 +64,7 @@ chown -R root:root "${INSTALL_ROOT}"
 # Acesso remoto opcional, ativado por padrão para a imagem do servidor.
 if [[ "${AUTORIP_INSTALL_REMOTE_ACCESS:-1}" == "1" ]]; then
   install -m 0755 "${PROJECT_ROOT}/deploy/linux-server/install_remote_access.sh" /tmp/autorip-install-remote-access.sh
-  AUTORIP_LAN_CIDR="${AUTORIP_LAN_CIDR:-192.168.0.0/16}" \
+  AUTORIP_LAN_CIDR="${LAN_CIDR}" \
     AUTORIP_DESKTOP_USER="${AUTORIP_DESKTOP_USER:-}" \
     /tmp/autorip-install-remote-access.sh
   rm -f /tmp/autorip-install-remote-access.sh
@@ -151,10 +162,8 @@ systemctl enable --now autorip.service
 systemctl enable --now autorip-maintenance.timer
 systemctl enable --now smbd
 
-# Firewall: SMB apenas na rede local; ajuste a sub-rede se necessário.
-ufw allow from 192.168.0.0/16 to any app Samba comment 'AutoRIP SMB rede local' || true
-ufw allow from 10.0.0.0/8 to any app Samba comment 'AutoRIP SMB rede local' || true
-ufw allow from 172.16.0.0/12 to any app Samba comment 'AutoRIP SMB rede local' || true
+# Firewall: SMB somente na sub-rede informada, sem abrir todas as redes privadas.
+ufw allow from "${LAN_CIDR}" to any app Samba comment 'AutoRIP SMB rede local' || true
 
 cat <<EOF
 

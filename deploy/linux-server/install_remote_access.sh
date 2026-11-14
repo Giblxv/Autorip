@@ -11,6 +11,15 @@ fi
 
 LAN_CIDR="${AUTORIP_LAN_CIDR:-192.168.0.0/16}"
 DESKTOP_USER="${AUTORIP_DESKTOP_USER:-}"
+LAN_CIDR="${LAN_CIDR}" python3 - <<'PY'
+import ipaddress
+import os
+
+try:
+    ipaddress.ip_network(os.environ["LAN_CIDR"], strict=False)
+except ValueError as exc:
+    raise SystemExit(f"CIDR inválido: {exc}")
+PY
 if [[ -z "${DESKTOP_USER}" ]]; then
   DESKTOP_USER="$(awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false)$/ {print $1; exit}' /etc/passwd || true)"
 fi
