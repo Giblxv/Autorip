@@ -43,6 +43,9 @@ jobs:
       - name: Run regression tests before Windows packaging
         run: python -m pytest -q
 
+      - name: Run Python lint before Windows packaging
+        run: python -m ruff check --select F autorip tests tools
+
       - name: Build one-file executable
         run: .\build_windows.bat
 

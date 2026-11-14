@@ -1,7 +1,6 @@
 """Assistente Windows para preparar a mídia Ubuntu do servidor AutoRIP."""
 from __future__ import annotations
 
-import hashlib
 import json
 import subprocess
 import threading
@@ -10,39 +9,19 @@ import webbrowser
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+from media_security import download, manifest_sha256, sha256, verify_rufus_signature
 
-VERSION = "0.8.12"
+VERSION = "0.8.13"
 UBUNTU_URL = "https://releases.ubuntu.com/24.04/ubuntu-24.04.3-desktop-amd64.iso"
 UBUNTU_SUMS_URL = "https://releases.ubuntu.com/24.04/SHA256SUMS"
 RELEASE_BASE = f"https://github.com/Giblxv/Autorip/releases/download/v{VERSION}"
 BUNDLE_URL = f"{RELEASE_BASE}/autorip-linux-server-bundle-{VERSION}.zip"
 BUNDLE_SHA_URL = f"{RELEASE_BASE}/autorip-{VERSION}-sha256.txt"
 RUFUS_URL = "https://rufus.ie/downloads/rufus-4.15p.exe"
-
-
-def download(url: str, target: Path, report):
-    target.parent.mkdir(parents=True, exist_ok=True)
-    request = urllib.request.Request(url, headers={"User-Agent": "AutoRIP-Media-Wizard"})
-    with urllib.request.urlopen(request, timeout=60) as source, target.open("wb") as destination:
-        total = int(source.headers.get("Content-Length", "0"))
-        received = 0
-        while True:
-            block = source.read(1024 * 1024)
-            if not block:
-                break
-            destination.write(block)
-            received += len(block)
-            if total:
-                report(f"Baixando {target.name}: {received / total:.0%}")
-    return target
-
-
-def sha256(path: Path):
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for block in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
+MAX_UBUNTU_ISO_BYTES = 8 * 1024**3
+MAX_BUNDLE_BYTES = 256 * 1024**2
+MAX_MANIFEST_BYTES = 64 * 1024
+MAX_RUFUS_BYTES = 32 * 1024**2
 
 
 def ubuntu_expected_sha():
@@ -93,16 +72,21 @@ def main():
         try:
             base = Path(folder.get()).expanduser().resolve()
             base.mkdir(parents=True, exist_ok=True)
-            iso = download(UBUNTU_URL, base / "ubuntu-24.04.3-desktop-amd64.iso", report)
+            iso = download(UBUNTU_URL, base / "ubuntu-24.04.3-desktop-amd64.iso", report, MAX_UBUNTU_ISO_BYTES)
             report("Validando SHA-256 do Ubuntu...")
             expected = ubuntu_expected_sha()
             actual = sha256(iso)
             if actual.lower() != expected.lower():
                 raise RuntimeError("O checksum do Ubuntu não confere; o arquivo foi removido por segurança.")
             report("Ubuntu validado com sucesso.")
-            bundle = download(BUNDLE_URL, base / f"autorip-linux-server-bundle-{VERSION}.zip", report)
-            download(BUNDLE_SHA_URL, base / f"autorip-{VERSION}-sha256.txt", report)
-            rufus = download(RUFUS_URL, base / "rufus-4.15p.exe", report)
+            bundle = download(BUNDLE_URL, base / f"autorip-linux-server-bundle-{VERSION}.zip", report, MAX_BUNDLE_BYTES)
+            sums = download(BUNDLE_SHA_URL, base / f"autorip-{VERSION}-sha256.txt", report, MAX_MANIFEST_BYTES)
+            expected_bundle = manifest_sha256(sums.read_text(encoding="utf-8"), bundle.name)
+            if sha256(bundle).lower() != expected_bundle:
+                bundle.unlink(missing_ok=True)
+                raise RuntimeError("O checksum do pacote Linux não confere; o arquivo foi removido por segurança.")
+            rufus = download(RUFUS_URL, base / "rufus-4.15p.exe", report, MAX_RUFUS_BYTES)
+            verify_rufus_signature(rufus)
             profile = {"version": VERSION, "ubuntu_iso": str(iso), "autorip_bundle": str(bundle), "rufus": str(rufus)}
             (base / "media-plan.json").write_text(json.dumps(profile, indent=2), encoding="utf-8")
             report("Downloads e validações concluídos. Abrindo o Rufus...")
