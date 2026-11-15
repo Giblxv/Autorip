@@ -6,7 +6,7 @@ pyinstaller --noconfirm --clean --onefile --name AutoRIP --distpath dist\AutoRIP
 if exist "agent\print_agent.py" (
   echo Compilando PrintExpAgent.exe...
   if exist "agent\requirements.txt" python -m pip install --no-index --find-links wheelhouse -r agent\requirements.txt || goto :err
-  pyinstaller --noconfirm --clean --onefile --name PrintExpAgent --paths . --distpath dist\PrintExpAgent --workpath build\pyinstaller-agent --noconsole agent\print_agent.py || goto :err
+  pyinstaller --noconfirm --clean --onefile --name PrintExpAgent --paths . --distpath dist\PrintExpAgent --workpath build\pyinstaller-agent --noconsole --icon installer_assets\autorip.ico --add-data "autorip\ui\brand-mark.png;autorip\ui" agent\print_agent.py || goto :err
 )
 if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" (
   "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" installer.iss

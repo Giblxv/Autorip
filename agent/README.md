@@ -2,6 +2,31 @@
 
 Agente Windows para observar a pasta de saída do AutoRIP, controlar a fila de PRTs e operar o PrintExp via pywinauto.
 
+## Interface gráfica
+
+O **PrintExpAgent 0.2.0** tem uma janela nativa com a identidade visual do AutoRIP: tema escuro, marca e destaques em ciano, magenta e amarelo. Abra **Agente PrintExp** no menu Iniciar ou execute:
+
+[Prévia da interface](../docs/refinements/assets/printexp-agent-interface.png).
+
+```powershell
+.\PrintExpAgent.exe --gui
+```
+
+A janela mostra modo de operação, pastas, IPv4, últimos 200 trabalhos e registro de eventos. Em **Configurações**, escolha o executável do PrintExp e as pastas, ajuste os intervalos e salve. O banco de histórico existente e as opções avançadas do JSON são preservados.
+
+**Testar conexão com PrintExp** pode abrir/focar o programa configurado, mas não carrega PRT nem solicita impressão. **Iniciar** acompanha a pasta e usa o modo salvo. O padrão continua seguro (`auto_print: false`): registra os arquivos e aguarda autorização. Para automatizar a impressão, primeiro calibre os controles reais e ative a opção na configuração.
+
+**Parar** impede os próximos trabalhos e aguarda a operação atual terminar. A impressão física não é pausada. Fechar a janela também aguarda; se a conclusão não for confirmada, o trabalho permanece em revisão. Trabalhos em revisão ou com pedido de impressão pendente não são reenviados automaticamente.
+
+Sem argumentos, o executável abre a janela e retoma o monitoramento quando já existe configuração, preservando o comportamento de inicialização anterior. `--gui` abre parado para configuração; `--gui --start` abre e inicia. Para execução sem janela, use:
+
+```powershell
+.\PrintExpAgent.exe --headless
+.\PrintExpAgent.exe --dry-run --once
+```
+
+A interface funciona localmente, sem servidor HTTP ou novas portas de administração. A descoberta LAN existente continua disponível; ela anuncia o computador, mas não é um receptor TCP de PRTs.
+
 ## Descoberta do computador receptor
 
 O agente anuncia seus IPv4 na rede local para a configuração do AutoRIP. Há um
@@ -41,5 +66,5 @@ Um job que chega a `impressao_solicitada` e perde a confirmação fica em `revis
 
 ```bat
 python -m pip install -r agent\requirements.txt pyinstaller
-python -m PyInstaller --noconfirm --clean --onefile --name PrintExpAgent --distpath dist\PrintExpAgent --workpath build\pyinstaller-agent --noconsole agent\print_agent.py
+python -m PyInstaller --noconfirm --clean --onefile --name PrintExpAgent --paths . --distpath dist\PrintExpAgent --workpath build\pyinstaller-agent --noconsole --icon installer_assets\autorip.ico --add-data "autorip\ui\brand-mark.png;autorip\ui" agent\print_agent.py
 ```

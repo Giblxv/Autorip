@@ -102,6 +102,21 @@ jobs:
           python tools/smoke_frozen.py dist/AutoRIP/AutoRIP.exe $version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Smoke test packaged PrintExp agent interface
+        shell: pwsh
+        timeout-minutes: 2
+        run: |
+          $agentGuiRoot = Join-Path $env:RUNNER_TEMP 'autorip-agent-gui'
+          New-Item -ItemType Directory -Force -Path $agentGuiRoot | Out-Null
+          $agentGuiConfig = Join-Path $agentGuiRoot 'print-agent.json'
+          $agentGuiReport = Join-Path $agentGuiRoot 'gui-smoke.json'
+          $agentGuiProcess = Start-Process -FilePath 'dist\PrintExpAgent\PrintExpAgent.exe' -ArgumentList @('--config', ('"{0}"' -f $agentGuiConfig), '--gui-smoke', ('"{0}"' -f $agentGuiReport)) -Wait -PassThru
+          if ($agentGuiProcess.ExitCode -ne 0) { throw 'Falha ao abrir a interface do agente empacotado.' }
+          $agentGuiData = Get-Content -LiteralPath $agentGuiReport -Raw | ConvertFrom-Json
+          if (-not $agentGuiData.passed -or -not $agentGuiData.brand_loaded) { throw 'Interface ou marca ausente do pacote.' }
+          if ($agentGuiData.monitor_started -ne $false) { throw 'O diagnóstico não deve iniciar monitoramento.' }
+          $agentGuiData | ConvertTo-Json -Depth 4
+
       - name: Verify artifacts
         shell: powershell
         run: |
