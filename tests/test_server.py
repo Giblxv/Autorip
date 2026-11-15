@@ -29,7 +29,7 @@ def test_bind_host_preserva_loopback_por_padrao(monkeypatch):
     assert server_module._allowed_hosts("127.0.0.1") == {"127.0.0.1", "localhost"}
 
 
-@pytest.mark.parametrize('path', ['/', '/api/state', '/planner.js'])
+@pytest.mark.parametrize('path', ['/', '/api/state', '/planner.js', '/looney.css', '/brand-mark.png'])
 def test_csp_limita_blob_as_imagens_sem_liberar_scripts(panel, path):
     status, _, headers = request(panel, path)
     assert status == 200
@@ -242,6 +242,17 @@ def test_painel_serve_apenas_pngs_qr_permitidos(panel):
         assert headers.get_content_type() == "image/png"
     status, _, _ = request(panel, "/../../README.md")
     assert status == 404
+
+
+def test_ativos_visuais_publicos_nao_abrem_acesso_a_outros_arquivos(panel):
+    for path, mime in (("/looney.css", "text/css"), ("/brand-mark.png", "image/png")):
+        status, body, headers = request(panel, path)
+        assert status == 200
+        assert body
+        assert headers.get_content_type() == mime
+        assert headers["X-Content-Type-Options"] == "nosniff"
+    for path in ("/autorip.ico", "/server.py", "/ui/../server.py", "/ui/looney.css"):
+        assert request(panel, path)[0] == 404
 
 
 def test_endpoint_logo_nao_serve_caminho_arbitrario(panel, app, tmp_path):
@@ -1022,6 +1033,8 @@ def test_janela_nativa_recebe_estado_por_fila_e_abre_painel(monkeypatch):
         def geometry(self, *args): pass
         def minsize(self, *args): pass
         def configure(self, **kwargs): pass
+        def iconphoto(self, *args):
+            assert threading.get_ident() == main_thread
         def after(self, delay, callback):
             assert threading.get_ident() == main_thread
             self.callbacks.append(callback)
@@ -1045,7 +1058,8 @@ def test_janela_nativa_recebe_estado_por_fila_e_abre_painel(monkeypatch):
         def pack(self, **kwargs): pass
 
     monkeypatch.setitem(sys.modules, 'tkinter', SimpleNamespace(
-        Tk=Root, StringVar=Variable, Label=Widget, Button=Widget, TclError=RuntimeError))
+        Tk=Root, StringVar=Variable, Label=Widget, Button=Widget,
+        PhotoImage=Widget, TclError=RuntimeError))
     state = SimpleNamespace(lock=threading.RLock(),settings_lock=threading.RLock(),
                             jobs=[{'status':'processando'}],auto=True,
                             s=SimpleNamespace(offline_mode=True),q=__import__('queue').Queue())

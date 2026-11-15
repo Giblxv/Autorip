@@ -3,19 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#1a1a1a">
+  <meta name="theme-color" content="#0d071a">
   <title>AutoRIP Mobile</title>
   <style>
-    :root{color-scheme:light;--ink:#1a1a1a;--cyan:#00aeef;--pink:#ec008c;--yellow:#ffd800;--paper:#fff8e1}
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:24px}
-    main{width:min(560px,100%);background:#fff;border:4px solid var(--ink);border-radius:20px;box-shadow:8px 8px 0 var(--ink);padding:24px}
-    h1{margin:0 0 8px;font-size:clamp(32px,9vw,52px);letter-spacing:-1px}h1 b:nth-child(1){color:var(--cyan)}h1 b:nth-child(2){color:var(--pink)}h1 b:nth-child(3){color:var(--yellow);text-shadow:2px 2px var(--ink)}
-    p{line-height:1.45}.hint{font-size:14px;color:#555}.row{display:flex;gap:10px;flex-wrap:wrap}input{flex:1;min-width:220px;padding:14px;border:3px solid var(--ink);border-radius:10px;font-size:16px}button{padding:14px 18px;border:3px solid var(--ink);border-radius:10px;background:var(--yellow);font-weight:700;font-size:16px;box-shadow:3px 3px 0 var(--ink)}button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}button:disabled{opacity:.6}ul{padding:0;list-style:none}li{display:flex;gap:8px;margin:8px 0}li button{padding:8px 10px;font-size:13px;background:#eee;box-shadow:none}.error{color:#a00050;min-height:24px}
+    :root{color-scheme:dark;--ink:#05020a;--cyan:#00f5d4;--pink:#ff2a85;--yellow:#ffe600;--paper:#0d071a;--muted:#cbbbe8}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top left,#291346,transparent 70%),var(--paper);color:#fffdf7;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
+    main{width:min(560px,100%);background:#180e2e;border:2px solid var(--ink);border-radius:20px;box-shadow:6px 6px 0 var(--ink);padding:24px;min-width:0}
+    .brand{display:flex;align-items:center;gap:12px;margin-bottom:18px}.brand img{width:56px;height:56px;flex:none}h1{margin:0;font-size:clamp(32px,9vw,48px);letter-spacing:-1px}h1 b:nth-child(1){color:var(--cyan)}h1 b:nth-child(2){color:var(--pink)}h1 b:nth-child(3){color:var(--yellow)}
+    p{line-height:1.55}.hint{font-size:13px;color:var(--muted);overflow-wrap:anywhere}.row{display:flex;gap:10px;flex-wrap:wrap}input{flex:1;min-width:min(220px,100%);width:100%;padding:14px;border:1px solid #655080;background:var(--paper);color:#fffdf7;border-radius:10px;font-size:16px}input::placeholder{color:#af9dc9}button{padding:12px 16px;min-height:44px;border:2px solid var(--ink);border-radius:10px;background:var(--cyan);color:var(--ink);font-weight:700;font-size:15px;box-shadow:3px 3px 0 var(--ink);cursor:pointer}#scan{background:var(--yellow)}button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}button:disabled{opacity:.6}button:focus-visible,input:focus-visible{outline:3px solid var(--cyan);outline-offset:4px}ul{padding:0;list-style:none}li{display:flex;gap:8px;margin:8px 0;min-width:0}li button{padding:8px 10px;font-size:13px;background:#241545;color:#fffdf7;box-shadow:none;overflow-wrap:anywhere;min-width:0}.error{color:#ff80b4;min-height:24px}
+    @media(max-width:360px){body{padding:16px}main{padding:18px}}
   </style>
 </head>
 <body>
 <main>
-  <h1><b>A</b><b>u</b><b>to</b>RIP</h1>
+  <div class="brand"><img src="brand-mark.png" width="56" height="56" alt=""><h1><b>A</b><b>u</b><b>to</b>RIP</h1></div>
   <p>Conecte o aplicativo ao painel AutoRIP executando no servidor interno.</p>
   <label for="url"><strong>Endereço do servidor</strong></label>
   <div class="row" style="margin-top:8px"><input id="url" inputmode="url" autocomplete="url" placeholder="http://192.168.1.50:8765"><button id="connect">Conectar</button></div>

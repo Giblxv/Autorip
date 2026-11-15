@@ -1483,13 +1483,17 @@ class H(BaseHTTPRequestHandler):
         if u.path in ("/planner.js", "/printexp-network.js"):
             with open(res_path("ui", u.path[1:]), "rb") as source:
                 return self._send(200, source.read(), "application/javascript; charset=utf-8")
-        mobile_qr_assets = {
+        if u.path == "/looney.css":
+            with open(res_path("ui", "looney.css"), "rb") as source:
+                return self._send(200, source.read(), "text/css; charset=utf-8")
+        panel_images = {
+            "/brand-mark.png": "brand-mark.png",
             "/mobile-android-qr.png": "mobile-android-qr.png",
             "/mobile-ios-guide-qr.png": "mobile-ios-guide-qr.png",
         }
-        if u.path in mobile_qr_assets:
+        if u.path in panel_images:
             try:
-                path = res_path("ui", mobile_qr_assets[u.path])
+                path = res_path("ui", panel_images[u.path])
                 with open(path, "rb") as image:
                     data = image.read(256 * 1024 + 1)
                 if len(data) > 256 * 1024:
@@ -1867,12 +1871,17 @@ def run_direct():
     root.title("AutoRIP — modo direto")
     root.geometry("600x240")
     root.minsize(460, 220)
-    root.configure(bg="#1a1a1a")
+    root.configure(bg="#0d071a")
+    try:
+        root._autorip_icon = tk.PhotoImage(file=res_path("ui", "brand-mark.png"))
+        root.iconphoto(True, root._autorip_icon)
+    except (tk.TclError, OSError):
+        pass
     messages = queue.Queue()
     status = tk.StringVar(value="Iniciando AutoRIP local…")
-    tk.Label(root, text="AutoRIP", fg="#00aeef", bg="#1a1a1a",
+    tk.Label(root, text="AutoRIP", fg="#00f5d4", bg="#0d071a",
              font=("Segoe UI", 24, "bold")).pack(pady=(18, 4))
-    tk.Label(root, textvariable=status, fg="white", bg="#1a1a1a",
+    tk.Label(root, textvariable=status, fg="#fffdf7", bg="#0d071a",
              font=("Segoe UI", 10), wraplength=520).pack(pady=4)
     def close_direct():
         global DIRECT_CLOSING
@@ -1886,9 +1895,9 @@ def run_direct():
             webbrowser.open(f"http://127.0.0.1:{srv.server_address[1]}/")
 
     tk.Button(root, text="Abrir painel e configurações", command=open_panel,
-              bg="#00aeef", fg="#1a1a1a", relief="flat", padx=18, pady=7).pack(pady=4)
+              bg="#00f5d4", fg="#05020a", relief="flat", padx=18, pady=7).pack(pady=4)
     tk.Button(root, text="Encerrar", command=close_direct,
-              bg="#ec008c", fg="white", relief="flat", padx=18, pady=7).pack(pady=12)
+              bg="#ff2a85", fg="#05020a", relief="flat", padx=18, pady=7).pack(pady=12)
 
     def start_local():
         try:
