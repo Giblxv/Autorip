@@ -11,6 +11,7 @@ import shutil
 import sqlite3
 import sys
 import time
+import threading
 from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,7 +32,7 @@ try:
 except ImportError:  # pragma: no cover - mensagem amigável no computador do usuário
     Application = Desktop = send_keys = None
 
-VERSION = "0.1.1"
+VERSION = "0.2.0"
 DEFAULT_POLL_SECONDS = 2.0
 DEFAULT_STABLE_SECONDS = 3.0
 DEFAULT_CONFIRM_TIMEOUT = 120.0
@@ -161,8 +162,8 @@ class Config:
             error_folder=required_path("error_folder"),
             state_db=state_db,
             log_file=log_file,
-            auto_print=bool(raw.get("auto_print", False)),
-            dry_run=bool(raw.get("dry_run", dry_run)),
+            auto_print=raw.get("auto_print", False),
+            dry_run=True if dry_run else raw.get("dry_run", False),
             network_discovery=raw.get("network_discovery", True),
             uipi_guard=raw.get("uipi_guard", True),
             printexp_port=raw.get("printexp_port", 9100),
@@ -178,6 +179,18 @@ class Config:
         return config
 
     def validate(self) -> None:
+        import math
+        for name in ("auto_print", "dry_run"):
+            if type(getattr(self,name)) is not bool:
+                raise ValueError(f"{name} precisa ser booleano.")
+        for name in ("poll_seconds", "stable_seconds", "confirm_timeout"):
+            if not math.isfinite(getattr(self,name)):
+                raise ValueError(f"{name} precisa ser um número finito.")
+        for pattern in (self.printexp_title_regex, *self.confirmation_regexes):
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                raise ValueError("Expressão de identificação do PrintExp inválida.") from exc
         if type(self.network_discovery) is not bool:
             raise ValueError('network_discovery precisa ser booleano.')
         if type(self.uipi_guard) is not bool:
@@ -188,7 +201,8 @@ class Config:
             raise ValueError("poll_seconds e stable_seconds devem ser pelo menos 0.5.")
         if self.confirm_timeout < 5:
             raise ValueError("confirm_timeout deve ser pelo menos 5 segundos.")
-        if self.output_folder == self.printed_folder or self.output_folder == self.error_folder:
+        folders=(self.output_folder.resolve(),self.printed_folder.resolve(),self.error_folder.resolve())
+        if len(set(folders))!=3 or any(a in b.parents or b in a.parents for i,a in enumerate(folders) for b in folders[i+1:]):
             raise ValueError("output_folder, printed_folder e error_folder devem ser diferentes.")
         self.output_folder.mkdir(parents=True, exist_ok=True)
         self.printed_folder.mkdir(parents=True, exist_ok=True)
@@ -198,7 +212,8 @@ class Config:
 
 
 class State:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, on_change=None):
+        self.on_change=on_change
         self.connection = sqlite3.connect(path)
         self.connection.execute("PRAGMA journal_mode=WAL")
         self.connection.execute(
@@ -217,7 +232,15 @@ class State:
             )
             """
         )
+        self.connection.execute("CREATE INDEX IF NOT EXISTS jobs_updated_idx ON jobs(updated_at DESC,id DESC)")
         self.connection.commit()
+        if self.on_change:
+            self.publish()
+
+    def publish(self):
+        self.connection.row_factory=sqlite3.Row
+        rows=self.connection.execute("SELECT id,filename,state,attempts,error,updated_at FROM jobs ORDER BY updated_at DESC,id DESC LIMIT 200").fetchall()
+        self.on_change([dict(row) for row in rows])
 
     def state_for(self, filename: str, sha256: str) -> str | None:
         row = self.connection.execute(
@@ -237,6 +260,8 @@ class State:
             (path.name, str(path), sha256, state, error),
         )
         self.connection.commit()
+        if self.on_change:
+            self.publish()
 
     def close(self) -> None:
         self.connection.close()
@@ -389,16 +414,18 @@ def move_unique(source: Path, destination_dir: Path) -> Path:
 def setup_logging(path: Path) -> logging.Logger:
     logger = logging.getLogger("PrintExpAgent")
     logger.setLevel(logging.INFO)
-    logger.handlers.clear()
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler);handler.close()
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
     file_handler = logging.FileHandler(path, encoding="utf-8")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-    logger.addHandler(logging.StreamHandler())
+    if sys.stderr is not None:
+        logger.addHandler(logging.StreamHandler())
     return logger
 
 
-def process(path: Path, config: Config, state: State, driver: PrintExpDriver, log: logging.Logger) -> None:
+def process(path: Path, config: Config, state: State, driver: PrintExpDriver, log: logging.Logger, stop_event=None) -> None:
     if not stable(path, config.stable_seconds):
         log.warning("Arquivo não estabilizou: %s", path.name)
         return
@@ -406,6 +433,14 @@ def process(path: Path, config: Config, state: State, driver: PrintExpDriver, lo
     previous = state.state_for(path.name, digest)
     if previous == "concluido":
         log.info("Ignorando trabalho já concluído: %s", path.name)
+        return
+
+    if previous not in (None,"detectado","aguardando_autorizacao"):
+        # Um pedido sem confirmação não pode virar uma segunda impressão.
+        return
+    if stop_event is not None and stop_event.is_set():
+        return
+    if previous=="aguardando_autorizacao" and (config.dry_run or not config.auto_print):
         return
 
     state.set(path, digest, "detectado")
@@ -418,9 +453,13 @@ def process(path: Path, config: Config, state: State, driver: PrintExpDriver, lo
         state.set(path, digest, "carregando")
         driver.open_job(path)
         state.set(path, digest, "carregado")
+        if stop_event is not None and stop_event.is_set():
+            state.set(path,digest,"revisao_manual","Monitoramento parado após carregar; confira o trabalho no PrintExp.")
+            return
         driver.start_print()
         state.set(path, digest, "impressao_solicitada")
-        driver.wait_confirmation()
+        if not driver.wait_confirmation():
+            raise TimeoutError("O PrintExp não confirmou a conclusão da impressão.")
         state.set(path, digest, "concluido")
         destination = move_unique(path, config.printed_folder)
         log.info("Impressão confirmada: %s", destination.name)
@@ -430,30 +469,38 @@ def process(path: Path, config: Config, state: State, driver: PrintExpDriver, lo
         log.exception("Trabalho colocado em revisão manual: %s", path.name)
 
 
-def run(config: Config, log: logging.Logger, once: bool = False) -> None:
+def run(config: Config, log: logging.Logger, once: bool = False, stop_event=None, on_jobs=None, on_started=None) -> None:
+    stop_event=stop_event or threading.Event()
     lock_path = config.state_db.with_suffix(".lock")
     lock_handle = lock_path.open("a+")
     if portalocker is None:
+        lock_handle.close()
         raise RuntimeError("portalocker não está instalado.")
     try:
         portalocker.lock(lock_handle, portalocker.LOCK_EX | portalocker.LOCK_NB)
     except portalocker.exceptions.LockException as exc:
+        lock_handle.close()
         raise RuntimeError("O agente PrintExp já está em execução.") from exc
 
-    state = State(config.state_db)
-    driver = PrintExpDriver(config, log)
+    state=None
     try:
+        state = State(config.state_db,on_change=on_jobs)
+        driver = PrintExpDriver(config, log)
         log.info("PrintExpAgent %s iniciado", VERSION)
         log.info("Monitorando %s", config.output_folder)
+        if on_started and not stop_event.is_set():on_started()
         with (advertise_receiver(config.printexp_port, log) if config.network_discovery and not once else nullcontext()):
-            while True:
+            while not stop_event.is_set():
                 for path in sorted(config.output_folder.glob("*.PRT"), key=lambda item: item.stat().st_mtime):
-                    process(path, config, state, driver, log)
+                    if stop_event.is_set():
+                        break
+                    process(path, config, state, driver, log, stop_event=stop_event)
                 if once:
                     return
-                time.sleep(config.poll_seconds)
+                stop_event.wait(config.poll_seconds)
     finally:
-        state.close()
+        if state is not None:
+            state.close()
         portalocker.unlock(lock_handle)
         lock_handle.close()
 
@@ -461,6 +508,10 @@ def run(config: Config, log: logging.Logger, once: bool = False) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Agente local de automação do PrintExp")
     parser.add_argument("--config", type=Path, default=None)
+    parser.add_argument("--headless", action="store_true", help="executa o monitoramento sem janela")
+    parser.add_argument("--gui", action="store_true", help="abre a interface do agente")
+    parser.add_argument("--start", action="store_true", help="inicia o monitoramento ao abrir a interface")
+    parser.add_argument("--gui-smoke", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--dry-run", action="store_true", help="não abre nem imprime trabalhos")
     parser.add_argument("--once", action="store_true", help="processa os PRTs existentes e encerra")
     parser.add_argument("--inspect", action="store_true", help="lista controles visíveis do PrintExp e encerra")
@@ -486,6 +537,12 @@ def main() -> int:
 
     default_config = Path(os.environ.get("APPDATA", Path.home())) / "AutoRIP" / "print-agent.json"
     config_path = (args.config or default_config).expanduser().resolve()
+    if args.gui_smoke:
+        from agent.gui import smoke
+        return smoke(config_path,args.gui_smoke)
+    if args.gui or not (args.headless or args.once or args.inspect or args.dry_run):
+        from agent.gui import launch
+        return launch(config_path,auto_start=args.start or (not args.gui and config_path.exists()))
     if not config_path.exists():
         print(f"Configuração não encontrada: {config_path}", file=sys.stderr)
         return 2

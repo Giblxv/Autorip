@@ -1,6 +1,6 @@
 ; AutoRIP - instalador (Inno Setup 6). Compile com: ISCC installer.iss  (build_windows.bat ja faz isso)
 #define AppName "AutoRIP"
-#define AppVersion "0.8.29"
+#define AppVersion "0.8.30"
 #define AppExe "AutoRIP.exe"
 
 [Setup]
@@ -72,6 +72,7 @@ Source: "vendor\PrintExpSetup.exe"; DestDir: "{app}\vendor"; Flags: ignoreversio
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
+Name: "{group}\Agente PrintExp"; Filename: "{app}\PrintExpAgent.exe"; Parameters: "--gui"; Check: AgentExecutableExists
 Name: "{group}\{#AppName} (modo direto, sem navegador)"; Filename: "{app}\{#AppExe}"; Parameters: "--direct"
 Name: "{group}\Desinstalar {#AppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
@@ -79,7 +80,7 @@ Name: "{autodesktop}\{#AppName} (modo direto)"; Filename: "{app}\{#AppExe}"; Par
 Name: "{userstartup}\{#AppName}"; Filename: "{app}\{#AppExe}"; Parameters: "--direct"; Tasks: autostart
 
 [Run]
-Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AutoRIP PrintExp Agent"" /TR """"{app}\PrintExpAgent.exe"""" /SC ONLOGON /RL LIMITED /F"; Tasks: agentautostart; Check: AgentExecutableExists; Flags: runhidden waituntilterminated
+Filename: "{sys}\schtasks.exe"; Parameters: "/Create /TN ""AutoRIP PrintExp Agent"" /TR """"{app}\PrintExpAgent.exe"""" /SC ONLOGON /RL LIMITED /IT /F"; Tasks: agentautostart; Check: AgentExecutableExists; Flags: runhidden waituntilterminated
 Filename: "{app}\vendor\PrintExpSetup.exe"; Description: "Instalar o PrintExp"; Check: PrintExpSetupExists; Flags: postinstall waituntilterminated
 Filename: "{app}\{#AppExe}"; Description: "{cm:RunApp}"; Flags: postinstall nowait skipifsilent
 

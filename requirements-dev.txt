@@ -1,3 +1,4 @@
 -r requirements.txt
 pytest>=8,<10
+portalocker>=2.8,<4  # regressões do controle de instância do agente
 rectpack==0.2.2  # testes do encaixe opcional
