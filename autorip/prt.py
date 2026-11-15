@@ -29,6 +29,24 @@ def pack2(a: np.ndarray, plane_bytes: int) -> np.ndarray:
         raise ValueError("cada plano precisa ser uma matriz 2-D nao vazia.")
     if type(plane_bytes) is not int or plane_bytes <= 0 or a.shape[1] > plane_bytes * 4:
         raise ValueError("plane_bytes nao comporta a largura do plano.")
+    if a.dtype == np.uint8:
+        if a.max() > 3:
+            raise ValueError("niveis do plano precisam ser inteiros entre 0 e 3.")
+        rows, dots = a.shape
+        full = plane_bytes * 4
+        # A multiplicacao modifica somente esta copia privada, nunca os planos
+        # compartilhados pelo renderizador. O padding fica limitado a este buffer.
+        if dots < full:
+            data = np.empty((rows, full), dtype=np.uint8)
+            data[:, :dots] = a
+            data[:, dots:] = 0
+        else:
+            data = np.array(a, dtype=np.uint8, order="C", copy=True)
+        words = data.view("<u4")
+        # Para niveis 0..3, o byte alto do produto modulo 2**32 e
+        # 64*a0 + 16*a1 + 4*a2 + a3, sem carries entre os termos.
+        np.multiply(words, np.uint32(0x40100401), out=words)
+        return data[:, 3::4].copy()
     if not np.issubdtype(a.dtype, np.integer) or np.any(a < 0) or np.any(a > 3):
         raise ValueError("niveis do plano precisam ser inteiros entre 0 e 3.")
     rows, dots = a.shape
