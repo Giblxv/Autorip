@@ -467,7 +467,7 @@ class Rip:
             values = raw[..., channel]
             small = small_lut[channel][values] > ranks
             large = large_lut[channel][values] > ranks
-            levels.append(np.where(large, np.uint8(3), small.astype(np.uint8)))
+            levels.append(self._drop_levels(small, large))
         return levels
 
     def _thresholds(self, height, width, y0):
@@ -498,6 +498,15 @@ class Rip:
 
     _builtin_thresholds = _thresholds
 
+    @staticmethod
+    def _drop_levels(small, large):
+        # Mapas booleanos de mesma forma; saida privada com niveis 0, 1 ou 3.
+        small, large = np.asarray(small), np.asarray(large)
+        levels = np.empty_like(large, dtype=np.uint8)
+        np.multiply(large, np.uint8(3), out=levels)
+        np.maximum(levels, small, out=levels)
+        return levels
+
     def _halftone(self, v: np.ndarray, y0: int, thresholds=None) -> np.ndarray:
         """v = volume de tinta (0..1, 1 = tudo gota grande) -> niveis {0,1,3}.
         Modelo medido nos .PRT reais (nivel 2 nunca usado): a gota pequena tem r~0,40 do volume da grande.
@@ -507,8 +516,7 @@ class Rip:
         t = self._thresholds(*v.shape, y0) if thresholds is None else thresholds
         small = (v / r) > t
         large = ((v - r) / (1.0 - r)) > t
-        # Escala uint8 evita dois buffers int64 da seleção aninhada.
-        return np.where(large, np.uint8(3), small.astype(np.uint8))
+        return self._drop_levels(small, large)
 
     _builtin_halftone = _halftone
 
@@ -521,7 +529,7 @@ class Rip:
         thresholds = self._thresholds(*mask.shape, y0)
         small = (volume / r) > thresholds
         large = ((volume - r) / (1.0 - r)) > thresholds
-        levels = np.where(large, np.uint8(3), small.astype(np.uint8))
+        levels = self._drop_levels(small, large)
         # O ruído nativo é positivo: volume zero sempre produz nivel zero.
         levels[~mask] = 0
         return levels
