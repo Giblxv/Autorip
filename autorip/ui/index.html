@@ -29,8 +29,8 @@
  </section>
  <section>
   <div class="card h-m"><div class="hd"><h2><i>Fila de RIP</i></h2><span class="cnt" id="ripCount" title="Trabalhos pendentes, incluindo pausados e arquivos em preparação">0</span></div><div class="queue-hint">Selecione um trabalho para pausar, retomar ou cancelar com segurança.</div><div id="queuePreparing" aria-live="polite"></div><div id="jobs" role="region" aria-label="Trabalhos da fila de RIP" tabindex="0"><em>Nenhum trabalho ainda…</em></div></div>
-  <div class="card h-c" style="margin-top:24px"><h2><i>Agente de IA</i></h2><div style="font-size:16px">Pesquisa na internet como aprimorar o RIP. <b>Só sugere</b>, não muda nada sozinho.</div>
-   <div class="row" style="justify-content:flex-start"><button class="c" onclick="askAgent()">🔎 Pesquisar melhorias</button></div><div id="agentOut" style="white-space:pre-wrap;font:14px/1.5 sans-serif;margin-top:10px"></div></div>
+  <div class="card h-c" style="margin-top:24px"><h2><i>Agentes de IA</i></h2><div style="font-size:16px">Analise melhorias com suas contas de IA. <b>Só sugere</b>, não muda configurações sozinho. A pesquisa na web depende do serviço.</div>
+   <div class="row" style="justify-content:flex-start"><label for="agentProvider">Provedor</label><select id="agentProvider"><option value="auto">Automático</option></select><button id="agentAsk" class="c" onclick="askAgent()">🔎 Analisar melhorias</button><button class="sm" onclick="openCfg()">Configurar contas</button></div><div id="agentOut" style="white-space:pre-wrap;font:14px/1.5 sans-serif;margin-top:10px"></div></div>
   <div class="card h-y" style="margin-top:24px"><div class="hd"><h2><i>Registro</i></h2><button class="sm" onclick="copyLog()">📋 Copiar</button></div><div class="logbox" id="log"></div></div>
  </section>
 </main>
@@ -61,7 +61,15 @@
 </dialog>
 <script src="/planner.js"></script>
 <script src="/printexp-network.js"></script>
-<dialog id="qrDlg" aria-labelledby="qrTitle"><h2 id="qrTitle" style="margin-top:0">📱 Conectar celular</h2><div class="qr-layout"><p>Abra o app AutoRIP no telefone e escaneie este código.</p><img id="mobileQr" class="qr-image" alt="QR code com o endereço local do AutoRIP"><div id="mobileQrUrl" class="qr-address"></div><p id="mobileQrMessage" class="qr-note" role="status" aria-live="polite">Entre no painel para gerar um QR.</p><div class="row"><button class="c" onclick="copyMobileUrl()">Copiar endereço</button><button onclick="qrDlg.close()">Fechar</button></div><p style="font-size:13px;max-width:52ch">O QR contém apenas IP e porta. A senha do AutoRIP continua necessária e nunca é compartilhada pelo QR.</p></div></dialog>
+<dialog id="qrDlg" aria-labelledby="qrTitle"><h2 id="qrTitle">📱 Conectar celular</h2><div class="qr-layout">
+<p>Conecte o telefone e o computador à mesma rede. Ative o acesso e leia o QR com a câmera ou com o app AutoRIP.</p>
+<label for="mobileHost">IPv4 deste computador na rede do telefone</label><select id="mobileHost" aria-label="IPv4 deste computador"></select>
+<div class="row"><button id="mobileEnable" class="c" onclick="setMobileAccess(true)">Ativar acesso e gerar QR</button><button class="sm" onclick="showMobileQR()">Atualizar IPs</button><button id="mobileDisable" class="k" onclick="setMobileAccess(false)" hidden>Desativar acesso</button></div>
+<img id="mobileQr" class="qr-image" alt="QR code para conectar o telefone ao AutoRIP"><div id="mobileQrUrl" class="qr-address"></div>
+<p id="mobileQrMessage" class="qr-note" role="status" aria-live="polite">Consultando a rede local…</p>
+<div class="row"><button class="c" onclick="copyMobileUrl()">Copiar endereço</button><button onclick="qrDlg.close()">Fechar</button></div>
+<p style="font-size:13px;max-width:52ch">Use sua rede Wi-Fi privada. Se o Windows pedir, permita o AutoRIP no firewall para redes privadas. Se não abrir no telefone, confira o firewall e evite Wi-Fi de convidados com isolamento. O QR contém apenas IP e porta; faça login com a senha do AutoRIP no telefone.</p>
+</div></dialog>
  <dialog id="helpDlg" aria-labelledby="helpTitle"><h2 id="helpTitle" style="margin-top:0">❔ Ajuda — AutoRIP e PrintExp</h2>
   <p class="help-note"><b>AutoRIP</b> prepara a arte: lê PNG, TIFF ou JPEG, aplica o perfil ICC quando configurado, cria CMYK, base branca e o arquivo <b>.PRT</b>. <b>PrintExp</b> é o software que recebe o PRT e controla o fluxo da impressora. O <b>agente PrintExp</b> observa a pasta de saída e automatiza as ações permitidas na interface do PrintExp.</p>
   <div class="help-grid">
@@ -78,14 +86,17 @@
 const $=id=>document.getElementById(id);let token="",hasPass=false,lastDone=new Set(),first=true;
 let jobsKey="",printsKey="",hotKey="",noticeTimer,appClosed=false,cfgRequest=0;
 const apiRequests=new Set(),pollTimers=[],printRows=new Map(),hotRows=new Map(),jobRows=new Map();
+const pollCache=new Map(),conditionalPaths=new Set(["/api/state","/api/prints","/api/hot-files"]);
+let appliedState=null,appliedPrints=null,appliedHot=null;
+function setText(id,value){const node=$(id),text=String(value);if(node.textContent!==text)node.textContent=text}
 // Timer ticks share the current request. Explicit refreshes invalidate its snapshot
 // and coalesce into one subsequent request, including while that request is pending.
 function createPoller(task){let running=null,revision=0;return function run(force=false){
  if(appClosed||(!force&&document.hidden))return running||Promise.resolve();if(force)revision++;if(running)return running;
  running=(async()=>{try{let current;do{current=revision;await task(()=>current!==revision)}while(current!==revision&&!appClosed)}finally{running=null}})();return running;
 }}
-function lockPanel(){token="";jobsKey=printsKey=hotKey="";lastDone.clear();first=true;printRows.clear();hotRows.clear();jobRows.clear();resetThumbnails();
- resetSheetPlanner();
+function lockPanel(){token="";jobsKey=printsKey=hotKey="";pollCache.clear();appliedState=appliedPrints=appliedHot=null;lastDone.clear();first=true;printRows.clear();hotRows.clear();jobRows.clear();resetThumbnails();
+ resetSheetPlanner();window.resetMobileConnect?.();window.resetAiAccounts?.();
  $("pqn").textContent="—";$("pq").textContent="Faça login para ver a fila";$("hotFiles").textContent="Faça login para listar os arquivos.";
  $("jobs").textContent="Faça login para ver seus trabalhos";$("ripCount").textContent="—";$("queuePreparing").textContent="";
  $("sw").setAttribute("aria-checked","false");$("sw").classList.remove("on");$("autoTxt").textContent="Entre para consultar o estado";
@@ -98,30 +109,32 @@ const THUMBNAIL_WORKERS=4,THUMBNAIL_CACHE_LIMIT=64,THUMBNAIL_CACHE_BYTES=8*1024*
 let thumbnailCacheBytes=0;
 const thumbnailObserver=typeof IntersectionObserver!=="undefined"?new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting)activateThumbnail(entry.target)},{rootMargin:"160px"}):null;
 function notify(message){if(appClosed)return;$("notice").textContent=message;clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>$("notice").textContent="",6000)}
-function connection(ok){if(appClosed)return;$("connection").classList.toggle("stale",!ok);$("connection").textContent=ok?"Servidor local conectado":"Conexão perdida. Os dados exibidos podem estar desatualizados.";if(!ok){$("autoTxt").textContent="Estado indisponível";$("sw").disabled=true}}
+function connection(ok){if(appClosed)return;$("connection").classList.toggle("stale",!ok);setText("connection",ok?"Servidor local conectado":"Conexão perdida. Os dados exibidos podem estar desatualizados.");if(!ok){setText("autoTxt","Estado indisponível");$("sw").disabled=true}}
 let brandShown="";function setBrand(n,has){if(n!==brandShown){brandShown=n;$("logo").innerHTML="";n.split("").forEach(ch=>{const s=document.createElement("span");s.textContent=ch===" "?"\u00a0":ch;$("logo").appendChild(s)});document.title=n}const b=$("blogo");if(has&&!b.src){b.src="/api/brand-logo?"+Date.now();b.style.display=""}if(!has){b.style.display="none";b.removeAttribute("src")}}
 setBrand("AutoRIP",false);
 function openHelp(){$("helpDlg").showModal()}
 async function api(path,opt={}){
  const session=token;if(appClosed)return{ok:false,d:{},session,stale:true};
  const headers=Object.assign({},opt.headers,session?{"X-Token":session}:{});
+ const conditional=session&&(!opt.method||opt.method==="GET")&&conditionalPaths.has(path);
+ const snapshot=conditional&&pollCache.get(path);
+ if(snapshot&&snapshot.session===session)headers["If-None-Match"]=snapshot.etag;
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),path==="/api/state"?5000:180000);apiRequests.add(controller);
- try{const r=await fetch(path,{...opt,headers,signal:controller.signal});const d=await r.json();
+ try{const r=await fetch(path,{...opt,headers,signal:controller.signal});
+  const unchanged=r.status===304&&snapshot&&snapshot.session===session;
+  const d=unchanged?snapshot.data:await r.json();
   const stale=appClosed||token!==session;if(r.status===401&&!stale)lockPanel();
- return{ok:r.ok,d,status:r.status,session,stale};
+  if(conditional&&r.ok&&!stale){const etag=r.headers.get("ETag");if(etag)pollCache.set(path,{session,etag,data:d});else pollCache.delete(path)}
+ return{ok:r.ok||Boolean(unchanged),d,status:r.status,session,stale};
 }catch(error){return{ok:false,d:{error:"Falha de conexão. Confira o estado antes de tentar novamente."},status:0,session,stale:appClosed||token!==session}}
  finally{clearTimeout(timeout);apiRequests.delete(controller)}
 }
 async function shutdownApp(){if(appClosed||!confirm("Encerrar o AutoRIP no computador? O processamento e o painel serão fechados."))return;
  try{const r=await api("/api/shutdown",{method:"POST",body:"{}"});if(r.stale)return;if(!r.ok){actionFailed(r,"Não foi possível encerrar o AutoRIP.");return}
- appClosed=true;stopPolling();clearTimeout(noticeTimer);for(const controller of apiRequests)controller.abort();resetThumbnails();printRows.clear();hotRows.clear();jobRows.clear();lastDone.clear();window._cfg=null;token="";
+ appClosed=true;stopPolling();clearTimeout(noticeTimer);for(const controller of apiRequests)controller.abort();resetThumbnails();window.resetMobileConnect?.();window.resetAiAccounts?.();printRows.clear();hotRows.clear();jobRows.clear();lastDone.clear();pollCache.clear();appliedState=appliedPrints=appliedHot=null;window._cfg=null;token="";
  document.body.classList.add("tab-hidden");document.body.innerHTML="<main style='padding:40px'><h1>AutoRIP encerrado</h1><p>Você pode fechar esta aba.</p></main>";
  }catch(e){notify("Não foi possível confirmar o encerramento. Verifique o servidor local.")}
 }
-let mobileQrUrl="",mobileQrObjectUrl="";
-async function showMobileQR(){if(!token){notify("Entre em Configurações primeiro para gerar o QR.");openCfg();return}const dialog=$("qrDlg");dialog.showModal();$("mobileQr").style.display="none";$("mobileQrUrl").textContent="";$("mobileQrMessage").textContent="Gerando código…";const {ok,d}=await api("/api/mobile/qr");if(!ok){$("mobileQrMessage").textContent=d.error||"Não foi possível gerar o QR.";return}mobileQrUrl=d.url;const next=URL.createObjectURL(new Blob([d.svg],{type:"image/svg+xml"}));if(mobileQrObjectUrl)URL.revokeObjectURL(mobileQrObjectUrl);mobileQrObjectUrl=next;$("mobileQr").src=next;$("mobileQr").style.display="block";$("mobileQrUrl").textContent=d.url;$("mobileQrMessage").textContent="Escaneie na mesma rede privada. Você ainda fará login no telefone."}
-async function copyMobileUrl(){if(!mobileQrUrl)return;try{await navigator.clipboard.writeText(mobileQrUrl);notify("Endereço copiado.")}catch(e){notify("Copie o endereço exibido manualmente.")}}
-$("qrDlg").addEventListener("close",()=>{if(mobileQrObjectUrl)URL.revokeObjectURL(mobileQrObjectUrl);mobileQrObjectUrl="";mobileQrUrl=""});
 function dropThumbnailCache(key){const previous=thumbnailCache.get(key);if(previous){thumbnailCacheBytes-=previous.blob.size;thumbnailCache.delete(key)}}
 function cachedThumbnail(key){const entry=thumbnailCache.get(key);if(!entry)return null;if(Date.now()-entry.time>60000){dropThumbnailCache(key);return null}thumbnailCache.delete(key);thumbnailCache.set(key,entry);return entry.blob}
 function rememberThumbnail(key,blob){dropThumbnailCache(key);if(blob.size>THUMBNAIL_CACHE_BYTES)return;thumbnailCache.set(key,{time:Date.now(),blob});thumbnailCacheBytes+=blob.size;while(thumbnailCache.size>THUMBNAIL_CACHE_LIMIT||thumbnailCacheBytes>THUMBNAIL_CACHE_BYTES)dropThumbnailCache(thumbnailCache.keys().next().value)}
@@ -161,15 +174,18 @@ function pruneThumbnails(){
  for(const task of thumbnailActive.values()){for(const image of task.images)if(!image.isConnected||token!==task.session)task.images.delete(image);if(!task.images.size){task.cancelled=true;task.controller.abort()}}
  pumpThumbnails();
 }
-const poll=createPoller(async obsolete=>{try{const {ok,d,stale}=await api("/api/state");if(stale||obsolete())return;if(!ok)throw new Error("estado indisponível");connection(true);$("sw").disabled=false;hasPass=d.has_pass;setBrand(d.brand,d.has_logo);$("ver").textContent="v"+d.version;
+const poll=createPoller(async obsolete=>{try{const {ok,d,stale}=await api("/api/state");if(stale||obsolete())return;if(!ok)throw new Error("estado indisponível");connection(true);$("sw").disabled=false;
+ if(d===appliedState){setText("autoTxt",d.auto?"LIGADO — vigiando a pasta":"Desligado");return}
+ hasPass=d.has_pass;setBrand(d.brand,d.has_logo);setText("ver","v"+d.version);
  if(d.locked){lockPanel();return}
+ window.setAiProviders?.(d.ai_providers||[]);
  {const o=$("off");o.style.display=d.offline?"":"none";o.textContent="📴 OFFLINE"+(d.pending>0?" · "+d.pending+" aviso(s) na fila":d.pending<0?" · aviso local indisponível":"")}$("ver").textContent="v"+d.version;
  $("pin").textContent=d.hot_folder;$("pout").textContent=d.output_folder;$("picc").textContent=d.icc;
  $("sw").setAttribute("aria-checked",String(Boolean(d.auto)));$("sw").classList.toggle("on",d.auto);$("autoTxt").textContent=d.auto?"LIGADO — vigiando a pasta":"Desligado";
  $("ripCount").textContent=d.queue_limit?`${d.queue_used} / ${d.queue_limit}`:String(d.jobs.filter(j=>["fila","processando","pausando","pausado","cancelando"].includes(j.status)).length);
  const preparing=Number(d.queue_preparing)||0,preparingText=preparing?`Preparando ${preparing} arquivo${preparing===1?"":"s"}…`:"";if($("queuePreparing").textContent!==preparingText)$("queuePreparing").textContent=preparingText;
- const key=JSON.stringify(d.jobs);if(key===jobsKey){renderLog(d.log);return}jobsKey=key;
- renderJobs(d.jobs);first=false;renderLog(d.log);}catch(e){if(!obsolete())connection(false)}});
+ const key=JSON.stringify(d.jobs);if(key===jobsKey){renderLog(d.log);appliedState=d;return}jobsKey=key;
+ renderJobs(d.jobs);first=false;renderLog(d.log);appliedState=d;}catch(e){if(!obsolete())connection(false)}});
 function renderJobs(items){
  const jobs=$("jobs"),scroll=jobs.scrollTop,selected=jobs.querySelector(".job.selected")?.dataset.jobId;
  const focused=jobs.contains(document.activeElement)?document.activeElement.closest(".job-actions button"):null;
@@ -235,11 +251,11 @@ function renderPrints(items){const key=JSON.stringify(items);if(key===printsKey)
  if(!nodes.length){if(!box.querySelector(".empty")){const empty=document.createElement("div");empty.className="empty";empty.textContent="Nada esperando impressão 🎉";nodes.push(empty)}else nodes.push(box.firstElementChild)}
  reconcileRows(box,nodes);pruneThumbnails();
 }
-const pollPrints=createPoller(async obsolete=>{try{if(!token)return;const r=await api("/api/prints");if(r.stale||obsolete())return;if(!r.ok){if(r.status===0)notify(r.d.error);return}renderPrints(r.d)}catch(e){if(!obsolete())notify("Não foi possível atualizar a fila de impressão.")}});
+const pollPrints=createPoller(async obsolete=>{try{if(!token)return;const r=await api("/api/prints");if(r.stale||obsolete())return;if(!r.ok){if(r.status===0)notify(r.d.error);return}if(r.d===appliedPrints){for(const entry of printRows.values())updatePrintAge(entry);return}renderPrints(r.d);appliedPrints=r.d}catch(e){if(!obsolete())notify("Não foi possível atualizar a fila de impressão.")}});
 async function markPrinted(n){if(!token){openCfg();return}try{const r=await api("/api/prints/printed",{method:"POST",body:JSON.stringify({name:n})});if(r.stale)return;if(!r.ok){actionFailed(r,"Não foi possível marcar a impressão.");return}pollPrints(true);poll(true)}catch(e){notify("Falha de conexão. Confira a fila antes de tentar novamente.")}}
 async function delPrint(n){if(!token){openCfg();return}if(!confirm("Remover "+n+" da fila? O arquivo será apagado."))return;try{const r=await api("/api/prints/delete",{method:"POST",body:JSON.stringify({name:n})});if(r.stale)return;if(!r.ok){actionFailed(r,"Não foi possível remover a impressão.");return}pollPrints(true);poll(true)}catch(e){notify("Falha de conexão. Confira a fila antes de tentar novamente.")}}
 function celebrate(){notify("Trabalho concluído. PRT disponível na fila de impressão.")}
-async function askAgent(){if(!token){openCfg();return}$("agentOut").textContent="Pesquisando… (pode levar um minuto)";const r=await api("/api/agent",{method:"POST",body:"{}"});if(r.stale)return;$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}
+async function askAgent(){if(!token){openCfg();return}const button=$("agentAsk");if(button.disabled)return;button.disabled=true;$("agentOut").textContent="Consultando a IA… (pode levar um minuto)";try{const r=await api("/api/agent",{method:"POST",body:JSON.stringify({provider:$("agentProvider").value})});if(r.stale)return;$("agentOut").textContent=r.ok?r.d.text:("Erro: "+(r.d.error||""))}finally{button.disabled=false}}
 async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/auto",{method:"POST",body:JSON.stringify({on:!$("sw").classList.contains("on")})});if(r.stale)return;if(!r.ok){actionFailed(r,"Não foi possível alterar o modo automático.");return}poll(true)}
 	async function upload(files){
  const session=token,width=$("wcm").value;
@@ -251,14 +267,14 @@ async function toggleAuto(){if(!token){openCfg();return}const r=await api("/api/
 async function controlJob(id,action){if(!token){openCfg();return}if(action==="cancel"&&!confirm("Cancelar este trabalho? A arte será preservada na pasta de erros para revisão."))return;const r=await api("/api/jobs/control",{method:"POST",body:JSON.stringify({id,action})});if(r.stale)return;if(!r.ok)actionFailed(r,"Não foi possível alterar o trabalho");else poll(true)}
 function humanSize(bytes){const units=["B","KiB","MiB","GiB","TiB"];let value=Number(bytes)||0,index=0;while(value>=1024&&index<units.length-1){value/=1024;index++}return `${value.toFixed(index?1:0)} ${units[index]}`}
 async function enqueueHot(name){if(!token){openCfg();return}const r=await api("/api/hot-files/enqueue",{method:"POST",body:JSON.stringify({name,width:$("wcm").value||""})});if(r.stale)return;if(!r.ok){actionFailed(r,"O arquivo não está mais na hot folder");return}pollHotFiles(true);poll(true)}
-const pollHotFiles=createPoller(async obsolete=>{try{if(!token)return;const r=await api("/api/hot-files");if(r.stale||obsolete())return;if(!r.ok){if(r.status===0)notify(r.d.error);return}const key=JSON.stringify(r.d);if(key===hotKey)return;hotKey=key;const box=$("hotFiles"),nodes=[],names=new Set();
+const pollHotFiles=createPoller(async obsolete=>{try{if(!token)return;const r=await api("/api/hot-files");if(r.stale||obsolete())return;if(!r.ok){if(r.status===0)notify(r.d.error);return}if(r.d===appliedHot)return;const key=JSON.stringify(r.d);if(key===hotKey){appliedHot=r.d;return}hotKey=key;const box=$("hotFiles"),nodes=[],names=new Set();
  for(const file of r.d){names.add(file.name);const signature=JSON.stringify(file);let entry=hotRows.get(file.name);
   if(!entry||entry.signature!==signature){const row=document.createElement("div");row.className="hot-file";row.dataset.name=file.name;const name=document.createElement("span");name.className="hot-name";name.title=file.name;name.textContent=file.name;
    const size=document.createElement("small");size.textContent=humanSize(file.size);const button=document.createElement("button");button.className="c";button.dataset.action="enqueue";button.textContent="RIP agora";button.onclick=()=>enqueueHot(file.name);row.append(name,size,button);entry={signature,row};hotRows.set(file.name,entry)}nodes.push(entry.row);
  }
  for(const name of hotRows.keys())if(!names.has(name))hotRows.delete(name);
  if(!nodes.length){if(!box.querySelector(".hot-empty")){const empty=document.createElement("div");empty.className="hot-empty";empty.textContent="Nenhuma arte disponível na hot folder.";nodes.push(empty)}else nodes.push(box.firstElementChild)}
- reconcileRows(box,nodes);
+ reconcileRows(box,nodes);appliedHot=r.d;
  }catch(e){if(!obsolete())notify("Não foi possível atualizar a hot folder.")}});
 $("file").onchange=e=>upload(e.target.files);
 const dz=$("drop");["dragenter","dragover"].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add("over")}));
@@ -270,16 +286,17 @@ const SCHEMA=[["h","Pastas e perfil"],["icc_path","Perfil ICC (caminho completo)
 ["h","Conexão PrintExp"],["printexp_host","IPv4 do computador PrintExp","t"],["printexp_port","Porta de trabalhos PrintExp","n"],["@printexp"],
 ["h","Marca do cliente"],["brand_name","Nome do programa","t"],["label_enabled","Etiqueta (arquivo e medidas) nas margens","b"],["watermark_opacity","Opacidade da marca d'água (0 a 1)","n"],["@logo"],["@wm"],
 ["h","Integrações de pedidos"],["webhook_url","Webhook (URL, recebe JSON ao concluir)","t",1],["trello_key","Trello — API key","p"],["trello_token","Trello — token","p"],["trello_in_list","Trello — ID da lista de ENTRADA (anexos viram arte)","t"],["trello_out_list","Trello — ID da lista de PRONTOS","t"],["notion_token","Notion — token","p"],["notion_db","Notion — ID do banco (título: Name)","t"],["jira_url","Jira — URL (https://empresa.atlassian.net)","t"],["jira_email","Jira — e-mail","t"],["jira_token","Jira — API token","p"],["jira_project","Jira — chave do projeto","t"],
-["h","Agente de IA"],["anthropic_key","Chave da API Anthropic","p",1],["anthropic_model","Modelo","t"],
+["h","Agentes de IA"],["@ai_accounts"],["anthropic_key","Chave Anthropic anterior (opcional)","p",1],["anthropic_model","Modelo Anthropic anterior","t"],
  ["h","Modo automático"],["auto_mode","Ligar automático ao abrir","b"],["auto_update","Atualizar automaticamente pelo GitHub","b"],["poll_seconds","Intervalo de vigia (s)","n"]];
 function openCfg(){$("dlg").showModal();$("lmsg").textContent="";if(token){showCfg()}else{$("loginBox").style.display="";$("cfgBox").style.display="none";
  $("loginTxt").textContent=hasPass?"Digite a senha para abrir as configurações.":"Primeiro acesso: crie uma senha (mínimo 8 caracteres).";$("pw2box").style.display=hasPass?"none":""}}
 async function doLogin(){let r;if(hasPass)r=await api("/api/login",{method:"POST",body:JSON.stringify({password:$("pw").value})});
  else{if($("pw").value.length<8){$("lmsg").textContent="Use pelo menos 8 caracteres";return}if($("pw").value!==$("pw2").value){$("lmsg").textContent="As senhas não conferem";return}r=await api("/api/setpass",{method:"POST",body:JSON.stringify({new:$("pw").value})})}
- if(r.stale)return;if(r.ok){lockPanel();token=r.d.token;showCfg();poll(true);pollPrints(true);pollHotFiles(true)}else $("lmsg").textContent=r.d.error}
+ if(r.stale)return;if(r.ok){const resume=Boolean(window.pendingMobileConnect);window.pendingMobileConnect=false;lockPanel();token=r.d.token;if(resume){$("dlg").close();showMobileQR()}else showCfg();poll(true);pollPrints(true);pollHotFiles(true)}else $("lmsg").textContent=r.d.error}
 async function showCfg(){const request=++cfgRequest,r=await api("/api/settings");if(r.stale||request!==cfgRequest||!$("dlg").open)return;const {ok,d}=r;if(!ok){actionFailed(r,"Não foi possível carregar as configurações.");return}$("loginBox").style.display="none";$("cfgBox").style.display="";
  const g=$("grid");g.replaceChildren();window._cfg=d;SCHEMA.forEach(f=>{if(f[0]==="h"){const h=document.createElement("h3");h.textContent=f[1];g.appendChild(h);return}
   if(f[0]==="@printexp"){renderPrintExpNetwork(g,request);return}
+  if(f[0]==="@ai_accounts"){const box=document.createElement("div");g.append(box);renderAiAccounts(box,d.ai_accounts,d._ai_catalog);return}
   if(f[0]==="@logo"||f[0]==="@wm"){const label=document.createElement("label");label.appendChild(document.createTextNode(f[0]==="@logo"?"Logo da marca (PNG)":"Marca d'água (PNG)"));const file=document.createElement("input");file.type="file";file.accept="image/*";file.addEventListener("change",()=>upImg(f[0]==="@logo"?"logo":"watermark",file));label.appendChild(file);g.appendChild(label);return}
   const [k,lab,t,full]=f,label=document.createElement("label"),input=document.createElement("input");if(full)label.classList.add("full");input.id="f_"+k;
   if(t==="b"){input.type="checkbox";input.checked=Boolean(d[k]);label.append(input,document.createTextNode(" "+lab))}
@@ -290,7 +307,7 @@ async function upImg(kind,el){const f=el.files[0];if(!f)return;const r=await api
 async function saveCfg(){if(!token){openCfg();return}const o={};for(const f of SCHEMA){if(f[0]==="h"||f[0][0]==="@")continue;const [k,,t]=f,e=$("f_"+k);
   if(t==="b")o[k]=e.checked;else if(t==="n"){const v=Number(e.value);if(!e.value.trim()||!Number.isFinite(v)){$("cmsg").textContent=`Valor inválido: ${k}`;return}o[k]=v}
   else if(t==="p"){if(e.value)o[k]=e.value}else o[k]=e.value}
- o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=Number($("ink_"+c).value));
+ o.ai_accounts=collectAiAccounts();o.ink_limit={};["K","C","M","Y"].forEach(c=>o.ink_limit[c]=Number($("ink_"+c).value));
  const r=await api("/api/settings",{method:"POST",body:JSON.stringify(o)});if(r.stale)return;$("cmsg").textContent=r.ok?"Salvo! 🎉":(r.d.error||"erro");if(r.ok){await showCfg();poll(true)}}
 	initSheetPlanner();
 function stopPolling(){for(const timer of pollTimers)clearInterval(timer);pollTimers.length=0}
@@ -303,4 +320,4 @@ function syncPollingVisibility(){
 }
 document.addEventListener("visibilitychange",syncPollingVisibility);
 syncPollingVisibility();
-</script></body></html>
+</script><script src="/mobile-connect.js"></script><script src="/ai-accounts.js"></script></body></html>

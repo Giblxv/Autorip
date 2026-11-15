@@ -18,13 +18,21 @@ Para distribuir sem usar o Xcode em cada telefone, será preciso configurar assi
 
 ## 3. Descobrir o IP do computador
 
-No Windows, abra o Prompt de Comando e execute `ipconfig`. Anote o **Endereço IPv4** do adaptador Wi-Fi ou Ethernet que está conectado à mesma rede do telefone. No Linux, execute `hostname -I` e escolha o endereço da rede privada, normalmente começando com `192.168.`, `10.` ou `172.16` a `172.31`. Exemplo usado abaixo: `192.168.1.50`.
+No painel do computador, clique em **Conectar celular** e entre ou crie sua senha. A lista mostra automaticamente os IPv4 privados e os adaptadores do computador. Escolha o Wi-Fi ou Ethernet conectado à mesma rede do telefone. Clique em **Atualizar IPs** se a rede mudar.
+
+Para conferir manualmente, use `ipconfig` no Windows ou `hostname -I` no Linux. O endereço normalmente começa com `192.168.`, `10.` ou `172.16` a `172.31`. Exemplo usado abaixo: `192.168.1.50`.
 
 Se esse IP mudar a cada reinicialização, reserve-o no roteador (reserva DHCP) ou repita a configuração com o endereço novo.
 
 ## 4. Iniciar o AutoRIP aceitando o telefone
 
-O servidor aceita apenas o próprio computador por padrão. Para liberar acesso móvel, inicie o modo web usando o **IP IPv4 real do computador** no `AUTORIP_BIND_HOST`. Isso limita a escuta à interface escolhida. Não use `0.0.0.0` neste tutorial.
+O servidor aceita apenas o próprio computador por padrão. Abra o programa normalmente e, na janela nativa, use **Abrir painel e configurações**. No painel, escolha **Conectar celular**, selecione seu IPv4 e clique em **Ativar acesso e gerar QR**. Isso abre somente a interface escolhida, na mesma porta do painel, sem reiniciar a fila. O acesso e o IPv4 escolhido ficam salvos para a próxima abertura. Para desligar, use **Desativar acesso** nesse mesmo diálogo.
+
+Se o Firewall do Windows perguntar, permita o AutoRIP para **redes privadas**. O programa não altera regras do firewall automaticamente. Se trocar de rede e o IP salvo deixar de pertencer ao computador, volte ao diálogo e selecione o novo IPv4.
+
+### Alternativa manual e versões anteriores
+
+Em versões sem o botão de ativação, configure o **IP IPv4 real do computador** no `AUTORIP_BIND_HOST` ao iniciar o modo web. Isso limita a escuta à interface escolhida. Não use `0.0.0.0` neste tutorial. Um listener iniciado por variável de ambiente precisa ser desativado na configuração de inicialização; o botão do painel só desliga o listener adicional criado pelo próprio painel.
 
 ### Windows
 
@@ -37,7 +45,7 @@ $env:AUTORIP_NOBROWSER = "1"
 & ".\AutoRIP.exe" --web
 ```
 
-Se o executável estiver em outra pasta, use o caminho completo entre aspas, por exemplo `& "C:\caminho\AutoRIP.exe" --web`. Deixe essa janela aberta enquanto usa o telefone. O comando `--web` inicia o painel; o modo normal `--direct` não disponibiliza a página web para o app.
+Se o executável estiver em outra pasta, use o caminho completo entre aspas, por exemplo `& "C:\caminho\AutoRIP.exe" --web`. Deixe essa janela aberta enquanto usa o telefone. O comando `--web` abre o painel no navegador; no modo normal, use **Abrir painel e configurações** na janela do programa.
 
 Se o Firewall do Windows perguntar, permita o AutoRIP somente em **redes privadas**, nunca em redes públicas. Se não houver aviso, crie uma regra de entrada TCP para a porta que o AutoRIP imprimiu no terminal, limitada ao perfil **Privado** e, se possível, ao escopo **Sub-rede local**.
 
@@ -74,7 +82,7 @@ Quando `AUTORIP_BIND_HOST` contém o IP específico do servidor, o AutoRIP já p
 ## 5. Conectar o telefone
 
 1. Conecte o telefone à mesma rede privada do computador.
-2. No computador, abra o painel pelo endereço `http://IP:porta` impresso pelo servidor, entre/crie a senha e escolha **Conectar celular**. O QR gerado contém apenas endereço e porta, não a senha.
+2. No computador, escolha **Conectar celular**, selecione o IPv4 da rede e use **Ativar acesso e gerar QR**. O QR gerado contém apenas endereço e porta, não a senha. Se usar a configuração manual, abra o painel pelo endereço `http://IP:porta` impresso pelo servidor.
 3. Na prévia móvel 0.2.1, use **Escanear QR** para ler o código de conexão; se a câmera estiver indisponível, digite `http://IP:porta`. Versões antigas também podem usar o endereço manualmente. Os QR de **Ajuda** abrem a página de download/instruções e não fazem o pareamento.
 4. No primeiro acesso, crie a senha do painel; depois, entre com essa senha. O app guarda até cinco endereços recentes, mas não guarda a senha.
 
@@ -84,4 +92,4 @@ No app iOS, HTTP só é aceito para endereços locais/privados. Para acesso exte
 
 ## Se não conectar
 
-Confirme primeiro que o AutoRIP continua em execução, que telefone e computador estão na mesma rede e que o endereço e a porta digitados são os exibidos no terminal. Reinicie o AutoRIP após mudar o IP ou as variáveis de ambiente. Se aparecer **403**, verifique se `AUTORIP_BIND_HOST` é o mesmo IP usado no endereço do celular. Se houver timeout, confira o firewall e desative o isolamento de clientes Wi-Fi/rede de convidados. Um pedido de senha é esperado e confirma que o painel respondeu.
+Confirme primeiro que o AutoRIP continua em execução, que telefone e computador estão na mesma rede e que o endereço e a porta digitados são os exibidos no QR. Se o IP mudou, use **Atualizar IPs**, escolha o novo endereço e ative novamente. Na configuração por variáveis de ambiente, reinicie o programa após alterar as variáveis. Se aparecer **403**, confira se o IP digitado é o que foi ativado. Se houver timeout, confira o firewall e o isolamento de clientes Wi-Fi/rede de convidados. Um pedido de senha é esperado e confirma que o painel respondeu.

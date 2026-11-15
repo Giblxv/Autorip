@@ -269,9 +269,15 @@ class Rip:
         pending = deque()
         starts = iter(range(0, image.height, SOURCE_ICC_ROWS))
         pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="autorip-source")
+        # Um perfil maior que o cache persistente ainda pode ser reutilizado
+        # pelas faixas deste trabalho. O contexto morre junto com o worker.
+        worker_context = threading.local()
 
         def apply(band):
-            transform = self._source_transform(embedded, image.mode, image.mode)
+            transform = getattr(worker_context, "transform", None)
+            if transform is None:
+                transform = self._source_transform(embedded, image.mode, image.mode)
+                worker_context.transform = transform
             ImageCms.applyTransform(band, transform, inPlace=True)
 
         def submit():

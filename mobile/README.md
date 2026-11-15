@@ -4,10 +4,12 @@ Cliente Android baseado em Capacitor para abrir o painel web do AutoRIP em um se
 
 ## Servidor interno
 
-Por segurança, o servidor continua escutando em `127.0.0.1` por padrão. Para permitir o telefone na LAN, configure explicitamente no computador do AutoRIP:
+O servidor escuta em `127.0.0.1` por padrão. No painel do computador, entre/crie sua senha, escolha **Conectar celular**, selecione o IPv4 da rede do telefone e use **Ativar acesso e gerar QR**. A configuração fica salva, e o listener da interface escolhida pode ser desligado no mesmo diálogo, sem reiniciar a fila. A senha continua obrigatória no telefone. Veja o [guia de conexão](../docs/GUIA-APPS-MOVEIS.md).
+
+Como alternativa para versões anteriores, configure a interface explicitamente ao iniciar:
 
 ```bash
-AUTORIP_BIND_HOST=0.0.0.0 \
+AUTORIP_BIND_HOST=192.168.1.50 \
 AUTORIP_ALLOWED_HOSTS=192.168.1.50,localhost,127.0.0.1 \
 AUTORIP_PUBLIC_HOST=192.168.1.50 \
 python autorip_gui.py --web
@@ -18,13 +20,13 @@ Substitua `192.168.1.50` pelo endereço real do servidor e libere somente a port
 ## Build local
 
 ```bash
-npm install
-npx cap sync android
-cd android
-./gradlew assembleDebug
+npm ci
+npm run android:debug
 ```
 
 O artefato de teste fica em `android/app/build/outputs/apk/debug/app-debug.apk`. O app aceita conexão manual ou leitura do QR de endereço exibido no painel AutoRIP. Ao abrir pela primeira vez, informe o endereço do servidor; o app guarda até cinco endereços recentes localmente e não contém credenciais.
+
+`npm run build` gera módulos em `public/bundle/`. O leitor de QR e o runtime Capacitor são carregados apenas ao tocar em **Escanear QR**; a abertura para conexão manual não precisa desses módulos. Os comandos `cap:sync` e `android:*` recompilam o JavaScript antes de sincronizar o Android. Não edite os módulos gerados manualmente.
 
 Para testar a variante não depurável com R8 e remoção de recursos não usados, execute `npm run android:optimized`. O APK fica em `android/app/build/outputs/apk/optimized/app-optimized.apk`; instala como `com.giblxv.autorip.optimized` para coexistir com o app normal e usa a chave debug, portanto serve para avaliação, não para publicação de produção. O workflow compara tamanhos de debug, optimized e release e disponibiliza os APKs debug e optimized como artefatos.
 

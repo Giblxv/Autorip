@@ -5,6 +5,8 @@ const {spawn,execFileSync}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const output=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),'autorip-polling-ui-'));fs.mkdirSync(output,{recursive:true});
+// Cenários que alteram JSON precisam de uma representação completa, mesmo após um ETag.
+async function freshResponse(route){const headers={...route.request().headers()};delete headers["if-none-match"];return route.fetch({headers})}
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{promise,resolve}};
 (async()=>{
  const child=spawn(process.env.AUTORIP_PYTHON||'python',[path.join(__dirname,'_queue_smoke_app.py'),'--polling-fixtures']);
@@ -50,12 +52,12 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
   });
   await test('one changed hot row preserves its neighbour',async page=>{
    await page.evaluate(()=>{window.originalHot=document.querySelector('#hotFiles .hot-file');originalHot.querySelector('button').focus()});
-   await page.route('**/api/hot-files',async route=>{const data=await(await route.fetch()).json();data[1].size+=100;await route.fulfill({json:data})});
+   await page.route('**/api/hot-files',async route=>{const data=await(await freshResponse(route)).json();data[1].size+=100;await route.fulfill({json:data})});
    await page.evaluate(()=>pollHotFiles());assert(await page.evaluate(()=>originalHot===document.querySelector('#hotFiles .hot-file')&&originalHot.contains(document.activeElement)));
   });
   await test('hot polling is single flight with one forced followup',async page=>{
    const started=deferred(),release=deferred();let requests=0,active=0,maxActive=0;
-   await page.route('**/api/hot-files',async route=>{requests++;active++;maxActive=Math.max(maxActive,active);const response=await route.fetch();if(requests===1){started.resolve();await release.promise}active--;await route.fulfill({response})});
+   await page.route('**/api/hot-files',async route=>{requests++;active++;maxActive=Math.max(maxActive,active);const response=await freshResponse(route);if(requests===1){started.resolve();await release.promise}active--;await route.fulfill({response})});
    await page.evaluate(()=>{window.inflight=pollHotFiles()});await started.promise;
    await page.evaluate(()=>{window.burst=Promise.all([...Array.from({length:12},()=>pollHotFiles()),...Array.from({length:8},()=>pollHotFiles(true))])});
    release.resolve();await page.evaluate(()=>Promise.all([inflight,burst]));await page.evaluate(metrics=>{window.__evidence=metrics},{requests,maximumInFlight:maxActive});assert.equal(requests,2);assert.equal(maxActive,1);return{requests,maximumInFlight:maxActive};
@@ -82,7 +84,7 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
    assert.equal(await page.evaluate(()=>token),'queue-browser-token');assert((await page.locator('#notice').innerText()).includes('Falha de conexão'));
   });
   await test('settings response cannot repopulate a closed dialog',async page=>{
-   const started=deferred(),release=deferred();await page.route('**/api/settings',async route=>{const response=await route.fetch();started.resolve();await release.promise;await route.fulfill({response})});
+   const started=deferred(),release=deferred();await page.route('**/api/settings',async route=>{const response=await freshResponse(route);started.resolve();await release.promise;await route.fulfill({response})});
    await page.evaluate(()=>{document.querySelector('#dlg').showModal();window.inflight=showCfg()});await started.promise;
    await page.evaluate(()=>document.querySelector('#dlg').close());release.resolve();await page.evaluate(()=>inflight);assert.equal(await page.locator('#grid input').count(),0);
   });
@@ -96,17 +98,17 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
   });
   await test('changed print preserves neighbour and preview',async page=>{
    await page.evaluate(()=>{window.originalPrint=document.querySelector('#pq .pq');window.originalImage=originalPrint.querySelector('img');originalPrint.querySelector('button').focus()});
-   await page.route('**/api/prints',async route=>{const data=await(await route.fetch()).json();data[1].mb+=1;await route.fulfill({json:data})});await page.evaluate(()=>pollPrints());
+   await page.route('**/api/prints',async route=>{const data=await(await freshResponse(route)).json();data[1].mb+=1;await route.fulfill({json:data})});await page.evaluate(()=>pollPrints());
    assert(await page.evaluate(()=>originalPrint===document.querySelector('#pq .pq')&&originalImage===originalPrint.querySelector('img')&&originalPrint.contains(document.activeElement)));
   });
   await test('next print badge changes without replacing remaining row',async page=>{
    await page.evaluate(()=>{window.remaining=document.querySelectorAll('#pq .pq')[1];remaining.querySelector('button').focus()});
-   await page.route('**/api/prints',async route=>{const data=await(await route.fetch()).json();await route.fulfill({json:data.slice(1)})});await page.evaluate(()=>pollPrints());
+   await page.route('**/api/prints',async route=>{const data=await(await freshResponse(route)).json();await route.fulfill({json:data.slice(1)})});await page.evaluate(()=>pollPrints());
    assert(await page.evaluate(()=>remaining===document.querySelector('#pq .pq')&&remaining.contains(document.activeElement)&&!remaining.querySelector('.nx').hidden));
   });
   await test('print reordering keeps existing nodes and keyboard focus',async page=>{
    await page.evaluate(()=>{window.moving=document.querySelectorAll('#pq .pq')[1];window.movingButton=moving.querySelector('button');movingButton.focus()});
-   await page.route('**/api/prints',async route=>{const data=await(await route.fetch()).json();await route.fulfill({json:data.reverse()})});await page.evaluate(()=>pollPrints());
+   await page.route('**/api/prints',async route=>{const data=await(await freshResponse(route)).json();await route.fulfill({json:data.reverse()})});await page.evaluate(()=>pollPrints());
    assert(await page.evaluate(()=>moving===document.querySelector('#pq .pq')&&document.activeElement===movingButton));
   });
   await test('unchanged prints update relative age without replacing rows',async page=>{
@@ -116,14 +118,14 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
   await test('forced refresh discards snapshot captured before mutation',async page=>{
    const started=deferred(),release=deferred();let requests=0;
    await page.evaluate(()=>{window.oldRow=document.querySelectorAll('#pq .pq')[1];window.resurrected=0;window.observe=new MutationObserver(()=>{if([...document.querySelectorAll('#pq .nm')].some(n=>n.textContent.includes('obsolete')))resurrected++});observe.observe(document.querySelector('#pq'),{childList:true,subtree:true})});
-   await page.route('**/api/prints',async route=>{const data=await(await route.fetch()).json();requests++;if(requests===1){data[0].name='obsolete.PRT';started.resolve();await release.promise}else data.shift();await route.fulfill({json:data})});
+   await page.route('**/api/prints',async route=>{const data=await(await freshResponse(route)).json();requests++;if(requests===1){data[0].name='obsolete.PRT';started.resolve();await release.promise}else data.shift();await route.fulfill({json:data})});
    await page.route('**/api/prints/printed',r=>r.fulfill({json:{ok:true}}));
    await page.evaluate(()=>{window.inflight=pollPrints()});await started.promise;await page.evaluate(()=>markPrinted('print-000.PRT'));release.resolve();await page.evaluate(()=>inflight);
    assert.equal(requests,2);assert.equal(await page.evaluate(()=>resurrected),0);assert.equal(await page.locator('#pq .pq').count(),1);
   });
   await test('shutdown stops timers and ignores pending responses',async page=>{
    let after=0,closed=false;page.on('request',r=>{if(closed&&/\/api\/(state|prints|hot-files)$/.test(r.url()))after++});
-   const started=deferred(),release=deferred();await page.route('**/api/prints',async route=>{const response=await route.fetch();started.resolve();await release.promise;try{await route.fulfill({response})}catch(e){if(!String(e).includes('closed'))throw e}});
+   const started=deferred(),release=deferred();await page.route('**/api/prints',async route=>{const response=await freshResponse(route);started.resolve();await release.promise;try{await route.fulfill({response})}catch(e){if(!String(e).includes('closed'))throw e}});
    await page.route('**/api/shutdown',r=>r.fulfill({status:202,json:{ok:true}}));
    await page.evaluate(()=>{window.inflight=pollPrints()});await started.promise;await page.evaluate(()=>{notify('teste');return shutdownApp()});closed=true;release.resolve();await page.evaluate(()=>inflight);
    await page.waitForTimeout(3300);await page.evaluate(n=>{window.__evidence={requestsAfterShutdown:n}},after);assert.equal(after,0);assert.equal(await page.locator('h1').innerText(),'AutoRIP encerrado');return{requestsAfterShutdown:after};
@@ -183,7 +185,7 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
   await test('returning to a page discards a pending obsolete snapshot',async page=>{
    const started=deferred(),release=deferred();let requests=0;
    await page.evaluate(()=>{window.resurrected=0;window.observe=new MutationObserver(()=>{if([...document.querySelectorAll('#pq .nm')].some(n=>n.textContent.includes('obsolete')))resurrected++});observe.observe(document.querySelector('#pq'),{childList:true,subtree:true})});
-   await page.route('**/api/prints',async route=>{const data=await(await route.fetch()).json();requests++;if(requests===1){data[0].name='obsolete.PRT';started.resolve();await release.promise}await route.fulfill({json:data})});
+   await page.route('**/api/prints',async route=>{const data=await(await freshResponse(route)).json();requests++;if(requests===1){data[0].name='obsolete.PRT';started.resolve();await release.promise}await route.fulfill({json:data})});
    await page.evaluate(()=>{window.inflight=pollPrints()});await started.promise;
    await page.evaluate(()=>{__setPageHidden(true);__setPageHidden(false)});release.resolve();await page.evaluate(()=>inflight);
    const evidence={requests,obsoleteRenders:await page.evaluate(()=>resurrected)};await page.evaluate(e=>window.__evidence=e,evidence);assert.equal(requests,2);assert.equal(evidence.obsoleteRenders,0);return evidence;

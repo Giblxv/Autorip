@@ -22,9 +22,9 @@
   <div class="row" style="margin-top:8px"><input id="url" inputmode="url" autocomplete="url" placeholder="http://192.168.1.50:8765"><button id="connect">Conectar</button></div>
   <div class="row" style="margin-top:10px"><button id="scan" type="button">Ler QR com a câmera</button></div>
   <p id="error" class="error" role="alert" aria-live="polite"></p>
-  <p class="hint">O QR deve conter somente a URL HTTP(S) do painel, sem senha, token, query ou fragmento. Use HTTPS quando o servidor estiver publicado na internet. Para uma rede local HTTP, configure explicitamente <code>AUTORIP_BIND_HOST</code> e <code>AUTORIP_ALLOWED_HOSTS</code> no servidor.</p>
+  <p class="hint">No computador, abra “Conectar celular”, escolha o IPv4 da sua rede e clique em “Ativar acesso e gerar QR”. Mantenha os dois aparelhos na mesma rede. O QR contém apenas o endereço do painel; faça login com sua senha depois de conectar.</p>
   <section id="recent" hidden><strong>Endereços recentes</strong><ul id="recentList"></ul></section>
 </main>
-<script src="app.js"></script>
+<script type="module" src="bundle/app.js"></script>
 </body>
 </html>

@@ -4,6 +4,8 @@ import json
 import urllib.parse
 import urllib.request
 import dataclasses
+import copy
+from . import ai_accounts
 
 SYSTEM = ("Voce e especialista em RIP e impressao digital DTF e DTF UV (cabecotes Epson i3200, placas Hosonsoft, "
           "software PrintExp, perfis ICC, branco/underbase, meio-tom estocastico). Pesquise na web praticas atuais de "
@@ -26,8 +28,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def safe_settings(s):
     """Lista de permissao: nao envia chaves, URLs de integracao nem caminhos locais."""
-    values = dataclasses.asdict(s)
-    result = {key: values[key] for key in _TECHNICAL_FIELDS}
+    result = {key: copy.deepcopy(getattr(s, key)) for key in _TECHNICAL_FIELDS}
     result["icc_profile_configured"] = bool(s.icc_path)
     return result
 
@@ -49,13 +50,9 @@ def _allowed_base(base):
     return False
 
 
-def ask(s, jobs, log_lines, question=None, timeout=120, offline_check=None):
+def ask(s, jobs, log_lines, question=None, timeout=120, offline_check=None, provider=None):
     if s.offline_mode or (offline_check and offline_check()):
         raise RuntimeError("Modo offline ligado; nenhuma chamada externa foi iniciada.")
-    if not s.anthropic_key:
-        raise RuntimeError("Configure a chave da API em Configuracoes > Agente de IA.")
-    if not _allowed_base(s.anthropic_base):
-        raise RuntimeError("Base Anthropic nao autorizada: use api.anthropic.com em HTTPS.")
     if question is not None and (not isinstance(question, str) or len(question) > 4000):
         raise ValueError("A pergunta precisa ter ate 4.000 caracteres.")
 
@@ -66,6 +63,29 @@ def ask(s, jobs, log_lines, question=None, timeout=120, offline_check=None):
         "quantidade_de_eventos_recentes": min(len(log_lines), 25),
     }
     prompt = question or "Pesquise como aprimorar este RIP DTF e sugira as cinco melhorias de maior impacto."
+    accounts = s.ai_accounts
+    if s.anthropic_key:
+        # A configuração anterior participa da mesma rotação, preservando sua base.
+        accounts = [*accounts, {"provider": "anthropic", "key": s.anthropic_key,
+                               "enabled": True, "legacy": True}]
+    account = ai_accounts.select(accounts, provider)
+    if account is not None:
+        if account["provider"] == "anthropic":
+            if not account.get("legacy"):
+                s = dataclasses.replace(s, anthropic_key=account["key"], anthropic_model=account["model"],
+                                        anthropic_base=ai_accounts.PROVIDERS["anthropic"][2])
+        else:
+            if s.offline_mode or (offline_check and offline_check()):
+                raise RuntimeError("Modo offline ativado; nenhuma requisição foi enviada.")
+            system = SYSTEM + " Apenas sugira; não execute alterações nem ações em contas externas. Não afirme ter pesquisado na web sem uma ferramenta de busca disponível."
+            return ai_accounts.ask(account, system, prompt+"\n\nContexto tecnico (JSON):\n"+json.dumps(context,ensure_ascii=False),
+                                   timeout, urllib.request.build_opener(_NoRedirect()))
+    elif provider not in (None,"","auto","anthropic"):
+        raise RuntimeError("Adicione uma conta ativa desse provedor em Configurações > Agentes de IA.")
+    if not s.anthropic_key:
+        raise RuntimeError("Configure uma chave de API em Configurações > Agentes de IA.")
+    if not _allowed_base(s.anthropic_base):
+        raise RuntimeError("Base Anthropic nao autorizada: use api.anthropic.com em HTTPS.")
     body = {"model": s.anthropic_model, "max_tokens": 1500, "system": SYSTEM,
             "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 4}],
             "messages": [{"role": "user", "content": prompt + "\n\nContexto tecnico (JSON):\n" + json.dumps(context, ensure_ascii=False)}]}

@@ -53,7 +53,12 @@ fs.mkdirSync(output,{recursive:true});
   const mobile=await browser.newPage({viewport:{width:390,height:844}});
   mobile.on('pageerror',error=>errors.push(error.message));
   await mobile.route('**/mobile-preview/',route=>route.fulfill({contentType:'text/html',body:fs.readFileSync(path.join(__dirname,'../mobile/public/index.html'))}));
-  await mobile.route('**/mobile-preview/app.js',route=>route.fulfill({contentType:'application/javascript',body:fs.readFileSync(path.join(__dirname,'../mobile/public/app.js'))}));
+  await mobile.route('**/mobile-preview/bundle/**',route=>{
+   const relative=new URL(route.request().url()).pathname.split('/mobile-preview/')[1];
+   const root=path.resolve(__dirname,'../mobile/public/bundle'),file=path.resolve(__dirname,'../mobile/public',relative);
+   assert(file.startsWith(root+path.sep)&&file.endsWith('.js'));
+   return route.fulfill({contentType:'application/javascript',body:fs.readFileSync(file)});
+  });
   await mobile.route('**/mobile-preview/brand-mark.png',route=>route.fulfill({contentType:'image/png',body:fs.readFileSync(path.join(__dirname,'../mobile/public/brand-mark.png'))}));
   await mobile.goto(ready.url+'/mobile-preview/');
   for(const width of [390,320]){

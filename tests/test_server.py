@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import threading
+from pathlib import Path
 from types import SimpleNamespace
 from http.server import ThreadingHTTPServer
 from urllib.error import HTTPError
@@ -194,6 +195,126 @@ def test_qr_mobile_exige_login(panel, app):
     assert json.loads(body)["error"] == "login"
 
 
+def test_ativar_celular_exige_login_e_origem_local(panel, app):
+    payload = json.dumps({"enabled": True, "host": "192.168.1.20"}).encode()
+    assert request(panel, "/api/mobile/access")[0] == 401
+    assert request(panel, "/api/mobile/access", "POST", payload)[0] == 401
+    app.tokens.add("sessao")
+    assert request(panel, "/api/mobile/access", "POST", payload,
+                   {"X-Token": "sessao", "Origin": "https://evil.example"})[0] == 403
+    assert app.mobile_access is None and not app.s.mobile_enabled
+
+
+def test_ativacao_listener_celular_autenticacao_qr_e_desativacao_pelo_proprio_listener(panel, app, monkeypatch):
+    from http.client import HTTPConnection
+    # A interface simulada usa outro loopback, mantendo um segundo listener HTTP real.
+    app.tokens.add("sessao")
+    auth = {"X-Token": "sessao"}
+    request(panel, "/api/mobile/access", headers=auth)
+    access = app.mobile_access
+    access.discover = lambda: [{"address": "192.168.1.20", "interface": "Wi-Fi"}]
+    access.server_factory = lambda address, handler: ThreadingHTTPServer(("127.0.0.2", address[1]), handler)
+    port = int(panel.rsplit(":", 1)[1])
+    url = f"http://192.168.1.20:{port}/"
+    monkeypatch.delenv("AUTORIP_PUBLIC_HOST", raising=False)
+    monkeypatch.setattr(server_module, "HTTP_SERVER", access.primary)
+    try:
+        status, body, _ = request(panel, "/api/mobile/access", "POST",
+                                  json.dumps({"enabled": True, "host": "192.168.1.20"}).encode(), auth)
+        assert status == 200 and json.loads(body)["url"] == url
+        assert app.s.mobile_enabled and not server_module._can_close_idle_browser(app)
+        status, body, _ = request(panel, "/api/mobile/qr", headers=auth)
+        assert status == 200 and json.loads(body)["url"] == url
+        assert "sessao" not in body.decode() and "<svg" in json.loads(body)["svg"]
+        conn = HTTPConnection("127.0.0.2", port, timeout=5)
+        conn.request("GET", "/api/state", headers={"Host": f"192.168.1.20:{port}"})
+        response = conn.getresponse()
+        assert response.status == 200 and json.loads(response.read())["locked"]
+        conn.close()
+        conn = HTTPConnection("127.0.0.2", port, timeout=5)
+        conn.request("POST", "/api/mobile/access", json.dumps({"enabled": False}),
+                     {**auth, "Host": f"192.168.1.20:{port}", "Origin": url.rstrip("/"), "Content-Type": "application/json"})
+        response = conn.getresponse()
+        assert response.status == 200 and not json.loads(response.read())["enabled"]
+        conn.close()
+        assert access.server is None and not app.s.mobile_enabled
+        assert request(panel, "/api/state", headers=auth)[0] == 200
+    finally:
+        access.close()
+
+
+def test_falha_ao_salvar_ativacao_fecha_listener_e_preserva_configuracao(panel, app, monkeypatch):
+    from test_mobile_access import FakeServer
+    app.tokens.add("sessao")
+    auth = {"X-Token": "sessao"}
+    request(panel, "/api/mobile/access", headers=auth)
+    access, created = app.mobile_access, []
+    access.discover = lambda: [{"address": "192.168.1.20"}]
+    def factory(*args):
+        server = FakeServer(*args); created.append(server); return server
+    access.server_factory = factory
+    def fail(*args):
+        raise OSError("sem espaço para salvar")
+    monkeypatch.setattr(app, "apply_settings", fail)
+    status, _, _ = request(panel, "/api/mobile/access", "POST",
+                           json.dumps({"enabled": True, "host": "192.168.1.20"}).encode(), auth)
+    assert status == 500 and created[0].closed
+    assert access.url() is None and not app.s.mobile_enabled
+
+
+@pytest.mark.parametrize("path", ["/api/state", "/api/prints", "/api/hot-files"])
+def test_polling_etag_sem_corpo_e_autenticacao_antes_de_304(panel, app, path):
+    app.tokens.add("sessao")
+    auth = {"X-Token": "sessao"}
+    status, body, headers = request(panel, path, headers=auth)
+    assert status == 200 and body
+    tag = headers["ETag"]
+    status, body, headers = request(panel, path, headers={**auth, "If-None-Match": tag})
+    assert status == 304 and body == b""
+    assert headers.get("Content-Length") is None
+    assert headers["ETag"] == tag and headers["Cache-Control"] == "no-store"
+    assert headers["Vary"] == "X-Token"
+    status, body, headers = request(panel, path, headers={"If-None-Match": tag})
+    assert status == (200 if path == "/api/state" else 401)
+    assert headers.get("ETag") is None
+    if path == "/api/state":
+        assert json.loads(body)["locked"] is True
+
+
+def test_polling_etag_muda_quando_fila_muda(panel, app):
+    app.tokens.add("sessao")
+    auth = {"X-Token": "sessao"}
+    _, _, headers = request(panel, "/api/state", headers=auth)
+    tag = headers["ETag"]
+    with app.lock:
+        app.jobs.append({"id": "novo", "name": "nova-arte.png", "status": "fila"})
+    status, body, headers = request(panel, "/api/state", headers={**auth, "If-None-Match": tag})
+    assert status == 200 and headers["ETag"] != tag
+    assert json.loads(body)["jobs"][-1]["id"] == "novo"
+
+
+def test_contas_ia_salvas_ocultas_sem_teto_e_alteracoes_atomicas(panel, app):
+    app.tokens.add("sessao")
+    auth = {"X-Token": "sessao"}
+    accounts = [{"provider": "gemini", "key": f"segredo-{index}"} for index in range(137)]
+    status, body, _ = request(panel, "/api/settings", "POST", json.dumps({"ai_accounts": accounts}).encode(), auth)
+    assert status == 200
+    data = json.loads(body)
+    assert len(data["ai_accounts"]) == 137 and "segredo-" not in body.decode()
+    assert {"manus", "gemini", "deepseek"} <= {row["id"] for row in data["_ai_catalog"]}
+    saved_keys = [row["key"] for row in app.s.ai_accounts]
+    status, body, _ = request(panel, "/api/settings", "POST", json.dumps({"ai_accounts": data["ai_accounts"]}).encode(), auth)
+    assert status == 200 and [row["key"] for row in app.s.ai_accounts] == saved_keys
+    bad = json.loads(body)["ai_accounts"]
+    bad[0]["provider"] = "deepseek"
+    status, _, _ = request(panel, "/api/settings", "POST", json.dumps({"ai_accounts": bad}).encode(), auth)
+    assert status == 400 and app.s.ai_accounts[0]["provider"] == "gemini"
+    status, body, _ = request(panel, "/api/state", headers=auth)
+    assert json.loads(body)["ai_providers"] == [{"id": "gemini", "name": "Gemini / Google", "keys": 137}]
+    assert "segredo-" not in body.decode()
+    assert len(json.loads(Path(app.home,"autorip.json").read_text(encoding="utf-8"))["ai_accounts"]) == 137
+
+
 def test_qr_mobile_contem_apenas_url_local_e_svg(panel, app, monkeypatch):
     port = int(panel.rsplit(":", 1)[1])
     monkeypatch.setenv("AUTORIP_BIND_HOST", "192.168.1.50")
@@ -220,7 +341,7 @@ def test_qr_mobile_nao_divulga_loopback_ou_ip_publico(panel, app, monkeypatch):
     app.tokens.add("sessao")
     status, body, _ = request(panel, "/api/mobile/qr", headers={"X-Token": "sessao"})
     assert status == 409
-    assert "AUTORIP_BIND_HOST" in json.loads(body)["error"]
+    assert "IPv4 do computador" in json.loads(body)["error"]
 
 
 def test_qr_mobile_wildcard_exige_host_na_allowlist(monkeypatch):
