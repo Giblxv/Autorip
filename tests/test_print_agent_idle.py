@@ -87,7 +87,7 @@ def test_parar_cancela_hash_entre_blocos_sem_registrar_ou_imprimir(config,monkey
         def __init__(self):self.hash=original()
         def update(self,chunk):processed.append(len(chunk));self.hash.update(chunk);stop.set()
         def hexdigest(self):return self.hash.hexdigest()
-    monkeypatch.setattr(core.hashlib,"sha256",Hash)
+    monkeypatch.setattr(core,"hashlib",SimpleNamespace(sha256=Hash))
     monkeypatch.setattr(core,"stable",lambda *args:True)
     state=core.State(config.state_db)
     try:
