@@ -505,7 +505,9 @@ class Rip:
             os.close(fd)
             wr = None
             try:
-                wr = PrtWriter(tmp_path, s.dpi_x, s.dpi_y, n_rows, n_dots)
+                wants_digest = getattr(before_publish, "requires_output_sha256", False) is True
+                writer_options = {"hash_output": True} if wants_digest else {}
+                wr = PrtWriter(tmp_path, s.dpi_x, s.dpi_y, n_rows, n_dots, **writer_options)
                 if workers == 1:
                     y = 0
                     while y < n_rows:
@@ -561,7 +563,10 @@ class Rip:
                               height_cm=art_rows / s.dpi_y * 2.54, dpi_x=s.dpi_x,
                               dpi_y=s.dpi_y, has_alpha=has_alpha)
                 if before_publish:
-                    before_publish(tmp_path, dict(result))
+                    preview = dict(result)
+                    if wants_digest:
+                        preview["output_sha256"] = wr.output_sha256
+                    before_publish(tmp_path, preview)
                 out_path = publish_unique_file(tmp_path, out_path)
                 try:
                     os.remove(tmp_path)

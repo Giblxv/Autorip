@@ -231,10 +231,11 @@ def run_once(s: Settings, rip: Rip, log=print, seen=None, archive_pending=None):
             write_archive_marker(src, marker)
             log(f"[RIP] {os.path.basename(src)} ...")
             def before_publish(temporary_path, preview, marker=marker, src=src):
-                marker["output_sha256"] = file_sha256(temporary_path)
+                marker["output_sha256"] = preview.get("output_sha256") or file_sha256(temporary_path)
                 marker["info"] = {key: preview[key] for key in
                                    ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
                 write_archive_marker(src, marker)
+            before_publish.requires_output_sha256 = True
             info = rip.process(src, preferred, before_publish=before_publish)
             out = info.pop("output_path")
             metadata_written = False
