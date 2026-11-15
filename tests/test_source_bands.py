@@ -79,3 +79,42 @@ def test_imagem_pequena_usa_transformacao_serial(monkeypatch):
     monkeypatch.setattr(engine,"_available_cpu_count",lambda:20)
     assert engine._source_transform_workers(source) == 1
     source.close()
+
+
+@pytest.mark.parametrize("mode", ["RGB", "RGBA"])
+@pytest.mark.parametrize("cache", ["disabled", "oversize"])
+def test_perfil_sem_cache_persistente_e_reutilizado_por_worker_e_liberado(monkeypatch, mode, cache):
+    import gc
+    import weakref
+    from collections import Counter
+    from PIL import ImageCms
+    source = Image.fromarray(np.random.default_rng(817).integers(0,256,(513,193,4),dtype=np.uint8)).convert(mode)
+    embedded = gamma_profile()
+    source.info["icc_profile"] = embedded
+    rip = engine.Rip(Settings())
+    if cache == "disabled":
+        monkeypatch.setattr(engine, "MAX_SOURCE_TRANSFORMS", 0)
+    else:
+        monkeypatch.setattr(engine, "MAX_SOURCE_PROFILE_BYTES", len(embedded)-1)
+    serial = rip._source_transform(embedded, mode, mode)
+    expected = ImageCms.applyTransform(source, serial)
+    calls, references = [], []
+    original = rip._build_source_transform
+    def build(*args):
+        transform = original(*args)
+        calls.append(threading.get_ident()); references.append(weakref.ref(transform))
+        return transform
+    monkeypatch.setattr(rip, "_build_source_transform", build)
+    monkeypatch.setattr(engine, "SOURCE_ICC_MIN_PIXELS", 1)
+    monkeypatch.setattr(engine, "SOURCE_ICC_ROWS", 13)
+    monkeypatch.setattr(engine, "_available_cpu_count", lambda: 4)
+    monkeypatch.setattr(engine, "_memory_budget", lambda: 256*1024**2)
+    try:
+        assert rip._parallel_source_transform(source, embedded, serial)
+        assert source.tobytes() == expected.tobytes()
+        assert calls and max(Counter(calls).values()) == 1
+        assert len(calls) <= 4  # 40 faixas, no máximo uma transformação por worker.
+        gc.collect()
+        assert all(reference() is None for reference in references)
+    finally:
+        source.close(); expected.close()

@@ -35,6 +35,8 @@ class Settings:
     offline_mode: bool = True
     printexp_host: str = ""
     printexp_port: int = 9100
+    mobile_enabled: bool = False
+    mobile_host: str = ""
     # Marca e aparencia
     brand_name: str = "AutoRIP"
     brand_logo: str = ""
@@ -59,6 +61,7 @@ class Settings:
     anthropic_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
     anthropic_base: str = "https://api.anthropic.com"
+    ai_accounts: list = field(default_factory=list)
     # Pastas
     hot_folder: str = "hot_folder"
     output_folder: str = "saida"
@@ -91,7 +94,7 @@ class Settings:
             if value < minimum or value > maximum:
                 raise ValueError(f"Configuracao invalida: {name} precisa estar entre {minimum} e {maximum}.")
 
-        for name in ("black_point_comp", "mirror", "white_enabled", "offline_mode", "label_enabled", "auto_mode", "auto_update"):
+        for name in ("black_point_comp", "mirror", "white_enabled", "offline_mode", "label_enabled", "auto_mode", "auto_update", "mobile_enabled"):
             if type(getattr(self, name)) is not bool:
                 raise ValueError(f"Configuracao invalida: {name} precisa ser verdadeiro ou falso.")
 
@@ -101,6 +104,11 @@ class Settings:
             validate_endpoint(self.printexp_host, self.printexp_port)
         elif type(self.printexp_host) is not str:
             raise ValueError("O IPv4 PrintExp precisa ser texto.")
+        if self.mobile_host:
+            from .mobile_access import private_ipv4
+            private_ipv4(self.mobile_host)
+        elif self.mobile_enabled:
+            raise ValueError("Escolha o IPv4 local antes de ativar o acesso do celular.")
         if type(self.printexp_port) is not int or not 1 <= self.printexp_port <= 65535:
             raise ValueError("A porta PrintExp precisa estar entre 1 e 65535.")
         number("dpi_y", 72, 9600, integer=True)
@@ -133,7 +141,7 @@ class Settings:
             "icc_path", "brand_name", "brand_logo", "watermark_path", "webhook_url",
             "trello_key", "trello_token", "trello_base", "trello_in_list", "trello_out_list",
             "notion_token", "notion_db", "notion_base", "jira_url", "jira_email", "jira_token",
-            "jira_project", "anthropic_key", "anthropic_model", "anthropic_base", "hot_folder",
+            "jira_project", "anthropic_key", "anthropic_model", "anthropic_base", "mobile_host", "hot_folder",
             "output_folder", "printed_folder", "done_folder", "error_folder"
         )
         for name in string_fields:
@@ -191,6 +199,8 @@ class Settings:
         endpoint("notion_base", self.notion_base, ("notion.com",))
         endpoint("jira_url", self.jira_url)
         endpoint("anthropic_base", self.anthropic_base, ("anthropic.com",))
+        from .ai_accounts import normalize
+        self.ai_accounts = normalize(self.ai_accounts)
         if len(self.brand_name) > 100:
             raise ValueError("Configuracao invalida: brand_name pode ter no maximo 100 caracteres.")
         return self

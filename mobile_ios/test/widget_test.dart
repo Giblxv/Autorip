@@ -37,9 +37,11 @@ void main() {
     expect(find.text('Endereço do servidor'), findsOneWidget);
     expect(find.text('Conectar'), findsOneWidget);
     expect(
-      find.textContaining('Endereços HTTP só são aceitos para a rede local.'),
+      find.textContaining('HTTP só é aceito na rede local'),
       findsOneWidget,
     );
+    expect(find.textContaining('Conectar celular'), findsOneWidget);
+    expect(find.textContaining('Enviar arquivos'), findsOneWidget);
   });
 
   testWidgets('rejects a public HTTP address before opening the panel', (

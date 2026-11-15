@@ -18,40 +18,28 @@ IMPORTANTE:
 4. Conclua a instalação e abra o aplicativo AutoRIP.
 
 Release:
-https://github.com/Giblxv/Autorip/releases/tag/mobile-v0.2.0
+https://github.com/Giblxv/Autorip/releases/tag/mobile-v0.2.2
 
 APK direto:
-https://github.com/Giblxv/Autorip/releases/download/mobile-v0.2.0/AutoRIP-Mobile-debug.apk
+https://github.com/Giblxv/Autorip/releases/download/mobile-v0.2.2/AutoRIP-Mobile-debug.apk
 
 APK otimizado de teste:
-https://github.com/Giblxv/Autorip/releases/download/mobile-v0.2.0/AutoRIP-Mobile-optimized.apk
+https://github.com/Giblxv/Autorip/releases/download/mobile-v0.2.2/AutoRIP-Mobile-optimized.apk
 
 2. PREPARAR O COMPUTADOR SERVIDOR
 ---------------------------------
 
-Por padrão, o AutoRIP aceita apenas conexões do próprio computador. Para permitir que o telefone acesse o painel pela rede local, o servidor precisa ser iniciado com estas variáveis:
+Por padrão, o AutoRIP aceita apenas conexões do próprio computador.
 
-AUTORIP_BIND_HOST=0.0.0.0
-AUTORIP_ALLOWED_HOSTS=IP_DO_SERVIDOR,127.0.0.1,localhost
-AUTORIP_PUBLIC_HOST=IP_DO_SERVIDOR
+1. Abra o AutoRIP no computador e use Abrir painel e configurações.
+2. Clique em Conectar celular e entre/crie a senha.
+3. Escolha o IPv4 da rede do telefone e use Ativar acesso e gerar QR.
+4. Se o Windows perguntar, permita o programa no firewall para redes privadas.
 
-Exemplo no Linux:
-
-AUTORIP_BIND_HOST=0.0.0.0 \
-AUTORIP_ALLOWED_HOSTS=192.168.1.50,127.0.0.1,localhost \
-AUTORIP_PUBLIC_HOST=192.168.1.50 \
-python autorip_gui.py --web
-
-Troque 192.168.1.50 pelo endereço IP real do computador que executa o AutoRIP.
-
-No Windows, abra o Prompt de Comando na pasta do AutoRIP e execute:
-
-set AUTORIP_BIND_HOST=0.0.0.0
-set AUTORIP_ALLOWED_HOSTS=192.168.1.50,127.0.0.1,localhost
-set AUTORIP_PUBLIC_HOST=192.168.1.50
-AutoRIP.exe --web
-
-Se o programa for iniciado pelo atalho ou instalador, configure essas variáveis no ambiente do usuário ou crie um arquivo .bat para iniciar o programa.
+A configuração fica salva. Para desligar o acesso LAN, use Desativar acesso.
+Vários telefones podem usar o mesmo QR: cada aparelho faz login e recebe sua
+própria sessão. Não há teto de quantidade de aparelhos imposto pelo AutoRIP.
+A capacidade prática depende do computador e da rede.
 
 3. DESCOBRIR O IP DO SERVIDOR
 -----------------------------
@@ -72,7 +60,7 @@ O telefone e o computador precisam estar na mesma rede Wi-Fi ou LAN.
 ----------------------------
 
 1. Abra o AutoRIP Mobile.
-2. Use **Escanear QR code** no painel do computador; ou informe manualmente o endereço do servidor, incluindo a porta.
+2. No aplicativo do telefone, use Escanear QR code para ler o QR gerado pelo computador; ou informe o endereço do servidor, incluindo a porta.
 3. Exemplo:
 
 http://192.168.1.50:8765
@@ -88,7 +76,7 @@ O aplicativo pode guardar até cinco endereços recentes no telefone. A senha n�
 Depois da conexão, o painel móvel permite usar as funções disponíveis no servidor, incluindo:
 
 - Acompanhar a fila de RIP.
-- Enviar artes compatíveis pelo painel manual.
+- Enviar artes pelo botão Enviar arquivos: selecione Arquivos do aparelho ou Fotos da galeria, confira a largura e confirme Enviar para a fila de RIP. PNG, JPEG e TIFF são aceitos; converta HEIC para PNG/JPEG. Há progresso de transferência e seleção múltipla.
 - Ver o progresso dos trabalhos.
 - Consultar a fila de impressão.
 - Ativar ou desativar o modo automático, conforme a permissão da conta.
@@ -150,10 +138,8 @@ Para atualizar:
 
 Na pasta mobile do repositório:
 
-npm install
-npx cap sync android
-cd android
-./gradlew assembleDebug
+npm ci
+npm run android:debug
 
 O APK será criado em:
 

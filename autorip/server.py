@@ -17,7 +17,8 @@ from .watcher import EXTS, _signature, _stable_files
 from .paths import (ProcessLock, safe_filename, move_unique, next_available_path,
                     read_archive_marker, remove_archive_marker, write_archive_marker,
                     file_sha256, find_marked_output, source_signature_matches, write_json_atomic)
-from . import integrations, agent, updater, printexp_network
+from . import integrations, agent, updater, printexp_network, ai_accounts
+from .mobile_access import MobileAccess
 from PIL import ImageDraw, ImageOps
 from .imaging import Image
 import segno
@@ -210,9 +211,12 @@ class App:
         self.hot_history_path = os.path.join(self.home, "hot_folders.json")
         self.s = Settings.load(self.cfg_path, base=self.home)
         self.s.validate()
+        self.ai_provider_summary = ai_accounts.summary(self.s)
         self.rip = Rip(self.s)
         self._watermark_cache = WatermarkCache()
         self._layout_lock = threading.Lock()
+        self.mobile_access = None
+        self.mobile_access_lock = threading.RLock()
         self.auto = self.s.auto_mode
         self.jobs, self.log_lines, self.tokens = [], [], set()
         self.q = queue.Queue()
@@ -1244,6 +1248,9 @@ class App:
                     continue
                 if key in SECRET_FIELDS and value == "":
                     continue
+                if key == "ai_accounts":
+                    candidate.ai_accounts = ai_accounts.merge(value, self.s.ai_accounts)
+                    continue
                 expected = type(current[key])
                 if expected is float and type(value) is int:
                     value = float(value)
@@ -1297,6 +1304,7 @@ class App:
                     new_output_lock.release()
                 raise
             self.s, self.rip = candidate, new_rip
+            self.ai_provider_summary = ai_accounts.summary(candidate)
             self.auto = candidate.auto_mode
             self._known_hot_folders = history
             if new_watch_lock:
@@ -1360,27 +1368,45 @@ class H(BaseHTTPRequestHandler):
         super().setup()
         self.connection.settimeout(180)
 
-    def _send(self, code, body, ctype="application/json"):
-        if not isinstance(body, (bytes, bytearray)): body = json.dumps(body).encode()
+    def _send(self, code, body, ctype="application/json", *, conditional=False):
+        if not isinstance(body, (bytes, bytearray)):
+            body = json.dumps(body, separators=(",", ":") if conditional else None).encode()
+        etag = None
+        if conditional and self.command == "GET" and code == 200:
+            etag = '"' + hashlib.sha256(body).hexdigest() + '"'
+            if self.headers.get("If-None-Match", "").strip() == etag:
+                code = 304
         self.send_response(code); self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body))); self.send_header("Cache-Control", "no-store")
+        if code != 304:
+            self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        if etag is not None:
+            self.send_header("ETag", etag)
+            self.send_header("Vary", "X-Token")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Content-Security-Policy", "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
-        self.end_headers(); self.wfile.write(body)
+        self.end_headers()
+        if code != 304:
+            self.wfile.write(body)
 
     def _auth(self):
         incoming = self.headers.get("X-Token", "")
         with APP.lock:
-            tokens = tuple(APP.tokens)
-        return bool(incoming) and any(secrets.compare_digest(incoming, token) for token in tokens)
+            # Tokens aleatórios de 256 bits: consulta hash evita varrer/copiar
+            # todas as sessões a cada polling de cada telefone.
+            return bool(incoming) and incoming in APP.tokens
 
     def _host_allowed(self):
         """Aceita apenas hosts explicitamente autorizados e a porta real."""
         try:
             parsed = urlparse("//" + self.headers.get("Host", ""))
-            return (parsed.hostname and parsed.hostname.lower().rstrip(".") in _allowed_hosts(_bind_host())
+            allowed = _allowed_hosts(_bind_host())
+            mobile = getattr(APP, "mobile_access", None)
+            if mobile is not None:
+                allowed.update(mobile.allowed_hosts())
+            return (parsed.hostname and parsed.hostname.lower().rstrip(".") in allowed
                     and parsed.port == self.server.server_address[1]
                     and not parsed.username and not parsed.password
                     and not parsed.path and not parsed.query and not parsed.fragment)
@@ -1419,7 +1445,15 @@ class H(BaseHTTPRequestHandler):
         result["_secret_configured"] = {key: bool(result.get(key)) for key in SECRET_FIELDS}
         for key in SECRET_FIELDS:
             result[key] = ""
+        result["ai_accounts"] = ai_accounts.public(result["ai_accounts"])
+        result["_ai_catalog"] = ai_accounts.catalog()
         return result
+
+    def _mobile_manager(self):
+        with APP.mobile_access_lock:
+            if APP.mobile_access is None:
+                APP.mobile_access = MobileAccess(self.server, H)
+            return APP.mobile_access
 
     def _login_limited(self):
         now = time.monotonic()
@@ -1448,8 +1482,6 @@ class H(BaseHTTPRequestHandler):
     def _issue_token(self):
         token = secrets.token_hex(32)
         with APP.lock:
-            if len(APP.tokens) >= 16:
-                APP.tokens.clear()
             APP.tokens.add(token)
         return token
 
@@ -1480,7 +1512,7 @@ class H(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
-        if u.path in ("/planner.js", "/printexp-network.js"):
+        if u.path in ("/planner.js", "/printexp-network.js", "/mobile-connect.js", "/ai-accounts.js", "/uploads.js"):
             with open(res_path("ui", u.path[1:]), "rb") as source:
                 return self._send(200, source.read(), "application/javascript; charset=utf-8")
         if u.path == "/looney.css":
@@ -1538,11 +1570,12 @@ class H(BaseHTTPRequestHandler):
                                         jobs=jobs, log=logs, hot_folder=hot_folder, output_folder=output_folder,
                                         icc=icc, brand=brand, offline=offline, pending=pending, has_logo=has_logo,
                                         queue_used=queue_used, queue_limit=MAX_PENDING_JOBS,
-                                        queue_preparing=queue_preparing))
+                                        queue_preparing=queue_preparing,
+                                        ai_providers=getattr(APP,"ai_provider_summary",[])), conditional=True)
         if u.path == "/api/prints":
-            return self._send(200, APP.list_prints()) if self._auth() else self._send(401, {"error": "login"})
+            return self._send(200, APP.list_prints(), conditional=True) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/hot-files":
-            return self._send(200, APP.list_hot_files()) if self._auth() else self._send(401, {"error": "login"})
+            return self._send(200, APP.list_hot_files(), conditional=True) if self._auth() else self._send(401, {"error": "login"})
         if u.path == "/api/thumb":
             if not self._auth(): return self._send(401, {"error": "login"})
             q = parse_qs(u.query); jid = os.path.basename(q.get("id", [""])[0]); nm = os.path.basename(q.get("name", [""])[0])
@@ -1575,12 +1608,21 @@ class H(BaseHTTPRequestHandler):
                 return self._send(200, {"local_ipv4s": printexp_network.local_ipv4s()})
             except OSError:
                 return self._send(503, {"error": "Consulta de IPv4 indisponível; use configuração manual."})
+        if u.path == "/api/mobile/access":
+            if not self._auth():
+                return self._send(401, {"error": "login"})
+            manager = self._mobile_manager()
+            url = manager.url() or _mobile_connection_url()
+            return self._send(200, {"interfaces": manager.interfaces(), "url": url,
+                                    "enabled": bool(url), "can_disable": manager.server is not None,
+                                    "selected_host": APP.s.mobile_host, "port": manager.primary.server_address[1]})
         if u.path == "/api/mobile/qr":
             if not self._auth():
                 return self._send(401, {"error": "login"})
-            url = _mobile_connection_url()
+            manager = getattr(APP, "mobile_access", None)
+            url = (manager.url() if manager is not None else None) or _mobile_connection_url()
             if not url:
-                return self._send(409, {"error": "Para gerar o QR, inicie o AutoRIP usando AUTORIP_BIND_HOST com o IPv4 privado deste computador. Se usar 0.0.0.0, defina também AUTORIP_PUBLIC_HOST e inclua esse IP em AUTORIP_ALLOWED_HOSTS."})
+                return self._send(409, {"error": "Ative o acesso pela rede local neste diálogo e escolha o IPv4 do computador."})
             image = io.BytesIO()
             segno.make_qr(url, error="M").save(image, kind="svg", scale=7, border=4)
             return self._send(200, {"url": url, "svg": image.getvalue().decode("utf-8")})
@@ -1593,6 +1635,29 @@ class H(BaseHTTPRequestHandler):
         if not self._origin_allowed():
             return self._send(403, {"error": "origem da requisicao nao autorizada"})
         try:
+            if u.path == "/api/mobile/access":
+                if not self._auth(): return self._send(401, {"error": "login"})
+                data = self._json(max_bytes=4096)
+                if type(data.get("enabled")) is not bool:
+                    raise ValueError("Informe se o acesso pelo celular deve ficar ativo.")
+                manager = self._mobile_manager()
+                with APP.mobile_access_lock:
+                    if data["enabled"]:
+                        previous = manager.host
+                        manager.enable(data.get("host", ""))
+                        try:
+                            APP.apply_settings({"mobile_enabled": True, "mobile_host": manager.host})
+                        except BaseException:
+                            manager.close()
+                            if previous:
+                                manager.enable(previous)
+                            raise
+                    else:
+                        if manager.server is None and _mobile_connection_url():
+                            raise ValueError("Esse acesso foi configurado externamente. Ajuste o host de inicialização para desativá-lo.")
+                        APP.apply_settings({"mobile_enabled": False})
+                        manager.close()
+                return self._send(200, {"url": manager.url(), "enabled": bool(manager.url())})
             if u.path in ("/api/printexp/discover", "/api/printexp/check"):
                 if not self._auth(): return self._send(401, {"error": "login"})
                 data = self._json(max_bytes=2048)
@@ -1691,7 +1756,8 @@ class H(BaseHTTPRequestHandler):
                     if question is not None and not isinstance(question, str):
                         raise ValueError("A pergunta precisa ser texto.")
                     offline_check = lambda: APP.s.offline_mode
-                    txt = agent.ask(settings, jobs, logs, question or None, offline_check=offline_check)
+                    txt = agent.ask(settings, jobs, logs, question or None, offline_check=offline_check,
+                                    provider=d.get("provider"))
                     APP.log("Agente de IA: sugestoes geradas"); return self._send(200, {"text": txt})
                 except Exception as e:
                     return self._send(502, {"error": str(e)})
@@ -1749,7 +1815,7 @@ def _can_close_idle_browser(app):
     with app.lock:
         pending = bool(app.queued_sources or app.archive_pending
                        or getattr(app, "_admission_reservations", ())) or not app.q.empty()
-    return not (automatic or trello_active or pending)
+    return not (automatic or trello_active or pending or getattr(settings, "mobile_enabled", False))
 
 
 def serve(port=8765, open_browser=True, status_callback=None):
@@ -1813,6 +1879,12 @@ def serve(port=8765, open_browser=True, status_callback=None):
         APP._instance_lock.release()
         raise OSError("nenhuma porta local disponivel para o painel AutoRIP")
     HTTP_SERVER = srv
+    APP.mobile_access = MobileAccess(srv, H)
+    if APP.s.mobile_enabled and APP.s.mobile_host:
+        try:
+            APP.mobile_access.enable(APP.s.mobile_host)
+        except ValueError as exc:
+            APP.log(str(exc))
     LAST_CLIENT_SEEN = time.monotonic()
     display_host = os.environ.get("AUTORIP_PUBLIC_HOST", bind_host)
     url = f"http://{display_host}:{srv.server_address[1]}/"
@@ -1833,6 +1905,8 @@ def serve(port=8765, open_browser=True, status_callback=None):
             srv.serve_forever()
     finally:
         HTTP_SERVER = None
+        if APP.mobile_access is not None:
+            APP.mobile_access.close()
         srv.server_close()
         for lock in APP._watch_locks: lock.release()
         for lock in APP._output_locks: lock.release()
@@ -1850,9 +1924,8 @@ def shutdown_server():
 def run_direct():
     """Executa o AutoRIP em janela nativa, sem abrir navegador.
 
-    O servidor HTTP continua sendo apenas um componente local interno para
-    reaproveitar worker, integrações e recuperação; ele escuta exclusivamente
-    em 127.0.0.1 e não é aberto ao usuário.
+    O servidor reaproveita worker, integrações e recuperação. Escuta em
+    127.0.0.1 por padrão; o painel pode ativar uma interface LAN para o celular.
     """
     global DIRECT_CLOSING
     DIRECT_CLOSING = False

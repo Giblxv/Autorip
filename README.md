@@ -1,4 +1,4 @@
-# AutoRIP 0.8.28 — automação de pré-impressão DTF / DTF UV
+# AutoRIP 0.8.29 — automação de pré-impressão DTF / DTF UV
 
 O AutoRIP organiza uma etapa de pré-impressão: importa artes raster, converte cores, prepara a base branca e gera arquivos `.PRT` para fluxo com PrintExp. Ele não substitui o software/driver do fabricante e **o formato PRT deste projeto foi inferido de uma referência, não de uma especificação oficial**. Antes de produção, valide em uma impressora de teste: abertura no PrintExp, ordem de canais, dimensão, escala, branco, orientação e densidade. Comece com material de baixo custo; o arquivo pode não ser compatível com todo equipamento.
 
@@ -18,7 +18,7 @@ A base branca respeita o alfa/transparência e oferece controles de densidade, r
 2. Execute `build_windows.bat` para gerar o executável one-file `dist\AutoRIP\AutoRIP.exe` e, com o Inno Setup 6 instalado, o instalador único `Output\AutoRIP_Setup.exe`.
 3. Para preparar o pacote em um computador conectado e compilar depois sem internet, use `preparar_offline.bat` e, no computador de build, `build_windows_offline.bat`.
 
-Também existe o workflow **Build Windows** no GitHub Actions. Em uma tag `v*`, ele compila em Windows e publica uma release com `AutoRIP.exe`, `PrintExpAgent.exe`, `AutoRIP_Setup.exe` e `SHA256SUMS.txt`; a release atual está em [v0.8.28](https://github.com/Giblxv/Autorip/releases/tag/v0.8.28). O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
+Também existe o workflow **Build Windows** no GitHub Actions. Em uma tag `v*`, ele compila em Windows e publica uma release com `AutoRIP.exe`, `PrintExpAgent.exe`, `AutoRIP_Setup.exe` e `SHA256SUMS.txt`; a release atual está em [v0.8.29](https://github.com/Giblxv/Autorip/releases/tag/v0.8.29). O executável one-file é portátil, mas o instalador é a opção recomendada para instalação, atalhos e configuração inicial.
 
 O RIP, a conversão ICC, o meio-tom, as integrações e a geração do `.PRT` rodam localmente no computador usando a conexão de internet do próprio Windows quando necessário. O executável Windows inicia por padrão em uma pequena janela nativa de status, sem abrir navegador. Para isso, use o atalho **AutoRIP (modo direto)** ou execute `AutoRIP.exe --direct`; `--headless` continua aceito como alias. O painel web opcional oferece controles da fila, configurações e planejamento da folha; abra-o com `AutoRIP.exe --web`. A velocidade depende principalmente de CPU, memória, resolução, tamanho da arte e perfil ICC.
 
@@ -44,13 +44,15 @@ python -m autorip --once                  # processa a hot-folder uma vez
 AutoRIP.exe --direct                      # Windows: janela nativa e worker local
 ```
 
-O painel atende somente em `127.0.0.1`. O modo automático lê a hot-folder, espera os arquivos estabilizarem, reivindica cada arquivo antes do RIP e arquiva a entrada em concluídos ou erros. Um journal local grava o SHA-256 do PRT temporário **antes** da publicação; na retomada, o AutoRIP só associa uma saída ao job se o hash exato e o cabeçalho PRT forem válidos. Um arquivo homônimo não é prova de conclusão. Após uma interrupção, a retomada recria o sidecar de dimensões e reconstitui a outbox de forma idempotente antes de arquivar a entrada. Se o estado for ambíguo, o AutoRIP preserva a entrada para revisão ou a encaminha para erros, em vez de declarar falsamente que um PRT concorrente é seu.
+O painel atende em `127.0.0.1` por padrão; **Conectar celular** permite ativar uma interface LAN específica para o telefone. O modo automático lê a hot-folder, espera os arquivos estabilizarem, reivindica cada arquivo antes do RIP e arquiva a entrada em concluídos ou erros. Um journal local grava o SHA-256 do PRT temporário **antes** da publicação; na retomada, o AutoRIP só associa uma saída ao job se o hash exato e o cabeçalho PRT forem válidos. Um arquivo homônimo não é prova de conclusão. Após uma interrupção, a retomada recria o sidecar de dimensões e reconstitui a outbox de forma idempotente antes de arquivar a entrada. Se o estado for ambíguo, o AutoRIP preserva a entrada para revisão ou a encaminha para erros, em vez de declarar falsamente que um PRT concorrente é seu.
 
 O comando posicional também mantém um journal por entrada em `.autorip_manual` dentro da pasta de saída: uma repetição idêntica é ignorada se já houver sucesso, e um PRT publicado antes de um crash é recuperado por hash sem duplicação. Use `--force` somente quando quiser deliberadamente gerar outra saída; colisões recebem sufixos e não sobrescrevem PRTs existentes. Se o destino estiver indisponível, o programa tenta uma pasta de recuperação e repete a operação de arquivamento com backoff. Ao mudar a hot-folder, trabalhos interrompidos nas pastas anteriores são preservados e recuperados após reinício. Movimentos entre volumes usam cópia temporária e publicação final sem sobrescrita.
 
 Configure `hot_folder`, `output_folder`, `printed_folder`, `done_folder` e `error_folder` em caminhos distintos e não sobrepostos; aliases por symlink também são rejeitados para evitar ciclos de reprocessamento. Arquivos com o mesmo nome recebem sufixos. O motor e o painel nunca substituem arquivos concorrentes ao publicar `.PRT`. O painel mantém locks de instância, hot-folder e saída; `--watch` usa locks de hot-folder e saída; o CLI posicional mantém lock de saída. Ao alterar a pasta de saída no painel, o lock antigo continua retido enquanto um job ativo a utiliza e é liberado quando ele termina. O painel e os modos CLI gravam sidecar `.meta.json` com dimensões da fila; ele não é lido pelo PrintExp.
 
 ## ICC e dados locais
+
+Para cadastrar contas de Manus, DeepSeek, Gemini, OpenAI, Claude e outros serviços, consulte [Contas de IA](docs/AGENTES-IA.md). A seção **Agentes de IA** permite várias chaves por provedor, sem teto de quantidade imposto pelo AutoRIP. Para conectar o telefone por QR, consulte o [guia dos apps móveis](docs/GUIA-APPS-MOVEIS.md).
 
 Selecione o ICC da própria impressora em **Configurações** ou na página do instalador. O AutoRIP não inclui perfis proprietários no repositório/instalador. O perfil fornecido para avaliação foi validado localmente, mas não é redistribuído: configure no seu computador a cópia que você está autorizado a usar.
 
@@ -110,6 +112,7 @@ compatível; o AutoRIP não baixa modelos automaticamente.
 
 ## Histórico recente
 
+- **0.8.29:** contas de IA por provedor, QR para LAN, sessões sem teto, envio de artes pelo telefone e menos JavaScript inicial. [Notas](docs/releases/v0.8.29.md).
 - **0.8.28:** CPU/RAM adaptativos, branco e ICC de entrada mais rápidos, tema Looney e novos pacotes móveis. [Notas](docs/releases/v0.8.28.md).
 - **0.8.27:** agente acompanha mudanças de IPv4 e reconexões; painel descarta endereços antigos e confirmações de conexão desatualizadas. [Notas](docs/releases/v0.8.27.md).
 - **0.8.26:** descoberta IPv4 do agente PrintExp na LAN, escolha de destino e teste TCP no painel. [Como configurar](docs/PRINTEXP-DESCOBERTA-IPV4.md).

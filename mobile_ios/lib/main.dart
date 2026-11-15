@@ -259,7 +259,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      'Use HTTPS para acesso pela internet. Endereços HTTP só são aceitos para a rede local. Configure AUTORIP_BIND_HOST e AUTORIP_ALLOWED_HOSTS no servidor.',
+                      'No computador, use Conectar celular para ativar o IPv4 e gerar o QR. Depois de entrar, use Enviar arquivos no painel. Vários telefones podem usar o mesmo QR. HTTP só é aceito na rede local; para acesso externo, use HTTPS.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AutoRipTheme.muted,
                         height: 1.45,

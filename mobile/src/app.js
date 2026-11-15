@@ -1,5 +1,3 @@
-import { BarcodeFormat, BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
-
 const input = document.querySelector('#url');
 const error = document.querySelector('#error');
 const recent = document.querySelector('#recent');
@@ -8,7 +6,16 @@ const scanButton = document.querySelector('#scan');
 const key = 'autorip.server.urls';
 
 function urls() {
-  try { return JSON.parse(localStorage.getItem(key) || '[]').filter(x => typeof x === 'string'); }
+  try {
+    const values = JSON.parse(localStorage.getItem(key) || '[]');
+    if (!Array.isArray(values)) return [];
+    const result = [];
+    for (const value of values) {
+      if (typeof value === 'string' && !result.includes(value)) result.push(value);
+      if (result.length === 5) break;
+    }
+    return result;
+  }
   catch { return []; }
 }
 function render() {
@@ -41,15 +48,18 @@ function connect(value = input.value) {
   }
   const clean = url.href.replace(/\/$/, '');
   const items = [clean, ...urls().filter(x => x !== clean)].slice(0, 5);
-  localStorage.setItem(key, JSON.stringify(items));
+  try { localStorage.setItem(key, JSON.stringify(items)); }
+  catch { /* O histórico é opcional; falha de armazenamento não impede conexão. */ }
   location.replace(`${clean}/`);
   return true;
 }
 
 async function scanQr() {
+  if (scanButton.disabled) return;
   error.textContent = '';
   scanButton.disabled = true;
   try {
+    const { BarcodeFormat, BarcodeScanner } = await loadScanner();
     const supported = await BarcodeScanner.isSupported();
     if (!supported.supported) {
       error.textContent = 'Este dispositivo não tem câmera compatível para ler QR.';
@@ -79,6 +89,17 @@ async function scanQr() {
   } finally {
     scanButton.disabled = false;
   }
+}
+
+let scanner;
+function loadScanner() {
+  if (!scanner) {
+    scanner = import('@capacitor-mlkit/barcode-scanning').catch(error => {
+      scanner = null;
+      throw error;
+    });
+  }
+  return scanner;
 }
 
 document.querySelector('#connect').onclick = () => connect();
