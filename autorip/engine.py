@@ -513,6 +513,19 @@ class Rip:
     _builtin_halftone = _halftone
 
     # ---------- branco ----------
+    def _binary_white_levels(self, mask, y0):
+        # Calcule as mesmas probabilidades float32 uma vez para a densidade
+        # uniforme. Arrays de tamanho 1 preservam a promocao de dtype do NumPy.
+        volume = np.asarray([self.s.white_density], dtype=np.float32)
+        r = self.s.small_drop_ratio
+        thresholds = self._thresholds(*mask.shape, y0)
+        small = (volume / r) > thresholds
+        large = ((volume - r) / (1.0 - r)) > thresholds
+        levels = np.where(large, np.uint8(3), small.astype(np.uint8))
+        # O ruído nativo é positivo: volume zero sempre produz nivel zero.
+        levels[~mask] = 0
+        return levels
+
     def _white_levels(self, alpha: np.ndarray, y0: int = 0, thresholds=None) -> np.ndarray:
         s = self.s
         a = alpha
@@ -524,11 +537,19 @@ class Rip:
         mask = morph.erode(mask, s.white_choke_mm, s.dpi_x, s.dpi_y)
         # niveis: borda (alpha parcial) = 1, miolo = 3
         # densidade 100% = tudo gota grande (3); abaixo disso: gotas pequenas + grandes esparsas
-        dens = np.where(a >= 0.9, s.white_density, 0.5 * (a / 0.9) * s.white_density).astype(np.float32)
-        # Pixels transparentes adicionados pelo fechamento sao furos preenchidos:
-        # sem esta atribuicao, a mascara fechava, mas a densidade continuava zero.
-        dens[mask & ~original_mask] = s.white_density
-        dens = np.where(mask, dens, 0.0)
+        if a.dtype == np.bool_ and s.white_alpha_threshold > 0:
+            # Alfa binario: todo pixel preservado/preenchido usa a mesma densidade.
+            if (thresholds is None and self.noise is self._opaque_noise and not self.noise.flags.writeable
+                    and getattr(self._halftone, "__func__", None) is Rip._builtin_halftone
+                    and getattr(self._thresholds, "__func__", None) is Rip._builtin_thresholds):
+                return self._binary_white_levels(mask, y0)
+            dens = np.where(mask, np.float32(s.white_density), np.float32(0))
+        else:
+            dens = np.where(a >= 0.9, s.white_density, 0.5 * (a / 0.9) * s.white_density).astype(np.float32)
+            # Pixels transparentes adicionados pelo fechamento sao furos preenchidos:
+            # sem esta atribuicao, a mascara fechava, mas a densidade continuava zero.
+            dens[mask & ~original_mask] = s.white_density
+            dens = np.where(mask, dens, 0.0)
         return self._halftone(dens, y0, thresholds)
 
     _builtin_white_levels = _white_levels
@@ -717,7 +738,9 @@ class Rip:
                 # EDT usa buffers grandes: libere a cor e sua tela antes da morfologia.
                 del ranks, color_levels, color_thresholds, thresholds, cmyk, rgb, arr, strip
                 if s.white_enabled:
-                    full_alpha = np.zeros((h, n_dots), np.float32)
+                    binary_alpha = (opaque and s.white_alpha_threshold > 0
+                                    and getattr(self._white_levels, "__func__", None) is Rip._builtin_white_levels)
+                    full_alpha = np.zeros((h, n_dots), np.bool_ if binary_alpha else np.float32)
                     full_alpha[o:o + (r1 - r0)] = 1.0 if opaque else alpha
                     del alpha
                     lvl = self._white_levels(full_alpha, a0)
