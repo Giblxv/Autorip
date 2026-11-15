@@ -10,6 +10,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
+import time
 import tracemalloc
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +36,7 @@ def main():
         calls = []
         binary_calls = []
         selection_calls = []
+        strip_rgb_calls = []
         if hasattr(rip, '_opaque_color_levels'):
             original = rip._opaque_color_levels
             def tracked(*values):
@@ -53,16 +55,33 @@ def main():
                 selection_calls.append(True)
                 return original_selection(*values)
             rip._drop_levels = tracked_selection
+        if hasattr(rip, '_strip_rgb'):
+            original_strip_rgb = rip._strip_rgb
+            def tracked_strip_rgb(*values):
+                strip_rgb_calls.append(True)
+                return original_strip_rgb(*values)
+            rip._strip_rgb = tracked_strip_rgb
+        original_process = rip.process
+        cpu_samples = []
+        def timed_process(*values, **options):
+            start = time.process_time()
+            try:
+                return original_process(*values, **options)
+            finally:
+                cpu_samples.append(time.process_time() - start)
+        rip.process = timed_process
         if not args.no_trace:
             tracemalloc.start()
         elapsed, digest, info = run(rip, case, args.worker_output)
         peak = None if args.no_trace else tracemalloc.get_traced_memory()[1]
         if not args.no_trace:
             tracemalloc.stop()
-        print(json.dumps(dict(rss_mib=rss(), elapsed_seconds=elapsed, traced_peak_bytes=peak, sha256=digest,
+        print(json.dumps(dict(rss_mib=rss(), elapsed_seconds=elapsed, process_cpu_seconds=cpu_samples[0],
+                              traced_peak_bytes=peak, sha256=digest,
                               metadata=info, lookup_calls=len(calls),
                               binary_white_calls=len(binary_calls),
                               drop_selection_calls=len(selection_calls),
+                              strip_rgb_calls=len(strip_rgb_calls),
                               ranks_cached=getattr(rip, '_opaque_ranks', None) is not None)))
         return
     if args.repeat < 1 or args.output is None:

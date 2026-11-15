@@ -398,6 +398,13 @@ class Rip:
         return im.resize((n_dots, row1 - row0), Image.LANCZOS, box=box)
 
     # ---------- cor ----------
+    @staticmethod
+    def _strip_rgb(strip):
+        rgb = strip.convert("RGB")
+        # A extracao anterior via fromarray entregava RGB sem metadados.
+        rgb.info.clear()
+        return rgb
+
     def _to_cmyk(self, rgb: Image.Image) -> np.ndarray:
         if self.transform is not None:
             c = ImageCms.applyTransform(rgb, self.transform)
@@ -723,7 +730,7 @@ class Rip:
             arr = None if opaque else np.asarray(strip)
             if opaque or arr[..., 3].any():
                 alpha = None if opaque else arr[..., 3].astype(np.float32) / 255.0
-                rgb = strip if opaque else Image.fromarray(arr[..., :3], "RGB")
+                rgb = strip if opaque else self._strip_rgb(strip)
                 lookup = (opaque and (r1 - r0) * n_dots >= 512 * 1024
                           and type(s.small_drop_ratio) is float and .05 <= s.small_drop_ratio <= .95
                           and self.noise is getattr(self, "_opaque_noise", None) and not self.noise.flags.writeable
