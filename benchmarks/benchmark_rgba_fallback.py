@@ -27,23 +27,34 @@ def main():
     parser.add_argument('--worker-source', type=Path)
     parser.add_argument('--worker-case', type=Path)
     parser.add_argument('--worker-output', type=Path)
+    parser.add_argument('--no-trace', action='store_true', help='Medir RSS sem tracemalloc')
     args = parser.parse_args()
     if args.worker_source:
         case = json.loads(args.worker_case.read_text())
         rip = load(args.worker_source, 'rss_probe').Rip(Settings(**case['settings']))
         calls = []
+        binary_calls = []
         if hasattr(rip, '_opaque_color_levels'):
             original = rip._opaque_color_levels
             def tracked(*values):
                 calls.append(True)
                 return original(*values)
             rip._opaque_color_levels = tracked
-        tracemalloc.start()
-        _, digest, info = run(rip, case, args.worker_output)
-        peak = tracemalloc.get_traced_memory()[1]
-        tracemalloc.stop()
-        print(json.dumps(dict(rss_mib=rss(), traced_peak_bytes=peak, sha256=digest,
+        if hasattr(rip, '_binary_white_levels'):
+            original_binary = rip._binary_white_levels
+            def tracked_binary(*values):
+                binary_calls.append(True)
+                return original_binary(*values)
+            rip._binary_white_levels = tracked_binary
+        if not args.no_trace:
+            tracemalloc.start()
+        elapsed, digest, info = run(rip, case, args.worker_output)
+        peak = None if args.no_trace else tracemalloc.get_traced_memory()[1]
+        if not args.no_trace:
+            tracemalloc.stop()
+        print(json.dumps(dict(rss_mib=rss(), elapsed_seconds=elapsed, traced_peak_bytes=peak, sha256=digest,
                               metadata=info, lookup_calls=len(calls),
+                              binary_white_calls=len(binary_calls),
                               ranks_cached=getattr(rip, '_opaque_ranks', None) is not None)))
         return
     if args.repeat < 1 or args.output is None:
@@ -65,15 +76,17 @@ def main():
             for side in order:
                 value = json.loads(subprocess.check_output([
                     sys.executable, str(Path(__file__).resolve()), '--worker-source', str(sources[side]),
-                    '--worker-case', str(case_path), '--worker-output', str(root / 'out.PRT')], text=True))
+                    '--worker-case', str(case_path), '--worker-output', str(root / 'out.PRT'),
+                    *(['--no-trace'] if args.no_trace else [])], text=True))
                 assert value['lookup_calls'] == 0 and not value['ranks_cached']
+                assert value['binary_white_calls'] == 0
                 signature = value['sha256'], value['metadata']
                 if expected is None:
                     expected = signature
                 assert signature == expected
                 results[side].append(value)
         report = {key:dict(rss_median_mib=statistics.median(value['rss_mib'] for value in values),
-                           traced_median_bytes=statistics.median(value['traced_peak_bytes'] for value in values),
+                           traced_median_bytes=(None if args.no_trace else statistics.median(value['traced_peak_bytes'] for value in values)),
                            samples=values) for key, values in zip(('baseline', 'candidate', 'control'), results)}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + '\n')
