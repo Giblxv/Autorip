@@ -33,6 +33,36 @@ def erode(mask, mm, dpi_x, dpi_y):
     mask, radius, sampling = _parameters(mask, mm, dpi_x, dpi_y)
     if not radius or not mask.any():
         return mask
+    if mask.all():
+        # O fundo mais próximo está em uma das quatro bordas externas.
+        axes = []
+        for size, step in zip(mask.shape, sampling):
+            distance = np.minimum(np.arange(1, size + 1, dtype=np.float64),
+                                  np.arange(size, 0, -1, dtype=np.float64))
+            distance *= step
+            np.square(distance, out=distance)
+            np.sqrt(distance, out=distance)
+            axes.append(distance > radius)
+        return axes[0][:, None] & axes[1][None, :]
+    bounds = _compact_bounds(mask)
+    if bounds is not None:
+        y0, y1, x0, x1 = bounds
+        out = np.zeros(mask.shape, dtype=bool)
+        out[y0:y1, x0:x1] = _erode_region(mask[y0:y1, x0:x1], radius, sampling)
+        return out
+    return _erode_region(mask, radius, sampling)
+
+
+def _compact_bounds(mask):
+    """O suporte pode ser recortado; não materialize coordenadas de todos os pixels."""
+    rows = np.flatnonzero(mask.any(axis=1))
+    columns = np.flatnonzero(mask.any(axis=0))
+    y0, y1 = int(rows[0]), int(rows[-1]) + 1
+    x0, x1 = int(columns[0]), int(columns[-1]) + 1
+    return (y0, y1, x0, x1) if (y1-y0)*(x1-x0) < mask.size * .75 else None
+
+
+def _erode_region(mask, radius, sampling):
     padded = np.pad(mask, 1, constant_values=False)
     distance = _distance(padded, sampling=sampling)
     return (distance > radius)[1:-1, 1:-1]
@@ -44,12 +74,22 @@ def close_holes(mask, mm, dpi_x, dpi_y):
     # Fechar uma máscara totalmente preenchida com exterior vazio a preserva.
     if not radius or not mask.any() or mask.all():
         return mask
+    bounds = _compact_bounds(mask)
+    original_shape = mask.shape
+    if bounds is not None:
+        y0, y1, x0, x1 = bounds
+        mask = mask[y0:y1, x0:x1]
     ry = math.ceil(radius * dpi_y) + 1
     rx = math.ceil(radius * dpi_x) + 1
     padded = np.pad(mask, ((ry, ry), (rx, rx)), constant_values=False)
     closed = erode(dilate(padded, mm, dpi_x, dpi_y), mm, dpi_x, dpi_y)
     # Cópia compacta: não mantém todo o buffer com padding vivo no renderizador.
-    return closed[ry:ry + mask.shape[0], rx:rx + mask.shape[1]].copy()
+    result = closed[ry:ry + mask.shape[0], rx:rx + mask.shape[1]]
+    if bounds is not None:
+        out = np.zeros(original_shape, dtype=bool)
+        out[y0:y1, x0:x1] = result
+        return out
+    return result.copy()
 
 
 def _distance(mask, sampling):
@@ -58,10 +98,15 @@ def _distance(mask, sampling):
     indices[0] -= np.arange(mask.shape[0], dtype=np.int32)[:, None]
     indices[1] -= np.arange(mask.shape[1], dtype=np.int32)[None, :]
     y = indices[0].astype(np.float64)
-    x = indices[1].astype(np.float64)
     y *= sampling[0]
-    x *= sampling[1]
     np.square(y, out=y)
-    np.square(x, out=x)
-    np.add(y, x, out=y)
+    # A componente horizontal não precisa de outro raster float64 inteiro.
+    rows = max(1, min(mask.shape[0], (1024 * 1024) // (8 * mask.shape[1])))
+    scratch = np.empty((rows, mask.shape[1]), dtype=np.float64)
+    for start in range(0, mask.shape[0], rows):
+        end = min(mask.shape[0], start + rows)
+        x = scratch[:end-start]
+        np.multiply(indices[1, start:end], sampling[1], out=x)
+        np.square(x, out=x)
+        np.add(y[start:end], x, out=y[start:end])
     return np.sqrt(y, out=y)

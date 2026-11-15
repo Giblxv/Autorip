@@ -15,23 +15,72 @@ from .config import Settings
 from .prt import PrtWriter, plane_bytes_for, HEADER_SIZE
 from .paths import publish_unique_file
 from . import morph
+from . import resources
 
 MIN_FREE_DISK_BYTES = 128 * 1024 * 1024  # reserva para logs, journal e sistema
-RENDER_WORKERS_MAX = 4
+RENDER_WORKERS_MAX = None  # automático; limites explícitos continuam úteis nos benchmarks
 STRIP = 512  # reduz o pico de memoria em folhas largas
-MAX_STRIP_MEMORY_BYTES = 512 * 1024 * 1024
+MAX_STRIP_MEMORY_BYTES = 2 * 1024 * 1024 * 1024
 _BYTES_PER_RENDER_PIXEL = 96  # planos, alpha, CMYK float e buffers temporários
 MAX_SOURCE_TRANSFORMS = 8
 MAX_SOURCE_PROFILE_BYTES = 2 * 1024 * 1024
+SOURCE_ICC_MIN_PIXELS = 4_000_000
+SOURCE_ICC_ROWS = 256
 DEFAULT_SOURCE_DPI = 300.0
-def _available_cpu_count():
-    """Retorna CPUs utilizáveis pelo processo, respeitando afinidade quando disponível."""
+def _host_cpu_count():
     reported = max(1, os.cpu_count() or 1)
     try:
         affinity = len(os.sched_getaffinity(0))
     except (AttributeError, OSError):
-        return reported
+        affinity = reported
     return max(1, min(reported, affinity))
+
+
+def _available_cpu_count():
+    """CPUs utilizáveis, respeitando afinidade e quota quando disponíveis."""
+    host = _host_cpu_count()
+    return min(host, resources.cpu_quota() or host)
+
+
+def _memory_budget():
+    available = resources.available_memory()
+    return min(MAX_STRIP_MEMORY_BYTES, available // 8 if available is not None else 512 * 1024 * 1024)
+
+
+def _source_transform_workers(image):
+    if image.width * image.height < SOURCE_ICC_MIN_PIXELS:
+        return 1
+    band_bytes = image.width * min(SOURCE_ICC_ROWS, image.height) * 4
+    cpus = _available_cpu_count()
+    if RENDER_WORKERS_MAX is not None:
+        cpus = min(cpus, max(1, RENDER_WORKERS_MAX))
+    return max(1, min(cpus,
+                      (image.height + SOURCE_ICC_ROWS - 1) // SOURCE_ICC_ROWS,
+                      _memory_budget() // max(1, band_bytes)))
+
+
+def _render_plan(n_dots, n_rows, halo):
+    cpus = _available_cpu_count()
+    if RENDER_WORKERS_MAX is not None:
+        cpus = min(cpus, max(1, RENDER_WORKERS_MAX))
+    parallel = n_rows >= STRIP * 3 and n_dots * n_rows >= 1_000_000
+    row_bytes = max(1, n_dots * _BYTES_PER_RENDER_PIXEL)
+    # A janela do Lanczos deve ser a mesma da main: alterar a altura de uma
+    # tira pode mudar arredondamentos. Escale a concorrência, não essa grade.
+    legacy_workers = min(4, _host_cpu_count()) if parallel else 1
+    geometry_budget = min(MAX_STRIP_MEMORY_BYTES, 512 * 1024 * 1024)
+    available_rows = geometry_budget // legacy_workers // row_bytes - 2 * halo
+    if legacy_workers > 1 and available_rows < 1:
+        available_rows = geometry_budget // row_bytes - 2 * halo
+    if available_rows < 1:
+        raise ValueError("A largura/DPI exigem mais memória do que o limite seguro de processamento por tira.")
+    strip_rows = min(STRIP, available_rows)
+    memory_workers = _memory_budget() // ((strip_rows + 2 * halo) * row_bytes)
+    if memory_workers < 1:
+        raise ValueError("RAM disponível insuficiente para uma tira com a geometria de impressão preservada.")
+    workers = min(cpus if parallel else 1, memory_workers,
+                  (n_rows + strip_rows - 1) // strip_rows)
+    return workers, strip_rows
 def _safe_source_dpi(value, default=DEFAULT_SOURCE_DPI):
     """Retorna um DPI finito e positivo; metadado ausente ou corrompido usa o padrão."""
     try:
@@ -123,6 +172,17 @@ class Rip:
             mode = "RGB" if source.mode in ("P", "PA") else "L" if source.mode == "LA" else source.mode
             transform = self._source_transform(embedded, mode)
             if source.mode == "RGBA":
+                if _source_transform_workers(source) > 1:
+                    target = source if reuse else source.copy()
+                    try:
+                        if self._parallel_source_transform(target, embedded, transform):
+                            return target
+                    except BaseException:
+                        if target is not source:
+                            target.close()
+                        raise
+                    if target is not source:
+                        target.close()
                 if reuse:
                     ImageCms.applyTransform(source, transform, inPlace=True)
                     return source
@@ -187,7 +247,8 @@ class Rip:
         try:
             if transform is not None:
                 try:
-                    ImageCms.applyTransform(rgb, transform, inPlace=True)
+                    if not self._parallel_source_transform(rgb, embedded, transform):
+                        ImageCms.applyTransform(rgb, transform, inPlace=True)
                 except Exception as exc:
                     raise ValueError(f"Perfil ICC de entrada indisponivel ou invalido: {exc}") from exc
             # O wrapper não mantém ImageFile/descritor vivo e compartilha só o core
@@ -197,6 +258,56 @@ class Rip:
             if rgb is not source:
                 rgb.close()
             raise
+
+    def _parallel_source_transform(self, image, embedded, serial_transform):
+        """ICC por faixas privadas; o thread principal recorta e publica cada faixa."""
+        workers = _source_transform_workers(image)
+        if workers < 2:
+            return False
+        from collections import deque
+        from concurrent.futures import ThreadPoolExecutor
+        pending = deque()
+        starts = iter(range(0, image.height, SOURCE_ICC_ROWS))
+        pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="autorip-source")
+
+        def apply(band):
+            transform = self._source_transform(embedded, image.mode, image.mode)
+            ImageCms.applyTransform(band, transform, inPlace=True)
+
+        def submit():
+            start = next(starts, None)
+            if start is None:
+                return
+            band = image.crop((0, start, image.width, min(image.height, start + SOURCE_ICC_ROWS)))
+            try:
+                future = pool.submit(apply, band)
+            except BaseException:
+                band.close()
+                raise
+            pending.append((start, band, future))
+
+        try:
+            for _ in range(workers):
+                submit()
+            while pending:
+                start, band, future = pending.popleft()
+                try:
+                    future.result()
+                    image.paste(band, (0, start))
+                finally:
+                    if future.done():
+                        band.close()
+                    else:
+                        pending.appendleft((start, band, future))
+                submit()
+            image.info["icc_profile"] = serial_transform.output_profile.tobytes()
+            return True
+        finally:
+            for _, _, future in pending:
+                future.cancel()
+            pool.shutdown(wait=True, cancel_futures=True)
+            for _, band, _ in pending:
+                band.close()
 
     def _load_source(self, path, source_ready=None, *, native_opaque=False):
         """Entrega RGBA ou, quando solicitado, RGB opaco privado com arquivo fechado."""
@@ -262,6 +373,8 @@ class Rip:
             c = rgb.convert("CMYK")
         a = np.asarray(c, dtype=np.float32) / 255.0          # (h,w,4) 1 = tinta cheia
         lim = [self.s.ink_limit.get(k, 100) / 100.0 for k in "CMYK"]
+        if self.transform is None and all(value == 1.0 for value in lim):
+            return a
         a *= np.asarray(lim, dtype=np.float32)
         return np.clip(a, 0, 1, out=a)
 
@@ -357,15 +470,7 @@ class Rip:
             fill_rows = int(np.ceil(s.white_fill_holes_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
             choke_rows = int(np.ceil(s.white_choke_mm / 25.4 * s.dpi_y)) if s.white_enabled else 0
             halo = 2 * fill_rows + choke_rows + 2
-            workers = (min(RENDER_WORKERS_MAX, _available_cpu_count())
-                       if n_rows >= STRIP * 3 and n_dots * n_rows >= 1_000_000 else 1)
-            available_rows = MAX_STRIP_MEMORY_BYTES // workers // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
-            if workers > 1 and available_rows < 1:
-                workers = 1
-                available_rows = MAX_STRIP_MEMORY_BYTES // max(1, n_dots * _BYTES_PER_RENDER_PIXEL) - 2 * halo
-            if available_rows < 1:
-                raise ValueError("A largura/DPI exigem mais memória do que o limite seguro de processamento por tira.")
-            strip_rows = max(1, min(STRIP, int(available_rows)))
+            workers, strip_rows = _render_plan(n_dots, n_rows, halo)
             im = self._prepare_resampling(im, n_dots, art_rows)
             fd, tmp_path = tempfile.mkstemp(prefix=f".{os.path.basename(out_path)}.", suffix=".part", dir=out_dir)
             os.close(fd)

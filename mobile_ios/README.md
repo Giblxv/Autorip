@@ -19,6 +19,11 @@ flutter run -d <dispositivo-ios>
 
 Para criar uma build iOS de distribuição, use `flutter build ipa --release` no macOS e configure uma equipe de assinatura Apple no projeto Xcode. Este ambiente Linux permite validar o código Dart, mas não contém Xcode nem pode assinar ou gerar um IPA.
 
+O workflow `mobile-apk.yml` também compila o aplicativo nativo iOS em um runner
+macOS com `flutter build ios --release --no-codesign`. A prévia móvel publica
+`AutoRIP-iOS-unsigned.app.zip` para revisão/assinatura em um Mac. Esse arquivo
+não é um IPA instalável nem uma publicação TestFlight/App Store.
+
 ## Conectar ao AutoRIP
 
 Na primeira abertura, informe o endereço do servidor, por exemplo `http://192.168.1.50:8765`. O host deve permitir conexões da rede local; o servidor AutoRIP mantém autenticação e configuração explícita de bind/hosts. Para acesso externo, use HTTPS e VPN/rede privada. Não publique a porta HTTP diretamente na internet.

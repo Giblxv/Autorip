@@ -1,92 +1,149 @@
-name: Build Android APK
+name: Build mobile apps
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - 'mobile_ios/**'
+      - '.github/workflows/mobile-apk.yml'
+      - 'tools/check_mobile_release_version.py'
   push:
     tags:
       - 'mobile-v*'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   android:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Verify mobile release versions
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify mobile tag versions
         if: startsWith(github.ref, 'refs/tags/mobile-v')
         run: python3 tools/check_mobile_release_version.py "${{ github.ref_name }}"
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: mobile/package-lock.json
-      - name: Build debug, optimized and release APKs
+      - name: Build debug, optimized and unsigned release APKs
         working-directory: mobile
         run: |
           npm ci
+          npm run build
           npx cap sync android
           cd android
           ./gradlew assembleDebug assembleOptimized assembleRelease --no-daemon
-      - name: Verify optimized APK and compare package sizes
-        working-directory: mobile
+      - name: Verify and collect Android artifacts
         run: |
           set -euo pipefail
-          debug_apk=android/app/build/outputs/apk/debug/app-debug.apk
-          optimized_apk=android/app/build/outputs/apk/optimized/app-optimized.apk
-          release_apk=android/app/build/outputs/apk/release/app-release-unsigned.apk
-          test -s "$debug_apk"
-          test -s "$optimized_apk"
-          test -s "$release_apk"
-          unzip -tq "$optimized_apk"
-          debug_bytes=$(stat -c '%s' "$debug_apk")
-          optimized_bytes=$(stat -c '%s' "$optimized_apk")
-          release_bytes=$(stat -c '%s' "$release_apk")
-          saved_pct=$(awk -v d="$debug_bytes" -v o="$optimized_bytes" 'BEGIN { if (d > 0) printf "%.1f", (d-o)*100/d; else print "0.0" }')
-          {
-            echo '### Android APK sizes'
-            echo '| Variant | Size |'
-            echo '|---|---:|'
-            echo "| Debug baseline | $debug_bytes bytes |"
-            echo "| Optimized (R8 + resource shrink) | $optimized_bytes bytes |"
-            echo "| Release (unsigned) | $release_bytes bytes |"
-            echo "| Optimized size change vs debug | ${saved_pct}% smaller (negative means larger) |"
-          } >> "$GITHUB_STEP_SUMMARY"
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AutoRIP-Mobile-optimized-${{ github.sha }}
-          if-no-files-found: error
-          path: |
-            mobile/android/app/build/outputs/apk/debug/app-debug.apk
-            mobile/android/app/build/outputs/apk/optimized/app-optimized.apk
-          retention-days: 30
-      - name: Prepare preview release assets
-        if: startsWith(github.ref, 'refs/tags/mobile-v')
-        run: |
           mkdir -p release-assets
           cp mobile/android/app/build/outputs/apk/debug/app-debug.apk release-assets/AutoRIP-Mobile-debug.apk
           cp mobile/android/app/build/outputs/apk/optimized/app-optimized.apk release-assets/AutoRIP-Mobile-optimized.apk
+          cp mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk release-assets/AutoRIP-Mobile-release-unsigned.apk
           cp mobile/COMO_USAR.txt release-assets/COMO_USAR.txt
-          (cd release-assets && sha256sum AutoRIP-Mobile-debug.apk AutoRIP-Mobile-optimized.apk > SHA256SUMS.txt)
-      - name: Publish mobile release
-        if: startsWith(github.ref, 'refs/tags/mobile-v')
-        uses: softprops/action-gh-release@v2
+          for apk in release-assets/*.apk; do test -s "$apk"; unzip -tq "$apk"; done
+          (cd release-assets && sha256sum *.apk > Android-SHA256SUMS.txt)
+          du -h release-assets/*.apk >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
         with:
-          name: AutoRIP Mobile 0.2.0 (prévia)
+          name: AutoRIP-Mobile-android-${{ github.sha }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
+  ios:
+    name: Build iOS unsigned
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify mobile tag versions
+        if: startsWith(github.ref, 'refs/tags/mobile-v')
+        run: python tools/check_mobile_release_version.py "${{ github.ref_name }}"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: stable
+          cache: true
+      - name: Analyze, test and build iOS without signing
+        working-directory: mobile_ios
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter analyze --fatal-infos
+          flutter test
+          flutter build ios --release --no-codesign
+      - name: Verify native app version
+        run: |
+          python - <<'PY'
+          import json, plistlib, re
+          from pathlib import Path
+          info = plistlib.loads(Path('mobile_ios/build/ios/iphoneos/Runner.app/Info.plist').read_bytes())
+          version = json.loads(Path('mobile/package.json').read_text())['version']
+          build = re.search(r'^version:.*\+(\d+)\s*$', Path('mobile_ios/pubspec.yaml').read_text(), re.M).group(1)
+          assert info['CFBundleShortVersionString'] == version, info
+          assert info['CFBundleVersion'] == build, info
+          print('iOS native version verified:', version, build)
+          PY
+      - name: Archive unsigned native app
+        run: |
+          mkdir -p release-assets
+          ditto -c -k --sequesterRsrc --keepParent mobile_ios/build/ios/iphoneos/Runner.app release-assets/AutoRIP-iOS-unsigned.app.zip
+          unzip -tq release-assets/AutoRIP-iOS-unsigned.app.zip
+          (cd release-assets && shasum -a 256 AutoRIP-iOS-unsigned.app.zip > iOS-SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AutoRIP-Mobile-ios-${{ github.sha }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish mobile preview
+    if: startsWith(github.ref, 'refs/tags/mobile-v')
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: AutoRIP-Mobile-*-${{ github.sha }}
+          path: release-assets
+          merge-multiple: true
+      - name: Verify binaries and prepare combined checksums
+        run: |
+          cd release-assets
+          sha256sum -c Android-SHA256SUMS.txt
+          sha256sum -c iOS-SHA256SUMS.txt
+          sha256sum *.apk *.zip > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: AutoRIP Mobile ${{ github.ref_name }} (prévia)
           prerelease: true
-          body_path: docs/releases/mobile-v0.2.0.md
+          body_path: docs/releases/${{ github.ref_name }}.md
+          fail_on_unmatched_files: true
           files: |
             release-assets/AutoRIP-Mobile-debug.apk
             release-assets/AutoRIP-Mobile-optimized.apk
+            release-assets/AutoRIP-Mobile-release-unsigned.apk
+            release-assets/AutoRIP-iOS-unsigned.app.zip
             release-assets/COMO_USAR.txt
             release-assets/SHA256SUMS.txt

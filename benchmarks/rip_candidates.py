@@ -294,7 +294,7 @@ CANDIDATES = [
 def pipeline(b, workers):
     s=b['engine']
     if 'RENDER_WORKERS_MAX =' in s:
-        after=re.sub(r'RENDER_WORKERS_MAX = \d+',f'RENDER_WORKERS_MAX = {workers}',s)
+        after=re.sub(r'RENDER_WORKERS_MAX = (?:None|\d+)',f'RENDER_WORKERS_MAX = {workers}',s)
         return dict(b,engine=after) if after!=s else None
     start=s.find('            y = 0\n            while y < n_rows:')
     end=s.find('            wr.close()',start)

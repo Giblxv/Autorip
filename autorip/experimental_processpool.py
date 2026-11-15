@@ -14,6 +14,12 @@ from collections.abc import Iterable
 
 from .config import Settings
 from .engine import Rip
+from . import engine
+
+
+def _configure_worker(cpus):
+    # Não multiplique a paralelização entre processos por todas as CPUs de novo.
+    engine.RENDER_WORKERS_MAX = cpus
 
 
 def _process_one(payload):
@@ -51,9 +57,12 @@ def process_files(
         payloads.append((str(source), str(output / f"{source.stem}.PRT"), asdict(settings), width_cm))
     if not payloads:
         return []
-    workers = max_workers or min(len(payloads), os.cpu_count() or 1)
+    cpus = engine._available_cpu_count()
+    workers = max_workers if max_workers is not None else min(len(payloads), cpus)
     if type(workers) is not int or workers < 1:
         raise ValueError("max_workers precisa ser um inteiro positivo.")
     context = mp.get_context("spawn")
-    with ProcessPoolExecutor(max_workers=workers, mp_context=context) as pool:
+    with ProcessPoolExecutor(max_workers=workers, mp_context=context,
+                             initializer=_configure_worker,
+                             initargs=(max(1, cpus // workers),)) as pool:
         return list(pool.map(_process_one, payloads))

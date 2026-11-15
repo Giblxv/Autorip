@@ -34,6 +34,7 @@ def run_once(source, output, settings):
     timings = defaultdict(float)
     original = {
         "load": Rip._load_source,
+        "builtin_load": Rip._builtin_load_source,
         "prepare": Rip._prepare_resampling,
         "cmyk": Rip._to_cmyk,
         "thresholds": Rip._thresholds,
@@ -52,6 +53,10 @@ def run_once(source, output, settings):
         return wrapper
 
     Rip._load_source = timed("load_source", original["load"])
+    # process() reconhece o loader nativo por identidade. A instrumentação
+    # deve preservar esse reconhecimento para medir o caminho RGB real.
+    if original["load"] is original["builtin_load"]:
+        Rip._builtin_load_source = Rip._load_source
     Rip._prepare_resampling = staticmethod(timed("prepare_resampling", original["prepare"]))
     Rip._to_cmyk = timed("to_cmyk", original["cmyk"])
     Rip._thresholds = timed("thresholds", original["thresholds"])
@@ -66,6 +71,7 @@ def run_once(source, output, settings):
         return info, dict(timings)
     finally:
         Rip._load_source = original["load"]
+        Rip._builtin_load_source = original["builtin_load"]
         Rip._prepare_resampling = staticmethod(original["prepare"])
         Rip._to_cmyk = original["cmyk"]
         Rip._thresholds = original["thresholds"]
