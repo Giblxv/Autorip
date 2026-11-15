@@ -371,6 +371,29 @@ class Rip:
         im.close()
         return prepared
 
+    @staticmethod
+    def _resample_strip(im, n_dots, art_rows, row0, row1):
+        if (im.mode == "RGBA" and im.size == (n_dots, art_rows)
+                and max(im.size) <= 2**24):
+            # O box do Pillow usa float32: preserve o resize acima da faixa de
+            # inteiros exatos, sem impor um limite novo ao tamanho da imagem.
+            region = im.crop((0, row0, n_dots, row1))
+            if row0 != 0 or row1 != im.height:
+                # resize RGBA parcial faz este round-trip mesmo em 1:1. Preserve
+                # sua quantizacao, mas converta somente a regiao necessaria.
+                try:
+                    premultiplied = region.convert("RGBa")
+                finally:
+                    region.close()
+                try:
+                    return premultiplied.convert("RGBA")
+                finally:
+                    premultiplied.close()
+            return region
+        sy = im.height / art_rows
+        box = (0, row0 * sy, im.width, row1 * sy)
+        return im.resize((n_dots, row1 - row0), Image.LANCZOS, box=box)
+
     # ---------- cor ----------
     def _to_cmyk(self, rgb: Image.Image) -> np.ndarray:
         if self.transform is not None:
@@ -564,9 +587,7 @@ class Rip:
         planes = [zero] * 12
         r0, r1 = max(a0, top), min(a1, top + art_rows)
         if r1 > r0:
-            sy = im.height / art_rows
-            box = (0, (r0 - top) * sy, im.width, (r1 - top) * sy)
-            strip = im.resize((n_dots, r1 - r0), Image.LANCZOS, box=box)
+            strip = self._resample_strip(im, n_dots, art_rows, r0 - top, r1 - top)
             if strip.mode == "RGBa":
                 strip = strip.convert("RGBA")
             if s.mirror:
