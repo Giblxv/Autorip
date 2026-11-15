@@ -28,8 +28,13 @@ O artefato de teste fica em `android/app/build/outputs/apk/debug/app-debug.apk`.
 
 Para testar a variante não depurável com R8 e remoção de recursos não usados, execute `npm run android:optimized`. O APK fica em `android/app/build/outputs/apk/optimized/app-optimized.apk`; instala como `com.giblxv.autorip.optimized` para coexistir com o app normal e usa a chave debug, portanto serve para avaliação, não para publicação de produção. O workflow compara tamanhos de debug, optimized e release e disponibiliza os APKs debug e optimized como artefatos.
 
-A variante `release` também ativa R8 e resource shrinking, mas `assembleRelease` gera APK não assinado enquanto não houver uma chave de produção configurada. A prévia `mobile-v0.2.0` publica APKs Debug e Optimized, ambos assinados com a chave debug do runner, além de checksums. A chave debug não é uma assinatura estável de produção; se o Android recusar uma atualização, desinstale a prévia anterior. O APK Optimized usa o pacote separado `com.giblxv.autorip.optimized`.
+A variante `release` também ativa R8 e resource shrinking, mas `assembleRelease` gera APK não assinado enquanto não houver uma chave de produção configurada. A prévia `mobile-v0.2.1` publica APKs Debug e Optimized, ambos assinados com a chave debug do runner, além de checksums. A chave debug não é uma assinatura estável de produção; se o Android recusar uma atualização, desinstale a prévia anterior. O APK Optimized usa o pacote separado `com.giblxv.autorip.optimized`.
 
 ## Release
 
-O workflow `mobile-apk.yml` gera os APKs em um runner Ubuntu quando acionado manualmente ou quando uma tag `mobile-v*` é criada. A prévia `mobile-v0.2.0` inclui APK padrão, APK Optimized e `SHA256SUMS.txt`; use o [guia rápido](../docs/GUIA-APPS-MOVEIS.md) para instalação e conexão segura. A publicação usa uma release móvel separada, sem misturar o APK com a release Windows.
+O workflow `mobile-apk.yml` compila Android em Ubuntu e iOS em macOS, em PRs
+relevantes, acionamento manual ou tags `mobile-v*`. A prévia `mobile-v0.2.1`
+inclui APK padrão, Optimized, release sem assinatura, o aplicativo iOS sem
+assinatura e `SHA256SUMS.txt`. Android e iOS precisam compilar antes da
+publicação. Use o [guia rápido](../docs/GUIA-APPS-MOVEIS.md) para instalação e
+conexão. A publicação móvel fica separada da release Windows.

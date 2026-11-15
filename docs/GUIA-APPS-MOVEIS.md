@@ -4,7 +4,7 @@ O celular é um controle remoto do painel; o RIP continua sendo executado no com
 
 ## 1. Instalar o app Android
 
-Baixe a [prévia AutoRIP Mobile 0.2.0](https://github.com/Giblxv/Autorip/releases/tag/mobile-v0.2.0) e escolha `AutoRIP-Mobile-debug.apk` para o app padrão ou `AutoRIP-Mobile-optimized.apk` para a variante R8 de teste. Abra o APK no Android e confirme a instalação. Se o Android pedir autorização para instalar apps dessa fonte, permita apenas para o navegador/gerenciador usado na instalação; depois, você pode desativar essa permissão nas configurações do telefone.
+Baixe a [prévia AutoRIP Mobile 0.2.1](https://github.com/Giblxv/Autorip/releases/tag/mobile-v0.2.1) e escolha `AutoRIP-Mobile-debug.apk` para o app padrão ou `AutoRIP-Mobile-optimized.apk` para a variante R8 de teste. Abra o APK no Android e confirme a instalação. Se o Android pedir autorização para instalar apps dessa fonte, permita apenas para o navegador/gerenciador usado na instalação; depois, você pode desativar essa permissão nas configurações do telefone.
 
 São APKs de prévia assinados com chave debug, não publicados na Play Store. A variante Optimized tem identificador de pacote separado e instala como app diferente; é apenas para comparação, não substitui o app padrão. O APK padrão de uma execução futura pode ter outra chave debug: se o Android rejeitar a atualização, desinstale a prévia antiga antes de instalar a nova. Isso apaga apenas endereços recentes locais, não os arquivos do computador.
 
@@ -75,10 +75,10 @@ Quando `AUTORIP_BIND_HOST` contém o IP específico do servidor, o AutoRIP já p
 
 1. Conecte o telefone à mesma rede privada do computador.
 2. No computador, abra o painel pelo endereço `http://IP:porta` impresso pelo servidor, entre/crie a senha e escolha **Conectar celular**. O QR gerado contém apenas endereço e porta, não a senha.
-3. Na prévia móvel 0.2.0, use **Escanear QR** para ler o código de conexão; se a câmera estiver indisponível, digite `http://IP:porta`. Versões antigas também podem usar o endereço manualmente. Os QR de **Ajuda** abrem a página de download/instruções e não fazem o pareamento.
+3. Na prévia móvel 0.2.1, use **Escanear QR** para ler o código de conexão; se a câmera estiver indisponível, digite `http://IP:porta`. Versões antigas também podem usar o endereço manualmente. Os QR de **Ajuda** abrem a página de download/instruções e não fazem o pareamento.
 4. No primeiro acesso, crie a senha do painel; depois, entre com essa senha. O app guarda até cinco endereços recentes, mas não guarda a senha.
 
-O instalador e **Ajuda** mostram dois QR de distribuição: Android abre a página da prévia móvel 0.2.0, com APK padrão e variante Optimized; iPhone/iPad abre este guia, pois ainda não há IPA assinado publicado.
+O instalador e **Ajuda** mostram dois QR de distribuição: Android abre a página da prévia móvel 0.2.1, com APK padrão e variante Optimized; iPhone/iPad abre este guia, pois ainda não há IPA assinado publicado.
 
 No app iOS, HTTP só é aceito para endereços locais/privados. Para acesso externo, use HTTPS e VPN/rede privada; não encaminhe a porta do AutoRIP no roteador para a internet.
 
