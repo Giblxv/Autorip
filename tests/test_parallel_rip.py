@@ -87,6 +87,19 @@ def test_orcamento_compartilhado_recua_para_uma_thread(tmp_path,monkeypatch):
     assert read_header(info['output_path'])['n_dots']==720
 
 
+def test_aumentar_ram_preserva_bytes_da_reamostragem_em_tiras(tmp_path,monkeypatch):
+    path=tmp_path/'wide.png'
+    Image.fromarray(np.random.default_rng(7317).integers(0,256,(20,60,4),dtype=np.uint8),'RGBA').save(path)
+    settings=Settings(label_enabled=False,white_enabled=False,margin_top_in=0,margin_bottom_in=0)
+    monkeypatch.setattr(engine,'_available_cpu_count',lambda:4)
+    monkeypatch.setattr(engine,'_host_cpu_count',lambda:4)
+    monkeypatch.setattr(engine,'_memory_budget',lambda:512*1024**2)
+    first=Rip(settings).process(str(path),str(tmp_path/'low.PRT'),width_cm=10.16)
+    monkeypatch.setattr(engine,'_memory_budget',lambda:2*1024**3)
+    second=Rip(settings).process(str(path),str(tmp_path/'high.PRT'),width_cm=10.16)
+    assert Path(first['output_path']).read_bytes()==Path(second['output_path']).read_bytes()
+
+
 @pytest.mark.parametrize('workers',[1,4])
 @pytest.mark.parametrize('stop_after',[0,1])
 @pytest.mark.parametrize('action',['pause','cancel'])

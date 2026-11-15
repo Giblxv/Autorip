@@ -18,11 +18,11 @@ def is_scheduling_proposal(name):
 def tune(bundle, workers, strip, threshold):
     source = bundle['engine']
     for name, value in [('RENDER_WORKERS_MAX', workers), ('STRIP', strip)]:
-        source, count = re.subn(rf'^{name} = \d+[^\n]*', f'{name} = {value}', source, flags=re.M)
+        source, count = re.subn(rf'^{name} = (?:None|\d+)[^\n]*', f'{name} = {value}', source, flags=re.M)
         if count != 1:
             return None
-    source, count = re.subn(r'n_dots \* n_rows >= \d[\d_]*',
-                            f'n_dots * n_rows >= {threshold}', source, count=1)
+    source, count = re.subn(r'(n_dots \* n_rows (?:>=|<) )\d[\d_]*',
+                            lambda match: match[1] + str(threshold), source, count=1)
     if count != 1:
         return None
     return dict(bundle, engine=source) if source != bundle['engine'] else None
