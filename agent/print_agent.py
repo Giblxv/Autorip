@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 import sqlite3
+import stat
 import sys
 import time
 import threading
@@ -32,7 +33,7 @@ try:
 except ImportError:  # pragma: no cover - mensagem amigável no computador do usuário
     Application = Desktop = send_keys = None
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 DEFAULT_POLL_SECONDS = 2.0
 DEFAULT_STABLE_SECONDS = 3.0
 DEFAULT_CONFIRM_TIMEOUT = 120.0
@@ -379,25 +380,69 @@ class PrintExpDriver:
             return [self.window.window_text()]
 
 
-def sha256(path: Path) -> str:
+class MonitorStopped(InterruptedError):
+    """Parada solicitada antes de iniciar uma operação no PrintExp."""
+
+
+def file_signature(path: Path) -> tuple:
+    info=path.stat()
+    if not stat.S_ISREG(info.st_mode):raise FileNotFoundError(str(path))
+    return (info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns)
+
+
+class SafeFileTracker:
+    """Agenda observação sem impressão. Cada início cria um cache vazio."""
+    def __init__(self,seconds,clock=None):
+        self.seconds=seconds;self.clock=clock or time.monotonic;self.entries={}
+
+    def ready(self,files,observed_at=None):
+        now=self.clock();present=set();ready=[]
+        earliest=now if observed_at is None else observed_at
+        for path,signature in files:
+            present.add(path);previous=self.entries.get(path)
+            if previous is None or previous[0]!=signature:
+                self.entries[path]=(signature,now,False)
+            elif not previous[2] and signature[2]>0 and earliest-previous[1]>=self.seconds:
+                ready.append((path,signature))
+        for path in self.entries.keys()-present:del self.entries[path]
+        return ready
+
+    def handled(self,path,signature):
+        previous=self.entries.get(path)
+        if previous and previous[0]==signature:self.entries[path]=(signature,previous[1],True)
+
+
+def scan_prts(folder: Path):
+    files=[]
+    for path in folder.glob("*.PRT"):
+        try:files.append((path,file_signature(path)))
+        except FileNotFoundError:continue
+    return sorted(files,key=lambda item:item[1][3])
+
+
+def sha256(path: Path,stop_event=None) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+        while True:
+            if stop_event is not None and stop_event.is_set():raise MonitorStopped()
+            chunk=source.read(1024*1024)
+            if not chunk:break
             digest.update(chunk)
     return digest.hexdigest()
 
 
-def stable(path: Path, seconds: float) -> bool:
+def stable(path: Path, seconds: float,stop_event=None) -> bool:
     try:
-        first = path.stat()
+        first = file_signature(path)
     except OSError:
         return False
-    time.sleep(seconds)
+    if stop_event is None:time.sleep(seconds)
+    elif stop_event.wait(seconds):return False
     try:
-        second = path.stat()
+        second = file_signature(path)
     except OSError:
         return False
-    return first.st_size > 0 and (first.st_size, first.st_mtime_ns) == (second.st_size, second.st_mtime_ns)
+    return first[2]>0 and first==second
 
 
 def move_unique(source: Path, destination_dir: Path) -> Path:
@@ -425,29 +470,43 @@ def setup_logging(path: Path) -> logging.Logger:
     return logger
 
 
-def process(path: Path, config: Config, state: State, driver: PrintExpDriver, log: logging.Logger, stop_event=None) -> None:
-    if not stable(path, config.stable_seconds):
-        log.warning("Arquivo não estabilizou: %s", path.name)
-        return
-    digest = sha256(path)
+def process(path: Path, config: Config, state: State, driver: PrintExpDriver, log: logging.Logger, stop_event=None,settled_signature=None) -> bool:
+    if settled_signature is not None and config.auto_print and not config.dry_run:
+        raise ValueError("A impressão exige sua própria verificação de estabilidade.")
+    try:
+        if settled_signature is None and not stable(path,config.stable_seconds,stop_event):
+            if stop_event is None or not stop_event.is_set():log.warning("Arquivo não estabilizou: %s",path.name)
+            return False
+        if stop_event is not None and stop_event.is_set():return False
+        before=file_signature(path)
+        if settled_signature is not None and before!=settled_signature:return False
+        digest=sha256(path,stop_event)
+        if before!=file_signature(path):
+            log.warning("Arquivo mudou durante a leitura; aguardando estabilização: %s",path.name)
+            return False
+    except (MonitorStopped,FileNotFoundError):
+        return False
+    except PermissionError:
+        log.warning("Arquivo indisponível para leitura; nova tentativa na próxima varredura: %s",path.name)
+        return False
     previous = state.state_for(path.name, digest)
     if previous == "concluido":
         log.info("Ignorando trabalho já concluído: %s", path.name)
-        return
+        return True
 
     if previous not in (None,"detectado","aguardando_autorizacao"):
         # Um pedido sem confirmação não pode virar uma segunda impressão.
-        return
+        return True
     if stop_event is not None and stop_event.is_set():
-        return
+        return False
     if previous=="aguardando_autorizacao" and (config.dry_run or not config.auto_print):
-        return
+        return True
 
     state.set(path, digest, "detectado")
     if config.dry_run or not config.auto_print:
         state.set(path, digest, "aguardando_autorizacao")
         log.info("Modo seguro: %s aguardando auto_print=true (dry_run=%s)", path.name, config.dry_run)
-        return
+        return True
 
     try:
         state.set(path, digest, "carregando")
@@ -455,7 +514,7 @@ def process(path: Path, config: Config, state: State, driver: PrintExpDriver, lo
         state.set(path, digest, "carregado")
         if stop_event is not None and stop_event.is_set():
             state.set(path,digest,"revisao_manual","Monitoramento parado após carregar; confira o trabalho no PrintExp.")
-            return
+            return True
         driver.start_print()
         state.set(path, digest, "impressao_solicitada")
         if not driver.wait_confirmation():
@@ -467,6 +526,7 @@ def process(path: Path, config: Config, state: State, driver: PrintExpDriver, lo
         message = f"{type(exc).__name__}: {exc}"
         state.set(path, digest, "revisao_manual", message)
         log.exception("Trabalho colocado em revisão manual: %s", path.name)
+    return True
 
 
 def run(config: Config, log: logging.Logger, once: bool = False, stop_event=None, on_jobs=None, on_started=None) -> None:
@@ -486,15 +546,21 @@ def run(config: Config, log: logging.Logger, once: bool = False, stop_event=None
     try:
         state = State(config.state_db,on_change=on_jobs)
         driver = PrintExpDriver(config, log)
+        tracker=SafeFileTracker(config.stable_seconds) if not once and (config.dry_run or not config.auto_print) else None
         log.info("PrintExpAgent %s iniciado", VERSION)
         log.info("Monitorando %s", config.output_folder)
         if on_started and not stop_event.is_set():on_started()
         with (advertise_receiver(config.printexp_port, log) if config.network_discovery and not once else nullcontext()):
             while not stop_event.is_set():
-                for path in sorted(config.output_folder.glob("*.PRT"), key=lambda item: item.stat().st_mtime):
+                scan_started=tracker.clock() if tracker is not None else None
+                files=scan_prts(config.output_folder)
+                for path,signature in tracker.ready(files,observed_at=scan_started) if tracker is not None else files:
                     if stop_event.is_set():
                         break
-                    process(path, config, state, driver, log, stop_event=stop_event)
+                    handled=process(path,config,state,driver,log,stop_event=stop_event,
+                                    settled_signature=signature if tracker is not None else None)
+                    if tracker is not None and handled:
+                        tracker.handled(path,signature)
                 if once:
                     return
                 stop_event.wait(config.poll_seconds)
