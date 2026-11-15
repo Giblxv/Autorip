@@ -1,6 +1,6 @@
 ; AutoRIP - instalador (Inno Setup 6). Compile com: ISCC installer.iss  (build_windows.bat ja faz isso)
 #define AppName "AutoRIP"
-#define AppVersion "0.8.30"
+#define AppVersion "0.8.31"
 #define AppExe "AutoRIP.exe"
 
 [Setup]
@@ -156,7 +156,7 @@ begin
   MobileAppsNote := TNewStaticText.Create(WizardForm);
   MobileAppsNote.Parent := MobileAppsPage.Surface;
   MobileAppsNote.SetBounds(10, 226, MobileAppsPage.SurfaceWidth - 20, 54);
-  MobileAppsNote.Caption := 'Android 0.2.0: prévia assinada com chave de teste; APK otimizado instala separado. iPhone/iPad: o QR abre o guia; ainda não há IPA assinado para distribuição.';
+  MobileAppsNote.Caption := 'Android 0.2.2: prévia assinada com chave de teste; APK otimizado instala separado. iPhone/iPad: o QR abre o guia; ainda não há IPA assinado para distribuição.';
   MobileAppsNote.Alignment := taCenter;
   MobileAppsNote.WordWrap := True;
   MobileAppsNote.Font.Color := $1A1A1A;

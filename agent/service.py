@@ -173,6 +173,9 @@ class AgentService:
                 if command=="history":self._history(values);continue
                 try:
                     config=core.Config.load(self.path)
+                    actual={key:str(value) if isinstance(value,Path) else value for key,value in asdict(config).items()}
+                    actual["printexp_exe"]=str(config.printexp_exe) if config.printexp_exe else ""
+                    with self.lock:self.update(values={**self.values,**actual})
                     if self.file_handler is None or self.file_handler.baseFilename!=str(config.log_file):
                         if self.file_handler:
                             self.log.removeHandler(self.file_handler);self.file_handler.close()

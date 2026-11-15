@@ -4,7 +4,7 @@ Agente Windows para observar a pasta de saída do AutoRIP, controlar a fila de P
 
 ## Interface gráfica
 
-O **PrintExpAgent 0.2.0** tem uma janela nativa com a identidade visual do AutoRIP: tema escuro, marca e destaques em ciano, magenta e amarelo. Abra **Agente PrintExp** no menu Iniciar ou execute:
+O **PrintExpAgent 0.2.1** tem uma janela nativa com a identidade visual do AutoRIP: tema escuro, marca e destaques em ciano, magenta e amarelo. Abra **Agente PrintExp** no menu Iniciar ou execute:
 
 [Prévia da interface](../docs/refinements/assets/printexp-agent-interface.png).
 
@@ -41,6 +41,10 @@ O anúncio também fica ativo na execução normal; `network_discovery: false`
 desativa-o. A porta anunciada pode ser configurada por `printexp_port`.
 O agente 0.1.1 acompanha mudanças de IPv4/interface, retoma o anúncio após
 reconexão e tenta novamente quando a rede ainda não está disponível ao iniciar.
+
+## Monitoramento de arquivos inalterados
+
+No modo seguro e na simulação, o agente observa a estabilidade em lote e evita recalcular SHA de PRTs já registrados com os mesmos metadados. Cada início descarta esse cache; ao ativar impressão automática, a estabilidade e o hash são conferidos antes de abrir o trabalho. Parar também interrompe a espera de estabilidade e o hash entre blocos. Impressões já solicitadas continuam sendo acompanhadas.
 
 ## Segurança padrão
 
