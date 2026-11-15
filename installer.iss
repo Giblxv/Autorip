@@ -1,6 +1,6 @@
 ; AutoRIP - instalador (Inno Setup 6). Compile com: ISCC installer.iss  (build_windows.bat ja faz isso)
 #define AppName "AutoRIP"
-#define AppVersion "0.8.32"
+#define AppVersion "0.8.33"
 #define AppExe "AutoRIP.exe"
 
 [Setup]

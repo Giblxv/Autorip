@@ -30,9 +30,13 @@ def pack2(a: np.ndarray, plane_bytes: int) -> np.ndarray:
     if type(plane_bytes) is not int or plane_bytes <= 0 or a.shape[1] > plane_bytes * 4:
         raise ValueError("plane_bytes nao comporta a largura do plano.")
     if a.dtype == np.uint8:
-        if a.max() > 3:
+        maximum = a.max()
+        if maximum > 3:
             raise ValueError("niveis do plano precisam ser inteiros entre 0 e 3.")
         rows, dots = a.shape
+        if maximum == 0:
+            # A validacao ja provou que o plano esta vazio, sem outra varredura.
+            return np.zeros((rows, plane_bytes), dtype=np.uint8)
         full = plane_bytes * 4
         # A multiplicacao modifica somente esta copia privada, nunca os planos
         # compartilhados pelo renderizador. O padding fica limitado a este buffer.
