@@ -1,6 +1,6 @@
 """Compara empacotamento e RIP completo; nunca envia trabalhos para impressora.
 
-python benchmarks/benchmark_prt_pack.py --baseline-ref v0.8.31 --pairs 11 --output /tmp/pack.json
+python benchmarks/benchmark_prt_pack.py --baseline-ref v0.8.32 --pairs 11 --output /tmp/pack.json
 """
 import argparse
 import hashlib
@@ -73,10 +73,12 @@ def main():
         spec.loader.exec_module(baseline)
         rng = np.random.default_rng(5)
         for rows, width in ((8, 37), (128, 1417), (512, 5669), (512, 12000)):
-            for layout in ('contiguous', 'reverse'):
+            for layout in ('contiguous', 'reverse', 'empty'):
                 levels = rng.integers(0, 4, (rows, width), dtype=np.uint8)
                 if layout == 'reverse':
                     levels = levels[:, ::-1]
+                elif layout == 'empty':
+                    levels.fill(0)
                 pb = prt.plane_bytes_for(width)
                 def action(module):
                     def run():
@@ -111,8 +113,12 @@ def main():
             ('wide_rgb', 'RGB', (720, 600), 21.167, False, False),
             ('wide_rgba_white', 'RGBA', (720, 600), 21.167, True, False),
             ('labels_white', 'RGBA', (720, 1200), 5, True, True),
+            ('transparent_rgba', 'RGBA', (720, 1200), 5, True, False),
+            ('black_rgb_no_white', 'RGB', (720, 1200), 5, False, False),
         ):
             data = rgb if mode == 'RGB' else np.dstack([rgb, alpha])
+            if name in ('transparent_rgba', 'black_rgb_no_white'):
+                data = np.zeros_like(data)
             image_path = root / f'{name}.png'
             Image.fromarray(data).save(image_path)
             settings = Settings(dpi_x=dpi[0], dpi_y=dpi[1], white_enabled=white,
