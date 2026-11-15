@@ -70,8 +70,8 @@ def paired(rips, case, root, count):
                 samples=samples, prt_sha256=oracle[0], metadata=oracle[1], outputs_equal=True)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(fixture_factory=fixtures, description=__doc__):
+    parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--baseline-ref', required=True)
     parser.add_argument('--pairs', type=int, default=7)
     parser.add_argument('--output', type=Path, required=True)
@@ -98,7 +98,7 @@ def main():
         baseline = root / 'baseline.py'
         baseline.write_text(source)
         modules = [load(baseline, 'identity_baseline'), load(candidate, 'identity_candidate')]
-        for case in fixtures(root, args.icc.resolve() if args.icc else None):
+        for case in fixture_factory(root, args.icc.resolve() if args.icc else None):
             rips = [module.Rip(Settings(**case['settings'])) for module in modules]
             result = paired(rips, case, root, args.pairs)
             case_path = root / 'case.json'

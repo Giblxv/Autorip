@@ -110,6 +110,8 @@ class Rip:
     def __init__(self, s: Settings):
         self.s = s.validate()
         self.noise = _blue_noise(256, 256, sx=1.0, sy=s.dpi_y / s.dpi_x)
+        self._opaque_noise = self.noise
+        self._opaque_ranks = None
         self.transform = None
         self.icc_error = None
         self._source_transforms = threading.local()
@@ -407,12 +409,74 @@ class Rip:
         a *= np.asarray(lim, dtype=np.float32)
         return np.clip(a, 0, 1, out=a)
 
+    _builtin_to_cmyk = _to_cmyk
+
+    @staticmethod
+    @lru_cache(maxsize=16)
+    def _opaque_cutoffs(ratio, limits):
+        values = np.arange(256, dtype=np.float32)[:, None] / 255.0
+        values = values * np.asarray(limits, dtype=np.float32)
+        np.clip(values, 0, 1, out=values)
+        def cutoff(probability):
+            count = np.ceil(probability.astype(np.float64) * 65536 - .5)
+            return np.clip(count, 0, 65536).T.astype(np.uint32, order="C")
+        small = cutoff(values / ratio)
+        large = cutoff((values - ratio) / (1.0 - ratio))
+        small.setflags(write=False)
+        large.setflags(write=False)
+        return small, large
+
+    def _threshold_ranks(self, height, width, y0):
+        ranks = self._opaque_ranks
+        if ranks is None:
+            if (self.noise.dtype not in (np.float32, np.float64)
+                    or not np.isfinite(self.noise).all()
+                    or self.noise.min() < .5 / 65536
+                    or self.noise.max() > 65535.5 / 65536):
+                self._opaque_ranks = False
+                return None
+            encoded = np.rint(self.noise * 65536 - .5)
+            if (not np.isfinite(encoded).all() or encoded.min() < 0 or encoded.max() > 65535
+                    or not np.array_equal((encoded + .5) / 65536, self.noise)):
+                self._opaque_ranks = False
+                return None
+            ranks = encoded.astype(np.uint16)
+            ranks.setflags(write=False)
+            self._opaque_ranks = ranks
+        if ranks is False:
+            return None
+        ny, nx = ranks.shape
+        phase = y0 % ny
+        ry, rx = (height + phase + ny - 1) // ny, (width + nx - 1) // nx
+        tiled = np.broadcast_to(ranks[None, :, None, :], (ry, ny, rx, nx)).reshape(ry * ny, rx * nx)
+        return tiled[phase:phase + height, :width]
+
+    def _opaque_color_levels(self, rgb, ranks):
+        color = (ImageCms.applyTransform(rgb, self.transform) if self.transform is not None
+                 else rgb.convert("CMYK"))
+        try:
+            # O buffer bytes pertence ao array, independentemente do raster Pillow.
+            raw = np.frombuffer(color.tobytes(), dtype=np.uint8).reshape(color.height, color.width, 4)
+        finally:
+            color.close()
+        limits = tuple(self.s.ink_limit.get(key, 100) / 100.0 for key in "CMYK")
+        small_lut, large_lut = self._opaque_cutoffs(self.s.small_drop_ratio, limits)
+        levels = []
+        for channel in range(4):
+            values = raw[..., channel]
+            small = small_lut[channel][values] > ranks
+            large = large_lut[channel][values] > ranks
+            levels.append(np.where(large, np.uint8(3), small.astype(np.uint8)))
+        return levels
+
     def _thresholds(self, height, width, y0):
         ny, nx = self.noise.shape
         phase = y0 % ny
         ry, rx = (height + phase + ny - 1) // ny, (width + nx - 1) // nx
         tiled = np.broadcast_to(self.noise[None, :, None, :], (ry, ny, rx, nx)).reshape(ry * ny, rx * nx)
         return tiled[phase:phase + height, :width]
+
+    _builtin_thresholds = _thresholds
 
     def _halftone(self, v: np.ndarray, y0: int, thresholds=None) -> np.ndarray:
         """v = volume de tinta (0..1, 1 = tudo gota grande) -> niveis {0,1,3}.
@@ -425,6 +489,8 @@ class Rip:
         large = ((v - r) / (1.0 - r)) > t
         # Escala uint8 evita dois buffers int64 da seleção aninhada.
         return np.where(large, np.uint8(3), small.astype(np.uint8))
+
+    _builtin_halftone = _halftone
 
     # ---------- branco ----------
     def _white_levels(self, alpha: np.ndarray, y0: int = 0, thresholds=None) -> np.ndarray:
@@ -602,22 +668,32 @@ class Rip:
             if opaque or arr[..., 3].any():
                 alpha = None if opaque else arr[..., 3].astype(np.float32) / 255.0
                 rgb = strip if opaque else Image.fromarray(arr[..., :3], "RGB")
-                cmyk = self._to_cmyk(rgb)
+                lookup = (opaque and (r1 - r0) * n_dots >= 512 * 1024
+                          and type(s.small_drop_ratio) is float and .05 <= s.small_drop_ratio <= .95
+                          and self.noise is getattr(self, "_opaque_noise", None) and not self.noise.flags.writeable
+                          and getattr(self._to_cmyk, "__func__", None) is Rip._builtin_to_cmyk
+                          and getattr(self._halftone, "__func__", None) is Rip._builtin_halftone
+                          and getattr(self._thresholds, "__func__", None) is Rip._builtin_thresholds)
+                ranks = self._threshold_ranks(h, n_dots, a0) if lookup else None
+                lookup = ranks is not None
+                cmyk = None if lookup else self._to_cmyk(rgb)
                 if not opaque:
                     cmyk *= alpha[..., None]  # tinta somente onde há arte, sem duplicar CMYK
                 o = r0 - a0
-                thresholds = self._thresholds(h, n_dots, a0)
+                thresholds = ranks if lookup else self._thresholds(h, n_dots, a0)
                 color_thresholds = thresholds[o:o + (r1 - r0)]
+                color_levels = self._opaque_color_levels(rgb, color_thresholds) if lookup else None
                 idx = {"C": 0, "M": 1, "Y": 2, "K": 3}            # ordem do array CMYK do Pillow
                 for pl, name in enumerate(s.channel_order):          # plano -> tinta
-                    levels = self._halftone(cmyk[..., idx[name]], r0, color_thresholds)
+                    levels = (color_levels[idx[name]] if color_levels is not None
+                              else self._halftone(cmyk[..., idx[name]], r0, color_thresholds))
                     if o == 0 and levels.shape[0] == h:
                         planes[pl] = levels
                     else:
                         planes[pl] = zero.copy()
                         planes[pl][o:o + levels.shape[0]] = levels
                 # EDT usa buffers grandes: libere a cor e sua tela antes da morfologia.
-                del color_thresholds, thresholds, cmyk, rgb, arr, strip
+                del ranks, color_levels, color_thresholds, thresholds, cmyk, rgb, arr, strip
                 if s.white_enabled:
                     full_alpha = np.zeros((h, n_dots), np.float32)
                     full_alpha[o:o + (r1 - r0)] = 1.0 if opaque else alpha
