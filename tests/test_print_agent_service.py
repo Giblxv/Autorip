@@ -231,3 +231,21 @@ def test_diagnostico_respeita_lock_de_outra_instancia(config_file):
         service.test();wait(lambda:service.snapshot()["connection"]=="PrintExp acessível")
         assert calls==["connect"]
     finally:shutdown(service)
+
+
+def test_tela_recebe_modo_e_pastas_efetivamente_carregados(config_file):
+    def runner(config,log,stop_event,on_jobs,on_started):
+        on_started();stop_event.wait(5)
+    service=AgentService(config_file,runner=runner)
+    try:
+        raw=json.loads(config_file.read_text())
+        raw.update(auto_print=True,dry_run=True,output_folder=str(config_file.parent/"new-output"),open_hotkey="^a")
+        config_file.write_text(json.dumps(raw))
+        service.start();wait(lambda:service.snapshot()["status"]=="monitorando")
+        shown=service.snapshot()["config"]
+        assert shown["auto_print"] is True and shown["dry_run"] is True
+        assert shown["output_folder"]==raw["output_folder"] and shown["open_hotkey"]=="^a"
+        service.stop();wait(lambda:service.snapshot()["status"]=="parado")
+        service.save({"poll_seconds":1})
+        assert json.loads(config_file.read_text())["open_hotkey"]=="^a"
+    finally:shutdown(service)
