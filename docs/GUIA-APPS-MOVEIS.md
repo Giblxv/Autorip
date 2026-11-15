@@ -4,7 +4,7 @@ O celular é um controle remoto do painel; o RIP continua sendo executado no com
 
 ## 1. Instalar o app Android
 
-Baixe a [prévia AutoRIP Mobile 0.2.1](https://github.com/Giblxv/Autorip/releases/tag/mobile-v0.2.1) e escolha `AutoRIP-Mobile-debug.apk` para o app padrão ou `AutoRIP-Mobile-optimized.apk` para a variante R8 de teste. Abra o APK no Android e confirme a instalação. Se o Android pedir autorização para instalar apps dessa fonte, permita apenas para o navegador/gerenciador usado na instalação; depois, você pode desativar essa permissão nas configurações do telefone.
+Baixe a [prévia AutoRIP Mobile 0.2.2](https://github.com/Giblxv/Autorip/releases/tag/mobile-v0.2.2) e escolha `AutoRIP-Mobile-debug.apk` para o app padrão ou `AutoRIP-Mobile-optimized.apk` para a variante R8 de teste. Abra o APK no Android e confirme a instalação. Se o Android pedir autorização para instalar apps dessa fonte, permita apenas para o navegador/gerenciador usado na instalação; depois, você pode desativar essa permissão nas configurações do telefone.
 
 São APKs de prévia assinados com chave debug, não publicados na Play Store. A variante Optimized tem identificador de pacote separado e instala como app diferente; é apenas para comparação, não substitui o app padrão. O APK padrão de uma execução futura pode ter outra chave debug: se o Android rejeitar a atualização, desinstale a prévia antiga antes de instalar a nova. Isso apaga apenas endereços recentes locais, não os arquivos do computador.
 
@@ -83,12 +83,22 @@ Quando `AUTORIP_BIND_HOST` contém o IP específico do servidor, o AutoRIP já p
 
 1. Conecte o telefone à mesma rede privada do computador.
 2. No computador, escolha **Conectar celular**, selecione o IPv4 da rede e use **Ativar acesso e gerar QR**. O QR gerado contém apenas endereço e porta, não a senha. Se usar a configuração manual, abra o painel pelo endereço `http://IP:porta` impresso pelo servidor.
-3. Na prévia móvel 0.2.1, use **Escanear QR** para ler o código de conexão; se a câmera estiver indisponível, digite `http://IP:porta`. Versões antigas também podem usar o endereço manualmente. Os QR de **Ajuda** abrem a página de download/instruções e não fazem o pareamento.
+3. Na prévia móvel 0.2.2, use **Escanear QR** para ler o código de conexão; se a câmera estiver indisponível, digite `http://IP:porta`. Versões antigas também podem usar o endereço manualmente. Os QR de **Ajuda** abrem a página de download/instruções e não fazem o pareamento.
 4. No primeiro acesso, crie a senha do painel; depois, entre com essa senha. O app guarda até cinco endereços recentes, mas não guarda a senha.
 
-O instalador e **Ajuda** mostram dois QR de distribuição: Android abre a página da prévia móvel 0.2.1, com APK padrão e variante Optimized; iPhone/iPad abre este guia, pois ainda não há IPA assinado publicado.
+O instalador e **Ajuda** mostram dois QR de distribuição: Android abre a página da prévia móvel 0.2.2, com APK padrão e variante Optimized; iPhone/iPad abre este guia, pois ainda não há IPA assinado publicado.
 
 No app iOS, HTTP só é aceito para endereços locais/privados. Para acesso externo, use HTTPS e VPN/rede privada; não encaminhe a porta do AutoRIP no roteador para a internet.
+
+## Enviar arquivos pelo telefone
+
+Depois de conectar e entrar, toque em **Enviar arquivos** no cabeçalho. Use **Arquivos do aparelho** para PNG/JPEG/TIFF ou **Fotos da galeria** para PNG/JPEG. Você pode selecionar vários arquivos. Confira a largura de cada arte em centímetros, ou deixe em branco para usar o tamanho da imagem, e confirme **Enviar para a fila de RIP**. O painel mostra o progresso da transferência e a confirmação da fila. O RIP continua no computador.
+
+HEIC precisa ser exportado como PNG ou JPEG. Não é necessário conceder acesso geral ao armazenamento: o seletor do sistema compartilha apenas os arquivos escolhidos. Se houver falha de rede, confira a fila antes de reenviar para evitar duplicar uma arte já recebida.
+
+## Vários telefones
+
+Todos os aparelhos da mesma rede podem usar o mesmo QR e a senha do painel. Cada login recebe sua própria sessão, e conectar outro telefone não encerra os anteriores. Não há limite numérico de aparelhos imposto pelo AutoRIP. A capacidade prática depende da CPU, RAM e rede; a fila de produção e a reserva de disco continuam protegidas. Alterar a senha ou reiniciar o servidor exige novo login em todos os aparelhos.
 
 ## Se não conectar
 

@@ -1394,8 +1394,9 @@ class H(BaseHTTPRequestHandler):
     def _auth(self):
         incoming = self.headers.get("X-Token", "")
         with APP.lock:
-            tokens = tuple(APP.tokens)
-        return bool(incoming) and any(secrets.compare_digest(incoming, token) for token in tokens)
+            # Tokens aleatórios de 256 bits: consulta hash evita varrer/copiar
+            # todas as sessões a cada polling de cada telefone.
+            return bool(incoming) and incoming in APP.tokens
 
     def _host_allowed(self):
         """Aceita apenas hosts explicitamente autorizados e a porta real."""
@@ -1481,8 +1482,6 @@ class H(BaseHTTPRequestHandler):
     def _issue_token(self):
         token = secrets.token_hex(32)
         with APP.lock:
-            if len(APP.tokens) >= 16:
-                APP.tokens.clear()
             APP.tokens.add(token)
         return token
 
@@ -1513,7 +1512,7 @@ class H(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path in ("/", "/index.html"):
             return self._send(200, open(res_path("ui", "index.html"), "rb").read(), "text/html; charset=utf-8")
-        if u.path in ("/planner.js", "/printexp-network.js", "/mobile-connect.js", "/ai-accounts.js"):
+        if u.path in ("/planner.js", "/printexp-network.js", "/mobile-connect.js", "/ai-accounts.js", "/uploads.js"):
             with open(res_path("ui", u.path[1:]), "rb") as source:
                 return self._send(200, source.read(), "application/javascript; charset=utf-8")
         if u.path == "/looney.css":

@@ -56,11 +56,18 @@ def main():
             app.tokens.add('queue-browser-token-new')
             for i in range(2):
                 Image.new('RGB',(32,32),(30,140,210)).save(Path(app.s.hot_folder)/f'entrada-{i}.png')
+        if '--upload-fixtures' in sys.argv:
+            while not app.q.empty():
+                app.q.get_nowait(); app.q.task_done()
+            app.jobs.clear(); app.queued_sources.clear()
+            Image.new('RGBA',(32,32),(30,140,210,255)).save(Path(folder)/'phone-art.png')
+            Image.new('RGB',(32,32),(30,140,210)).save(Path(folder)/'phone-art.tif')
         server.APP = app
         with ThreadingHTTPServer(('127.0.0.1', 0), server.H) as http:
             worker = threading.Thread(target=http.serve_forever, daemon=True)
             worker.start()
-            print(json.dumps(dict(url=f'http://127.0.0.1:{http.server_port}', first_id=app.jobs[0]['id'])), flush=True)
+            print(json.dumps(dict(url=f'http://127.0.0.1:{http.server_port}', first_id=app.jobs[0]['id'] if app.jobs else None,
+                                  upload_fixture=str(Path(folder)/'phone-art.png'))), flush=True)
             try:
                 for line in sys.stdin:
                     operation = json.loads(line)['operation']

@@ -195,6 +195,27 @@ def test_qr_mobile_exige_login(panel, app):
     assert json.loads(body)["error"] == "login"
 
 
+def test_varios_telefones_nao_revogam_sessoes_anteriores_e_troca_de_senha_revoga_todas(panel, app, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    monkeypatch.setattr(app,"check_pass",lambda value:value=="senha-boa")
+    def login(_):
+        status,body,_=request(panel,"/api/login","POST",b'{"password":"senha-boa"}')
+        assert status==200
+        return json.loads(body)["token"]
+    # Muito acima do teto anterior de 16; quantidade não vira configuração fixa.
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        tokens=list(pool.map(login,range(80)))
+    assert len(set(tokens))==80 and len(app.tokens)==80
+    def authenticated(token):
+        status,body,_=request(panel,"/api/state",headers={"X-Token":token})
+        return status==200 and not json.loads(body).get("locked")
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        assert all(pool.map(authenticated,tokens))
+    app.set_pass("outra-senha-segura")
+    assert not app.tokens
+    assert not authenticated(tokens[0]) and not authenticated(tokens[-1])
+
+
 def test_ativar_celular_exige_login_e_origem_local(panel, app):
     payload = json.dumps({"enabled": True, "host": "192.168.1.20"}).encode()
     assert request(panel, "/api/mobile/access")[0] == 401

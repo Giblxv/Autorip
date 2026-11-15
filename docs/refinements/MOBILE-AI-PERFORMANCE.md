@@ -1,7 +1,7 @@
 # Contas de IA, conexão móvel e desempenho — 2026-11-15
 
-Base: `5827ec9` (AutoRIP 0.8.28 / Mobile 0.2.1). Alterações locais na branch
-`perf/rip-apk-2026-11-15`; sem nova versão ou publicação de artefatos.
+Base: `5827ec9` (AutoRIP 0.8.28 / Mobile 0.2.1). Integração preparada para
+AutoRIP 0.8.29 e Mobile 0.2.2 na branch `perf/rip-apk-2026-11-15`.
 
 ## Funcionalidade
 
@@ -87,7 +87,8 @@ no navegador salvou 141 registros e confirmou campos de senha e redação das
 chaves. O teste do listener usa HTTP real com uma interface LAN simulada.
 
 `npm run build` e `npx cap sync android` passaram; o plugin nativo BarcodeScanner
-continua registrado. Esta rodada não gerou EXE/APK nem executou câmera física,
+continua registrado. A compilação e publicação dos artefatos nativos são feitas
+pelos workflows Windows e móvel a partir das tags de release. Não houve teste de câmera física,
 firewall Windows ou conexão com um telefone real. A API Manus foi conferida na
 documentação oficial; cada serviço ainda precisa de chave/modelo válidos e cota
 para uma consulta real. Evidências locais: `/workspace/autorip-review/rip-apk-2026-11-15/`.
