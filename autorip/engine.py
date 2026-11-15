@@ -403,7 +403,12 @@ class Rip:
             c = ImageCms.applyTransform(rgb, self.transform)
         else:
             c = rgb.convert("CMYK")
-        a = np.asarray(c, dtype=np.float32) / 255.0          # (h,w,4) 1 = tinta cheia
+        if c.width * c.height >= 512 * 1024:
+            # Converta os bytes e divida em uma unica saida float32 privada.
+            a = np.divide(np.asarray(c), np.float32(255), dtype=np.float32)
+        else:
+            # Em regioes pequenas o custo fixo da conversao direta pode dominar.
+            a = np.asarray(c, dtype=np.float32) / 255.0
         lim = [self.s.ink_limit.get(k, 100) / 100.0 for k in "CMYK"]
         if self.transform is None and all(value == 1.0 for value in lim):
             return a

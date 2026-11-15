@@ -1,0 +1,662 @@
+[
+  {
+    "case": 0,
+    "seed": 8700,
+    "size": [
+      257,
+      273
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "6acd16f5c6f7d43b8bf40a7db64a5a859fea69f18739b882c8552fa164f6df83",
+    "output_sha256": "67b86c81520fcc6f7aa90c925a8e87eb959c8733efdba00d369660c213bc0bb0",
+    "metadata": {
+      "n_rows": 285,
+      "n_dots": 257,
+      "width_cm": 2.1759333333333335,
+      "height_cm": 2.3114,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": false
+    },
+    "equal": true
+  },
+  {
+    "case": 1,
+    "seed": 8701,
+    "size": [
+      260,
+      278
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "4b07a375b311f1299b1cc7de8565db061454a38d20645c60f4d76c335f6584e7",
+    "output_sha256": "e89f1a7b006d093d107bbf27b20d5bafd186bee7e24be799f3d28d301fc6e59e",
+    "metadata": {
+      "n_rows": 290,
+      "n_dots": 260,
+      "width_cm": 2.2013333333333334,
+      "height_cm": 2.3537333333333335,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 2,
+    "seed": 8702,
+    "size": [
+      263,
+      283
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "d80f7c074e2f27e943b8e925c4b1c26fe182937f26d5acf7beb501880e605ee8",
+    "output_sha256": "db09d34b82163cb7e468f9d964babe51b2d0836505bce4349b7b5b74a9bed7e6",
+    "metadata": {
+      "n_rows": 295,
+      "n_dots": 263,
+      "width_cm": 2.2267333333333337,
+      "height_cm": 2.3960666666666666,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 3,
+    "seed": 8703,
+    "size": [
+      266,
+      288
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "9fac1a5b74bce75a1fa9c328d628f4efe5b715368420b7632baa12d66a878c17",
+    "output_sha256": "922dd21081eee3248dade3ed949208602aaf9cd7cd956e19dc7b4d6afa4e141b",
+    "metadata": {
+      "n_rows": 300,
+      "n_dots": 266,
+      "width_cm": 2.2521333333333335,
+      "height_cm": 2.4384,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": false
+    },
+    "equal": true
+  },
+  {
+    "case": 4,
+    "seed": 8704,
+    "size": [
+      269,
+      293
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "05c37a3a72bbe414875f1885a07d9d26e469eb44ec53e9110b42387323c19021",
+    "output_sha256": "4e5bec236a90846426c0e360a9329e734667f5e7dc18849aa0786e1edce07d41",
+    "metadata": {
+      "n_rows": 305,
+      "n_dots": 269,
+      "width_cm": 2.2775333333333334,
+      "height_cm": 2.4807333333333332,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 5,
+    "seed": 8705,
+    "size": [
+      272,
+      298
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "9faece2b70b3dd39fa8fb3722a28018d32b0477599241e83f7826496fd02a25d",
+    "output_sha256": "263df03a35c81fba5face925e0ca74bef8872541f79bd60a2786272da659dc28",
+    "metadata": {
+      "n_rows": 310,
+      "n_dots": 272,
+      "width_cm": 2.3029333333333333,
+      "height_cm": 2.523066666666667,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 6,
+    "seed": 8706,
+    "size": [
+      275,
+      303
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "dcb45221c94739e855af45867a7fa0a48e934e51ef288a4404973701d779ec36",
+    "output_sha256": "17f43947b72cbde63fd74e12b97baf035827b6ced06d7f70864f2900130dd5c6",
+    "metadata": {
+      "n_rows": 315,
+      "n_dots": 275,
+      "width_cm": 2.328333333333333,
+      "height_cm": 2.5654,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": false
+    },
+    "equal": true
+  },
+  {
+    "case": 7,
+    "seed": 8707,
+    "size": [
+      278,
+      308
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "0821e10b7657c699aa035df6f218d64eb2144a928cf889988e416d3078c5057e",
+    "output_sha256": "6de6976339a1251d737859072b340dd9cb00668cac3453eba577888b70e277b3",
+    "metadata": {
+      "n_rows": 320,
+      "n_dots": 278,
+      "width_cm": 2.3537333333333335,
+      "height_cm": 2.6077333333333335,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 8,
+    "seed": 8708,
+    "size": [
+      281,
+      313
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "26a0464dca010e2c681b16f64a59523a8783b3d630ad2f0334156e4f1a579e42",
+    "output_sha256": "50f16892b3c1b75d7b6c11ae27ee9395872ebe92753a22bbae43575886d06cbe",
+    "metadata": {
+      "n_rows": 325,
+      "n_dots": 281,
+      "width_cm": 2.3791333333333333,
+      "height_cm": 2.6500666666666666,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 9,
+    "seed": 8709,
+    "size": [
+      284,
+      318
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "d5c985f93c084c4b138aa154eb55a508ad90b836c68f8cbfb4312eb4aff14db8",
+    "output_sha256": "0f1eed64a53de924d2277693bf18e719ca2fb0f525b154386b5f9078298231db",
+    "metadata": {
+      "n_rows": 330,
+      "n_dots": 284,
+      "width_cm": 2.404533333333333,
+      "height_cm": 2.6924,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": false
+    },
+    "equal": true
+  },
+  {
+    "case": 10,
+    "seed": 8710,
+    "size": [
+      287,
+      323
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "e36a2794f098abdf83cdaff4abb10d413fcd7c68342c945490e5bb213f83adc3",
+    "output_sha256": "721ede7fc29864111ceed3483a80375e46cafd145f851bc1acfa034e1e694fb5",
+    "metadata": {
+      "n_rows": 335,
+      "n_dots": 287,
+      "width_cm": 2.4299333333333335,
+      "height_cm": 2.7347333333333332,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 11,
+    "seed": 8711,
+    "size": [
+      290,
+      328
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "4c69853385b02807c923bec5d70f9c1c3ac7d007d8ba60c1800dc1afa02f4b8c",
+    "output_sha256": "ee73231b9da8ad7a75677214ed6bfc4f76d8fbf7db49074d618da003a69c57f9",
+    "metadata": {
+      "n_rows": 340,
+      "n_dots": 290,
+      "width_cm": 2.4553333333333334,
+      "height_cm": 2.7770666666666664,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 12,
+    "seed": 8712,
+    "size": [
+      293,
+      333
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "447edbab18bf17fb91148e5b4349268c19a3732ddb9aef0dcaabab1070b63a2f",
+    "output_sha256": "c1ae3ee60a21fc0dc1e98710833581e020d3253cd154054f489b06722a0a9cf2",
+    "metadata": {
+      "n_rows": 345,
+      "n_dots": 293,
+      "width_cm": 2.4807333333333332,
+      "height_cm": 2.8194000000000004,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": false
+    },
+    "equal": true
+  },
+  {
+    "case": 13,
+    "seed": 8713,
+    "size": [
+      296,
+      338
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "40de2d3d9eddf3138762716522b460b722f71607038a497f2487ee8114a7a62f",
+    "output_sha256": "45bdc737ca9bbcdd8b10749aa4698ed9ebbb9fca6b86a0a21317dbcd4d7febe3",
+    "metadata": {
+      "n_rows": 350,
+      "n_dots": 296,
+      "width_cm": 2.5061333333333335,
+      "height_cm": 2.8617333333333335,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 14,
+    "seed": 8714,
+    "size": [
+      299,
+      343
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "7f3408fa289a31b9ba0ca94c5170160f715dfc3bfa7431f64d52f0d8c526ea7c",
+    "output_sha256": "0c1bb0ad5f59d1f8535c0f3f731bf28db25bf69be4290399b3bef33c2908508f",
+    "metadata": {
+      "n_rows": 355,
+      "n_dots": 299,
+      "width_cm": 2.5315333333333334,
+      "height_cm": 2.9040666666666666,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 15,
+    "seed": 8715,
+    "size": [
+      302,
+      348
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "3422b694f938c3513976fd79a6a94dd079d5aa965081b57ea8b1833cdf254fb0",
+    "output_sha256": "116803ded82375e63d7c3de98cb6b74815259382cc8706d54d78935ed5505870",
+    "metadata": {
+      "n_rows": 360,
+      "n_dots": 302,
+      "width_cm": 2.5569333333333333,
+      "height_cm": 2.9463999999999997,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": false
+    },
+    "equal": true
+  },
+  {
+    "case": 16,
+    "seed": 8716,
+    "size": [
+      305,
+      353
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "d1c4c590879c57474e222ee0daa1b2eaddb13ec48fc885c0e58b49ed4782fd35",
+    "output_sha256": "273dfa6ecf6f62704e43f6068f0cad3f0c9b4137b62fca4abf6b20191dc44735",
+    "metadata": {
+      "n_rows": 365,
+      "n_dots": 305,
+      "width_cm": 2.582333333333333,
+      "height_cm": 2.9887333333333337,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 17,
+    "seed": 8717,
+    "size": [
+      308,
+      358
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "3627f6914797a452c4495b12c73240510158f36b3b975967f0bbb978fd641164",
+    "output_sha256": "35160285d0deaa6928db46ecd9df1a0323972e01c5c39cd32e023e1db310d0a1",
+    "metadata": {
+      "n_rows": 370,
+      "n_dots": 308,
+      "width_cm": 2.6077333333333335,
+      "height_cm": 3.031066666666667,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 18,
+    "seed": 8718,
+    "size": [
+      311,
+      363
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "21fcb2185d7a7f969a3fa3f77dd12b80a9bf6fa6e93c643ac7aed0e8324f0a92",
+    "output_sha256": "7faf705563a2154ed4726b281ec460bb663e181edb6c370c3ae1a43e5bcb9cdf",
+    "metadata": {
+      "n_rows": 375,
+      "n_dots": 311,
+      "width_cm": 2.6331333333333333,
+      "height_cm": 3.0734,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": false
+    },
+    "equal": true
+  },
+  {
+    "case": 19,
+    "seed": 8719,
+    "size": [
+      314,
+      368
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "a285852c20e4d5ac1067017f256c15c41ff0595e176e8d7e0c8d9494eac1194e",
+    "output_sha256": "dd77b6fe75fb2bcc4086dd3909fc15df4a1abedfabc22b0ea108dfbbdfec7f79",
+    "metadata": {
+      "n_rows": 380,
+      "n_dots": 314,
+      "width_cm": 2.658533333333333,
+      "height_cm": 3.115733333333333,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 20,
+    "seed": 8720,
+    "size": [
+      317,
+      373
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "b3afb5fb8a88ca228c8dfc4bede7fb3feb82399baa9372a927ba50170f1d6784",
+    "output_sha256": "f7a071e8830f8abbebff0ed6bb6e6167810f3ec0641e904efb1c4748119833b4",
+    "metadata": {
+      "n_rows": 385,
+      "n_dots": 317,
+      "width_cm": 2.6839333333333335,
+      "height_cm": 3.158066666666667,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 21,
+    "seed": 8721,
+    "size": [
+      320,
+      378
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "9a638e4a1e995b17dd9e84227a9783bc12579188fd9c4d7d321d49c53176e9b1",
+    "output_sha256": "a498e8a39192e819a29342a77effeb1f62da8f9bd94ad89bc337f96de4f49a80",
+    "metadata": {
+      "n_rows": 390,
+      "n_dots": 320,
+      "width_cm": 2.7093333333333334,
+      "height_cm": 3.2004,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": false
+    },
+    "equal": true
+  },
+  {
+    "case": 22,
+    "seed": 8722,
+    "size": [
+      323,
+      383
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "8acb03fe54693e25329492a9d19599b98ecd6bcfb5b2d03eb3ff07ef257c529f",
+    "output_sha256": "6599f7031cca4679e0e3b6066b69796e3d0f036e85eab8fa4686688bf090cdc2",
+    "metadata": {
+      "n_rows": 395,
+      "n_dots": 323,
+      "width_cm": 2.7347333333333332,
+      "height_cm": 3.2427333333333332,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 23,
+    "seed": 8723,
+    "size": [
+      326,
+      388
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "4b3d43d51ff8a5a9e2d26ee7c18b1459fa0f834c4651637a18c01529d4df02d4",
+    "output_sha256": "2556e9f640ee65c93a63da17e053eb5ab83e3eab3bf601932f23062f489b6895",
+    "metadata": {
+      "n_rows": 400,
+      "n_dots": 326,
+      "width_cm": 2.7601333333333335,
+      "height_cm": 3.2850666666666664,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 24,
+    "seed": 8724,
+    "size": [
+      329,
+      393
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "2889da47ce27db6ce8393e883805899391cdfae49ad934bc39e2ef01023dc121",
+    "output_sha256": "151f73df12922f1a699263352b0ef7551aea3b19ec844dcc9a356d3aa5f231a1",
+    "metadata": {
+      "n_rows": 405,
+      "n_dots": 329,
+      "width_cm": 2.7855333333333334,
+      "height_cm": 3.3274000000000004,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": false
+    },
+    "equal": true
+  },
+  {
+    "case": 25,
+    "seed": 8725,
+    "size": [
+      332,
+      398
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "0c03f762cbbe91b7e2447ea667cce2179dc2f95231bfff2265158c7864218e27",
+    "output_sha256": "d29c6c2f4364796047c1b664c463e5cbf3268d64b4410e4575e0bd9188557ade",
+    "metadata": {
+      "n_rows": 410,
+      "n_dots": 332,
+      "width_cm": 2.8109333333333333,
+      "height_cm": 3.3697333333333335,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 26,
+    "seed": 8726,
+    "size": [
+      335,
+      403
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "f944e125bda3db235cb040c2bb57fc3727987e9d7f05bac165c528c43d3f2f0e",
+    "output_sha256": "c98607568df1f76ed9ddd10732fa4ed72513b1b16d1dfc2bcea92f12ffed7f79",
+    "metadata": {
+      "n_rows": 415,
+      "n_dots": 335,
+      "width_cm": 2.8363333333333336,
+      "height_cm": 3.4120666666666666,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 27,
+    "seed": 8727,
+    "size": [
+      338,
+      408
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "2d596031782af88b2df1d0e6ada26634e9276d4320a02fc58835768c6c1af1fd",
+    "output_sha256": "40a046389f901500f5fdf9889958f872376322ce0c4c9cf3dc8c5c6e5d24c588",
+    "metadata": {
+      "n_rows": 420,
+      "n_dots": 338,
+      "width_cm": 2.8617333333333335,
+      "height_cm": 3.4544,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": false
+    },
+    "equal": true
+  },
+  {
+    "case": 28,
+    "seed": 8728,
+    "size": [
+      341,
+      413
+    ],
+    "format": ".png",
+    "workers": 4,
+    "input_sha256": "b7f9832afc82e4e2434c324a1d9e94bb41d6ef5d5e39b4872ff419d9dfd2c1c8",
+    "output_sha256": "37131bd87e92b2ecc678759c641b8933b536d2be0e41d6f046b297cbe0d5c0b9",
+    "metadata": {
+      "n_rows": 425,
+      "n_dots": 341,
+      "width_cm": 2.8871333333333333,
+      "height_cm": 3.4967333333333337,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  },
+  {
+    "case": 29,
+    "seed": 8729,
+    "size": [
+      344,
+      418
+    ],
+    "format": ".tiff",
+    "workers": 1,
+    "input_sha256": "43dac59f07e0ed6ac800f73a8bbec09eadde7b168cf4d0e0ea36e7ad7555822b",
+    "output_sha256": "5eae4bbc178c9ad78e6e68757270dbd30e3d0a7704cc2e68f873e6ec908b9f0a",
+    "metadata": {
+      "n_rows": 430,
+      "n_dots": 344,
+      "width_cm": 2.9125333333333336,
+      "height_cm": 3.539066666666667,
+      "dpi_x": 300,
+      "dpi_y": 300,
+      "has_alpha": true
+    },
+    "equal": true
+  }
+]
