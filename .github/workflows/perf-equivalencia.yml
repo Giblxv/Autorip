@@ -1,0 +1,44 @@
+name: Equivalência PRT 2-bit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'autorip/prt.py'
+      - 'tests/test_prt.py'
+      - 'benchmarks/benchmark_prt_unpack.py'
+      - '.github/workflows/perf-equivalencia.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  equivalencia:
+    name: PRT / ${{ matrix.os }} / NumPy ${{ matrix.numpy }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2022]
+        numpy: ['2.2.4', '2.3.5']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Instalar dependências com NumPy fixado
+        run: python -m pip install -r requirements-dev.txt "numpy==${{ matrix.numpy }}"
+      - name: Verificar equivalência, padding e arquivos PRT
+        run: python -m pytest -q tests/test_prt.py
+      - name: Medir 15 pares AB e controle AA, sem limite de velocidade
+        run: python benchmarks/benchmark_prt_unpack.py --pairs 15 > prt-unpack.json
+      - uses: actions/upload-artifact@v6
+        with:
+          name: prt-equivalencia-${{ matrix.os }}-numpy-${{ matrix.numpy }}
+          path: prt-unpack.json
+          if-no-files-found: error
