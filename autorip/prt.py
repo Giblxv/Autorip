@@ -50,12 +50,11 @@ def unpack2(b: np.ndarray, n_dots: int) -> np.ndarray:
         # distribui os quatro pares de bits em bytes consecutivos, no mesmo
         # ordenamento do np.stack anterior. Faz operações in-place e evita
         # quatro arrays intermediários do tamanho do plano.
-        d = np.array(b, dtype=np.uint32, order="C", copy=True)
+        # Os bytes da view abaixo devem estar em little-endian em qualquer CPU.
+        d = np.array(b, dtype="<u4", order="C", copy=True)
         np.multiply(d, np.uint32(0x40100401), out=d)
         np.right_shift(d, 6, out=d)
         np.bitwise_and(d, np.uint32(0x03030303), out=d)
-        if not np.little_endian:
-            d.byteswap(inplace=True)
         return d.view(np.uint8).reshape(b.shape[0], -1)[:, :n_dots]
     d = np.stack([(b >> 6) & 3, (b >> 4) & 3, (b >> 2) & 3, b & 3], axis=-1)
     return d.reshape(b.shape[0], -1)[:, :n_dots]
