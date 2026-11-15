@@ -112,6 +112,7 @@ class Rip:
         self.noise = _blue_noise(256, 256, sx=1.0, sy=s.dpi_y / s.dpi_x)
         self._opaque_noise = self.noise
         self._opaque_ranks = None
+        self._threshold_noise32 = None
         self.transform = None
         self.icc_error = None
         self._source_transforms = threading.local()
@@ -470,10 +471,29 @@ class Rip:
         return levels
 
     def _thresholds(self, height, width, y0):
-        ny, nx = self.noise.shape
+        noise = self.noise
+        ny, nx = noise.shape
         phase = y0 % ny
         ry, rx = (height + phase + ny - 1) // ny, (width + nx - 1) // nx
-        tiled = np.broadcast_to(self.noise[None, :, None, :], (ry, ny, rx, nx)).reshape(ry * ny, rx * nx)
+        if (ry * rx > 1 and noise is self._opaque_noise and not noise.flags.writeable
+                and noise.dtype == np.float64
+                and getattr(self._thresholds, "__func__", None) is Rip._builtin_thresholds
+                and getattr(self._halftone, "__func__", None) is Rip._builtin_halftone
+                and getattr(self._white_levels, "__func__", None) is Rip._builtin_white_levels):
+            compact = self._threshold_noise32
+            if compact is None:
+                # Os limiares nativos (k + 0.5)/65536 cabem exatamente em float32.
+                # Preserve o ruido original e aceite a copia so sem arredondamento.
+                compact = False
+                if np.isfinite(noise).all() and noise.min() >= 0 and noise.max() <= 1:
+                    candidate = noise.astype(np.float32)
+                    if np.array_equal(candidate, noise):
+                        candidate.setflags(write=False)
+                        compact = candidate
+                self._threshold_noise32 = compact
+            if compact is not False:
+                noise = compact
+        tiled = np.broadcast_to(noise[None, :, None, :], (ry, ny, rx, nx)).reshape(ry * ny, rx * nx)
         return tiled[phase:phase + height, :width]
 
     _builtin_thresholds = _thresholds
@@ -510,6 +530,8 @@ class Rip:
         dens[mask & ~original_mask] = s.white_density
         dens = np.where(mask, dens, 0.0)
         return self._halftone(dens, y0, thresholds)
+
+    _builtin_white_levels = _white_levels
 
     # ---------- etiqueta ----------
     def _make_labels(self, name, w_cm, h_cm, n_dots, top, art_rows, bot):
