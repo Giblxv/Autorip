@@ -1,0 +1,422 @@
+{
+  "baseline": {
+    "rss_median_mib": 243.53125,
+    "elapsed_median_seconds": 0.6043536340002902,
+    "traced_median_bytes": null,
+    "samples": [
+      {
+        "rss_mib": 243.19140625,
+        "elapsed_seconds": 0.6546334679878782,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 234.66015625,
+        "elapsed_seconds": 0.644734616013011,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 243.21875,
+        "elapsed_seconds": 0.5699268220050726,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 258.3125,
+        "elapsed_seconds": 0.5880695649975678,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 251.96484375,
+        "elapsed_seconds": 0.6304406839917647,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 243.53125,
+        "elapsed_seconds": 0.6043536340002902,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 253.98046875,
+        "elapsed_seconds": 0.5392563810019055,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      }
+    ]
+  },
+  "candidate": {
+    "rss_median_mib": 232.8671875,
+    "elapsed_median_seconds": 0.5568665920000058,
+    "traced_median_bytes": null,
+    "samples": [
+      {
+        "rss_mib": 222.50390625,
+        "elapsed_seconds": 0.6154751959984424,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 35,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 222.76171875,
+        "elapsed_seconds": 0.5043635369947879,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 35,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 243.96875,
+        "elapsed_seconds": 0.5267712009954266,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 35,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 232.8671875,
+        "elapsed_seconds": 0.5568665920000058,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 35,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 232.1796875,
+        "elapsed_seconds": 0.5797090609994484,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 35,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 238.8828125,
+        "elapsed_seconds": 0.5539514620031696,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 35,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 256.49609375,
+        "elapsed_seconds": 0.5824039610015461,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 35,
+        "ranks_cached": false
+      }
+    ]
+  },
+  "control": {
+    "rss_median_mib": 243.765625,
+    "elapsed_median_seconds": 0.5837498289911309,
+    "traced_median_bytes": null,
+    "samples": [
+      {
+        "rss_mib": 243.375,
+        "elapsed_seconds": 0.68918279898935,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 243.765625,
+        "elapsed_seconds": 0.5837498289911309,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 242.15234375,
+        "elapsed_seconds": 0.6553545680071693,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 278.453125,
+        "elapsed_seconds": 0.43414230400230736,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 256.43359375,
+        "elapsed_seconds": 0.5215157439961331,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 216.92578125,
+        "elapsed_seconds": 0.5884538040118059,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      },
+      {
+        "rss_mib": 275.65234375,
+        "elapsed_seconds": 0.4568799030093942,
+        "traced_peak_bytes": null,
+        "sha256": "148e39fa65ee789121a09eb9111d47e2695cfea985cc9df826cbacadd8684f4a",
+        "metadata": {
+          "n_rows": 3296,
+          "n_dots": 1440,
+          "width_cm": 5.08,
+          "height_cm": 3.3866666666666667,
+          "dpi_x": 720,
+          "dpi_y": 2400,
+          "has_alpha": true
+        },
+        "lookup_calls": 0,
+        "binary_white_calls": 0,
+        "drop_selection_calls": 0,
+        "ranks_cached": false
+      }
+    ]
+  }
+}

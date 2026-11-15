@@ -34,6 +34,7 @@ def main():
         rip = load(args.worker_source, 'rss_probe').Rip(Settings(**case['settings']))
         calls = []
         binary_calls = []
+        selection_calls = []
         if hasattr(rip, '_opaque_color_levels'):
             original = rip._opaque_color_levels
             def tracked(*values):
@@ -46,6 +47,12 @@ def main():
                 binary_calls.append(True)
                 return original_binary(*values)
             rip._binary_white_levels = tracked_binary
+        if hasattr(rip, '_drop_levels'):
+            original_selection = rip._drop_levels
+            def tracked_selection(*values):
+                selection_calls.append(True)
+                return original_selection(*values)
+            rip._drop_levels = tracked_selection
         if not args.no_trace:
             tracemalloc.start()
         elapsed, digest, info = run(rip, case, args.worker_output)
@@ -55,6 +62,7 @@ def main():
         print(json.dumps(dict(rss_mib=rss(), elapsed_seconds=elapsed, traced_peak_bytes=peak, sha256=digest,
                               metadata=info, lookup_calls=len(calls),
                               binary_white_calls=len(binary_calls),
+                              drop_selection_calls=len(selection_calls),
                               ranks_cached=getattr(rip, '_opaque_ranks', None) is not None)))
         return
     if args.repeat < 1 or args.output is None:
@@ -86,6 +94,7 @@ def main():
                 assert signature == expected
                 results[side].append(value)
         report = {key:dict(rss_median_mib=statistics.median(value['rss_mib'] for value in values),
+                           elapsed_median_seconds=statistics.median(value['elapsed_seconds'] for value in values),
                            traced_median_bytes=(None if args.no_trace else statistics.median(value['traced_peak_bytes'] for value in values)),
                            samples=values) for key, values in zip(('baseline', 'candidate', 'control'), results)}
     args.output.parent.mkdir(parents=True, exist_ok=True)
