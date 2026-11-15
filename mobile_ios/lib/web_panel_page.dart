@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'autorip_theme.dart';
 import 'server_address.dart';
 
 class WebPanelPage extends StatefulWidget {
@@ -23,7 +24,7 @@ class _WebPanelPageState extends State<WebPanelPage> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.white)
+      ..setBackgroundColor(AutoRipTheme.canvas)
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (progress) {

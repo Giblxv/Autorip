@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'autorip_theme.dart';
 import 'server_address.dart';
 import 'web_panel_page.dart';
 
-const _ink = Color(0xFF1A1A1A);
-const _cyan = Color(0xFF00AEEF);
-const _pink = Color(0xFFEC008C);
-const _yellow = Color(0xFFFFD800);
-const _paper = Color(0xFFFFF8E1);
+const _ink = AutoRipTheme.ink;
+const _cyan = AutoRipTheme.cyan;
+const _pink = AutoRipTheme.pink;
+const _yellow = AutoRipTheme.yellow;
+const _paper = AutoRipTheme.surface;
 
 void main() => runApp(const AutoRipApp());
 
@@ -56,16 +57,7 @@ class AutoRipApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'AutoRIP Mobile',
     debugShowCheckedModeBanner: false,
-    theme: ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: _cyan),
-      scaffoldBackgroundColor: const Color(0xFF17131F),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF17131F),
-        foregroundColor: Colors.white,
-        centerTitle: false,
-      ),
-    ),
+    theme: AutoRipTheme.dark,
     home: ConnectScreen(store: store ?? PreferencesRecentServerStore()),
   );
 }
@@ -189,7 +181,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     Text(
                       'Conecte o aplicativo ao painel AutoRIP executando no servidor interno.',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: const Color(0xFF49434E),
+                        color: AutoRipTheme.muted,
                         height: 1.45,
                       ),
                     ),
@@ -207,11 +199,17 @@ class _ConnectScreenState extends State<ConnectScreen> {
                         errorText: _error,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: _ink, width: 2),
+                          borderSide: const BorderSide(
+                            color: AutoRipTheme.outline,
+                            width: 2,
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: _ink, width: 2),
+                          borderSide: const BorderSide(
+                            color: AutoRipTheme.outline,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -221,9 +219,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
                       icon: const Icon(Icons.qr_code_scanner),
                       label: const Text('Escanear QR code'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: _ink,
+                        foregroundColor: AutoRipTheme.cyan,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: _ink, width: 2),
+                        side: const BorderSide(
+                          color: AutoRipTheme.outline,
+                          width: 2,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -247,7 +248,10 @@ class _ConnectScreenState extends State<ConnectScreen> {
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
-                        side: const BorderSide(color: _ink, width: 2),
+                        side: const BorderSide(
+                          color: AutoRipTheme.outline,
+                          width: 2,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -257,7 +261,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     Text(
                       'Use HTTPS para acesso pela internet. Endereços HTTP só são aceitos para a rede local. Configure AUTORIP_BIND_HOST e AUTORIP_ALLOWED_HOSTS no servidor.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF5F5863),
+                        color: AutoRipTheme.muted,
                         height: 1.45,
                       ),
                     ),
@@ -272,7 +276,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                       for (final server in _recent)
                         Card(
                           margin: const EdgeInsets.symmetric(vertical: 4),
-                          color: Colors.white,
+                          color: AutoRipTheme.raised,
                           child: ListTile(
                             contentPadding: const EdgeInsets.only(left: 12),
                             title: Text(
@@ -408,7 +412,7 @@ class _BrandTitle extends StatelessWidget {
       child: RichText(
         text: const TextSpan(
           style: TextStyle(
-            color: _ink,
+            color: AutoRipTheme.text,
             fontSize: 48,
             fontWeight: FontWeight.w900,
             letterSpacing: -2,
