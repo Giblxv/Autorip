@@ -1,2 +1,2 @@
 """AutoRIP - RIP DTF/DTF UV automatizado (CMYK + Branco) que gera arquivos .PRT."""
-__version__ = "0.8.34"
+__version__ = "0.8.35"

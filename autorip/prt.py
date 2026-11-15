@@ -6,6 +6,7 @@ com todo RIP/controlador.
 """
 import os
 import struct
+import hashlib
 import numpy as np
 
 HEADER_SIZE = 48
@@ -107,15 +108,19 @@ def read_header(path):
 class PrtWriter:
     """Grava .PRT em blocos e rejeita planos incompletos ou fora da geometria."""
 
-    def __init__(self, path, dpi_x, dpi_y, n_rows, n_dots, n_channels=12):
+    def __init__(self, path, dpi_x, dpi_y, n_rows, n_dots, n_channels=12, *, hash_output=False):
         self.pb = plane_bytes_for(n_dots)
         self.n_channels = n_channels
         self.n_rows, self.n_dots = n_rows, n_dots
         header = make_header(dpi_x, dpi_y, self.pb, n_rows, n_dots, n_channels)
-        self.f = open(path, "wb")
         self.written = 0
+        self._digest = hashlib.sha256() if hash_output else None
+        self.output_sha256 = None
+        self.f = open(path, "wb")
         try:
             self.f.write(header)
+            if self._digest is not None:
+                self._digest.update(header)
         except BaseException:
             self.f.close()
             raise
@@ -144,7 +149,10 @@ class PrtWriter:
             else:
                 out[:, index, :] = out[:, previous, :]
         # BufferedWriter aceita o buffer contíguo diretamente; não duplique o bloco.
-        self.f.write(memoryview(out))
+        buffer = memoryview(out)
+        self.f.write(buffer)
+        if self._digest is not None:
+            self._digest.update(buffer)
         self.written += rows
 
     def close(self):
@@ -160,6 +168,9 @@ class PrtWriter:
             os.fsync(self.f.fileno())
         finally:
             self.f.close()
+        if self._digest is not None:
+            self.output_sha256 = self._digest.hexdigest()
+            self._digest = None
 
 
 def read_rows(path, y0, y1):

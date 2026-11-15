@@ -852,10 +852,11 @@ class App:
                 def before_publish(temporary_path, preview, move=move, marker=marker, path=path):
                     if not move:
                         return
-                    marker["output_sha256"] = file_sha256(temporary_path)
+                    marker["output_sha256"] = preview.get("output_sha256") or file_sha256(temporary_path)
                     marker["info"] = {key: preview[key] for key in
                                        ("width_cm", "height_cm", "dpi_x", "dpi_y", "n_rows", "n_dots", "has_alpha")}
                     write_archive_marker(path, marker)
+                before_publish.requires_output_sha256 = move
                 def control_check(control=control):
                     if control and control["cancel"].is_set():
                         raise JobCancelled()
