@@ -405,6 +405,12 @@ class Rip:
         rgb.info.clear()
         return rgb
 
+    @staticmethod
+    def _strip_alpha(strip):
+        # Leia somente A; os canais RGB seguem diretamente para o Pillow.
+        with strip.getchannel("A") as alpha:
+            return np.asarray(alpha)
+
     def _to_cmyk(self, rgb: Image.Image) -> np.ndarray:
         if self.transform is not None:
             c = ImageCms.applyTransform(rgb, self.transform)
@@ -727,9 +733,9 @@ class Rip:
             if s.mirror:
                 strip = strip.transpose(Image.FLIP_LEFT_RIGHT)
             opaque = strip.mode == "RGB"
-            arr = None if opaque else np.asarray(strip)
-            if opaque or arr[..., 3].any():
-                alpha = None if opaque else arr[..., 3].astype(np.float32) / 255.0
+            arr = None if opaque else self._strip_alpha(strip)
+            if opaque or arr.any():
+                alpha = None if opaque else arr.astype(np.float32) / 255.0
                 rgb = strip if opaque else self._strip_rgb(strip)
                 lookup = (opaque and (r1 - r0) * n_dots >= 512 * 1024
                           and type(s.small_drop_ratio) is float and .05 <= s.small_drop_ratio <= .95
