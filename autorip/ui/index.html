@@ -210,13 +210,15 @@ function renderJobs(items){
  for(const id of jobRows.keys())if(!ids.has(id))jobRows.delete(id);
  if(!items.length){const empty=document.createElement("em");empty.textContent="Nenhum trabalho ainda…";nodes.push(empty)}
  items.slice().reverse().forEach(j=>{
-  const signature=JSON.stringify(j),entry=jobRows.get(j.id);
+  const {progress,...details}=j,signature=JSON.stringify(details),entry=jobRows.get(j.id);
+  const p=Math.max(0,Math.min(100,Math.round((Number(progress)||0)*100)));
   if(entry&&entry.signature===signature){
+   if(entry.percent!==p){entry.bar.setAttribute("aria-valuenow",String(p));entry.fill.style.width=p+"%";entry.drop.style.left=`calc(${p}% - 14px)`;entry.drop.textContent=["💧","🎨","💧","🖨️"][p%4];entry.percent=p}
    const e=entry.row;e.classList.toggle("selected",j.id===selected);nodes.push(e);
    if(j.id===focusedJob){focusTarget=e.querySelector(`[data-action="${focusedAction}"]`);focusFallback=e.querySelector(".job-actions button")}
    return;
   }
-  const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;e.dataset.status=String(j.status||"");if(j.id===selected)e.classList.add("selected");e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};const p=Math.max(0,Math.min(100,Math.round((Number(j.progress)||0)*100)));
+  const e=document.createElement("div");e.className="job";e.dataset.jobId=j.id;e.dataset.status=String(j.status||"");if(j.id===selected)e.classList.add("selected");e.onclick=event=>{if(event.target.closest("button"))return;document.querySelectorAll(".job.selected").forEach(item=>item.classList.remove("selected"));e.classList.add("selected")};
   if(typeof j.thumb==="string"&&j.thumb.startsWith("/api/thumb?")){const im=document.createElement("img");im.alt="Miniatura da arte";privateThumbnail(im,j.thumb);im.style.cssText="float:left;width:64px;height:64px;object-fit:contain;margin:0 12px 6px 0;border:3px solid var(--k);border-radius:10px;background:#fff";e.appendChild(im)}
   const name=document.createElement("span");name.textContent=String(j.name||"");e.appendChild(name);
   const status=document.createElement("span");status.className="st "+(["fila","processando","pronto","erro"].includes(j.status)?j.status:"");status.textContent=String(j.status||"");e.appendChild(status);
@@ -229,7 +231,7 @@ function renderJobs(items){
    else if(["fila","processando"].includes(j.status))addAction("pause","Ⅱ Pausar","y");
    if(!["cancelando","pausando"].includes(j.status))addAction("cancel","✕ Cancelar","danger");
    e.appendChild(actions)}
-  nodes.push(e);jobRows.set(j.id,{signature,row:e});if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
+  nodes.push(e);jobRows.set(j.id,{signature,row:e,bar,fill,drop,percent:p});if(j.status==="pronto"&&!lastDone.has(j.id)){lastDone.add(j.id);if(!first)celebrate()}});
  reconcileRows(jobs,nodes);pruneThumbnails();jobs.scrollTop=scroll;if(focusedJob)(focusTarget||focusFallback||jobs).focus({preventScroll:true});
 }
 let lastLog="";

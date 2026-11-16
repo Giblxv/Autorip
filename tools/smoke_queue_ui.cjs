@@ -42,7 +42,7 @@ const root=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),'autorip-queue-
   assert.equal(await page.evaluate(()=>document.activeElement.closest('.job').dataset.jobId),ready.first_id);
   assert.equal(await page.locator('#jobs .selected').getAttribute('data-job-id'),ready.first_id);
   assert(Math.abs(before-await page.locator('#jobs').evaluate(e=>e.scrollTop))<3);
-  assert.equal(await page.evaluate(()=>queueTouchedNodes),2);
+  assert.equal(await page.evaluate(()=>queueTouchedNodes),0);
   await page.evaluate(()=>window.queueCard=document.querySelector('#jobs .job'));
   await page.evaluate(()=>poll());
   assert(await page.evaluate(()=>queueCard===document.querySelector('#jobs .job')));
@@ -80,7 +80,7 @@ const root=process.argv[2]||fs.mkdtempSync(path.join(os.tmpdir(),'autorip-queue-
   await normal.close();
   const cacheSize=await page.evaluate(()=>{const previous=first;first=true;for(let batch=0;batch<50;batch++){renderJobs(Array.from({length:12},(_,i)=>({id:`history-${batch}-${i}`,name:'Concluído',status:'pronto',progress:1})));}first=previous;return lastDone.size});
   assert.equal(cacheSize,12);assert.deepEqual(errors,[]);
-  const report={passed:true,activeJobsShown:100,capacityBadge:'100 / 100',singleDomReplacement:true,
+  const report={passed:true,activeJobsShown:100,capacityBadge:'100 / 100',progressUpdatesKeepCard:true,
    idleDomPreserved:true,scrollPreserved:true,selectionPreserved:true,keyboardFocusPreserved:true,
    keyboardPauseResume:true,resumeQueuedItems:100,cancelPreservesArtwork:true,slotReleased:true,
    mobileGeometry:geometry,noOverflow390:true,noOverflow320:true,reducedMotionIntroHidden:true,

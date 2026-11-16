@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "imagesInDom": 340,
+  "baselineRequests": null,
+  "coldRequests": 4,
+  "requestsAfterScroll": 21,
+  "maximumConcurrentFetches": 4,
+  "deferredImages": 333,
+  "inflightRequestSharedAcrossRender": true,
+  "idleDomPreserved": true,
+  "observerCleanupAfter30Renders": {
+    "pending": 309,
+    "queued": 8,
+    "active": 4
+  },
+  "cacheByteLimit": 8388608,
+  "cacheEntriesAfterFour3MiBBlobs": 2,
+  "cacheEntryLimit": 64,
+  "expiryReleasesBytes": true,
+  "sessionReset": {
+    "pending": 0,
+    "queued": 0,
+    "cache": 0,
+    "bytes": 0
+  },
+  "inflightResetPreventsStaleImage": true,
+  "observerUnavailableFallback": true,
+  "noOverflow390": true,
+  "noOverflow320": true,
+  "pageErrors": []
+}
