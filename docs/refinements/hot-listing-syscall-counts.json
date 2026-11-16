@@ -1,0 +1,18 @@
+{
+  "images": 100,
+  "ignored_files": 100,
+  "metadata_syscalls": {
+    "baseline": 200,
+    "candidate": 100
+  },
+  "syscall_names": {
+    "baseline": {
+      "lstat": 200
+    },
+    "candidate": {
+      "lstat": 100
+    }
+  },
+  "trace": "%file, filtered by exact fixture art-*.PNG paths; not used for timing",
+  "platform": "Linux"
+}
