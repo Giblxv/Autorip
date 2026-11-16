@@ -8,7 +8,7 @@ const assert=require('node:assert/strict');
 const root=path.join(__dirname,'..');
 const {values:args}=parseArgs({options:{
  'baseline-ref':{type:'string'},output:{type:'string'},repeat:{type:'string',default:'3'},
- updates:{type:'string',default:'50'},seed:{type:'string',default:'20261111'},aa:{type:'boolean',default:false}
+ thumbnails:{type:'boolean',default:false},updates:{type:'string',default:'50'},seed:{type:'string',default:'20261111'},aa:{type:'boolean',default:false}
 }});
 assert(args['baseline-ref']&&args.output,'--baseline-ref and --output required');
 const repeats=Number(args.repeat),updates=Number(args.updates);
@@ -29,14 +29,17 @@ const median=items=>{const sorted=items.slice().sort((a,b)=>a-b),n=sorted.length
  try{
   const ready=await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error(stderr||'Harness timeout')),20000);lines.once('line',line=>{clearTimeout(timeout);resolve(JSON.parse(line))})});
   const report={baselineRef,repeats,updates,seed:Number(args.seed),aaControl:args.aa,
-   scope:'Synchronous renderJobs plus forced layout; 100 synthetic cards without thumbnails, first 5 updates warmup; import/navigation/authentication excluded',
-   sampling:'Fresh Chromium process per side/trial; randomized paired order; every measured update retained',
+   scope:'Synchronous renderJobs plus forced layout; 100 synthetic cards, first 5 updates warmup; import/navigation/authentication/image decoding excluded',
+   thumbnails:args.thumbnails,snapshotNormalization:'Remove animation phase and replace transient blob URLs with fixture thumbnail paths on a detached clone only',
+   sampling:'Fresh Chromium process per side/trial; shuffled balanced AB/BA order; fixture warmup and network idle before measurement; creation counts in a separate untimed pass',
    limits:'Desktop Chromium and mobile viewport, not native Android/iOS hardware, battery or whole application latency',
    uiSha256:scripts.map(sha),benchmarkSha256:sha(fs.readFileSync(__filename)),scenarios:{}};
   for(const [name,viewport] of [['desktop',{width:1440,height:1000}],['mobile',{width:390,height:844}]]){
    const groups=[[],[]];let oracle=null;
+   const orders=Array.from({length:repeats},(_,i)=>i%2?[1,0]:[0,1]);
+   for(let i=orders.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[orders[i],orders[j]]=[orders[j],orders[i]]}
    for(let trial=0;trial<repeats;trial++){
-    const order=random()<.5?[0,1]:[1,0];
+    const order=orders[trial];
     for(const side of order){
      browser=await chromium.launch({headless:true,...(process.env.AUTORIP_CHROMIUM?{executablePath:process.env.AUTORIP_CHROMIUM}:{}),args:process.env.AUTORIP_NO_SANDBOX==='1'?['--no-sandbox']:[]});
      report.browser=browser.version();
@@ -46,14 +49,27 @@ const median=items=>{const sorted=items.slice().sort((a,b)=>a-b),n=sorted.length
      await page.addInitScript(()=>{const original=window.setInterval;window.__timers=[];window.setInterval=(...args)=>{const id=original(...args);__timers.push(id);return id}});
      await page.goto(ready.url);
      await page.evaluate(async()=>{for(const id of __timers)clearInterval(id);token='queue-browser-token';await Promise.all([poll(true),pollPrints(true),pollHotFiles(true)]);await poll(true)});
-     const sample=await page.evaluate(count=>{
-      const jobs=Array.from({length:100},(_,i)=>({id:'bench-'+i,name:'arte-'+i+'.png',status:i===0?'processando':'fila',progress:0}));
+     await page.evaluate(async()=>{await document.fonts.ready});
+     await page.evaluate(thumbnails=>{
+      const jobs=window.__benchmarkJobs=Array.from({length:100},(_,i)=>({id:'bench-'+i,name:'arte-'+i+'.png',status:i===0?'processando':'fila',progress:0,...(thumbnails?{thumb:'/api/thumb?id=preview-'+Math.floor(i/2)}:{})}));
       const box=document.querySelector('#jobs');
       for(let i=0;i<5;i++){jobs[0].progress=i/100;renderJobs(jobs);void box.offsetHeight}
+     },args.thumbnails);
+     await page.waitForLoadState('networkidle');
+     const sample=await page.evaluate(({count,thumbnails})=>{
+      const jobs=__benchmarkJobs,box=document.querySelector('#jobs');
       const milliseconds=[];
       for(let i=0;i<count;i++){jobs[0].progress=(i+1)/(count+1);const start=performance.now();renderJobs(jobs);void box.offsetHeight;milliseconds.push(performance.now()-start)}
-      return{milliseconds,dom:box.innerHTML,cards:box.querySelectorAll('.job').length};
-     },updates);
+      jobs[0].progress=0;renderJobs(jobs);
+      const originals=new Map([...box.querySelectorAll('.job')].map(row=>[row.dataset.jobId,row]));
+      const create=document.createElement.bind(document);let createdElements=0,createdImages=0;
+      document.createElement=(tag,...options)=>{createdElements++;if(String(tag).toLowerCase()==='img')createdImages++;return create(tag,...options)};
+      try{for(let i=0;i<count;i++){jobs[0].progress=(i+1)/(count+1);renderJobs(jobs)}}finally{document.createElement=create}
+      const snapshot=box.cloneNode(true);
+      for(const fill of snapshot.querySelectorAll('.fill'))fill.style.removeProperty('--progress-phase');
+      if(thumbnails)for(const row of snapshot.querySelectorAll('.job'))row.querySelector('img')?.setAttribute('src',jobs.find(job=>job.id===row.dataset.jobId).thumb);
+      return{milliseconds,instrumentedUpdates:count,dom:snapshot.innerHTML,cards:box.querySelectorAll('.job').length,createdElements,createdImages,preservedCards:[...box.querySelectorAll('.job')].filter(row=>row===originals.get(row.dataset.jobId)).length};
+     },{count:updates,thumbnails:args.thumbnails});
      assert.deepEqual(errors,[]);assert.equal(sample.cards,100);
      sample.domSha256=sha(sample.dom);delete sample.dom;
      if(oracle===null)oracle=sample.domSha256;

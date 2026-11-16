@@ -150,6 +150,44 @@ const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{p
    await jobFixture(page);const evidence=await page.evaluate(()=>{const selected=__originalJobs.get('cache-3'),button=selected.querySelector('[data-action="pause"]');selected.click();button.focus();__jobs.reverse();renderJobs(__jobs);return{preservedCards:[...document.querySelectorAll('#jobs .job')].filter(row=>row===__originalJobs.get(row.dataset.jobId)).length,focused:document.activeElement===button,selected:document.querySelector('#jobs .selected')===selected}});
    await page.evaluate(e=>window.__evidence=e,evidence);assert.equal(evidence.preservedCards,100);assert(evidence.focused);assert(evidence.selected);return evidence;
   });
+  for(const [device,viewport] of [['desktop',{width:1440,height:1000}],['mobile',{width:390,height:844}]]){
+   await test(`progress preserves active ${device} card, decoded preview and focused button`,async page=>{
+    await jobFixture(page);
+    await page.evaluate(()=>{__jobs[0].thumb='/api/thumb?id=preview-0';renderJobs(__jobs)});
+    const image=page.locator('[data-job-id="cache-0"] img');await image.scrollIntoViewIfNeeded();
+    await page.waitForFunction(()=>{const image=document.querySelector('[data-job-id="cache-0"] img');return image.complete&&image.naturalWidth>0});
+    await page.evaluate(async()=>{
+     const row=document.querySelector('[data-job-id="cache-0"]'),image=row.querySelector('img'),button=row.querySelector('[data-action="pause"]');row.click();button.focus();
+     window.__progressRefs={row,image,button,src:image.src,phase:row.querySelector('.fill').style.getPropertyValue('--progress-phase')};
+     window.__newProgressUrls=0;const create=URL.createObjectURL.bind(URL);URL.createObjectURL=(...args)=>{__newProgressUrls++;return create(...args)};
+     window.__progressRowMutations=0;const box=document.querySelector('#jobs');const observer=new MutationObserver(records=>{for(const record of records)if(record.target===box)__progressRowMutations+=record.addedNodes.length+record.removedNodes.length});observer.observe(box,{childList:true});
+     for(const progress of [.01,.04,.37,.52,.99]){__jobs[0].progress=progress;renderJobs(__jobs);await new Promise(requestAnimationFrame)}
+     observer.disconnect();
+    });
+    await page.waitForFunction(()=>{const image=document.querySelector('[data-job-id="cache-0"] img');return image.complete&&image.naturalWidth>0});
+    const evidence=await page.evaluate(()=>{const row=document.querySelector('[data-job-id="cache-0"]'),refs=__progressRefs;return{sameCard:row===refs.row,sameImage:row.querySelector('img')===refs.image,sameButton:row.querySelector('[data-action="pause"]')===refs.button,focused:document.activeElement===refs.button,selected:row.classList.contains('selected'),sameSource:row.querySelector('img').src===refs.src,sameAnimationPhase:row.querySelector('.fill').style.getPropertyValue('--progress-phase')===refs.phase,newObjectUrls:__newProgressUrls,rowNodesTouched:__progressRowMutations,progress:row.querySelector('[role="progressbar"]').getAttribute('aria-valuenow')}});
+    await page.evaluate(e=>window.__evidence=e,evidence);
+    for(const field of ['sameCard','sameImage','sameButton','focused','selected','sameSource','sameAnimationPhase'])assert(evidence[field],field);
+    assert.equal(evidence.newObjectUrls,0);assert.equal(evidence.rowNodesTouched,0);assert.equal(evidence.progress,'99');return evidence;
+   },{viewport});
+   await test(`sub-percent ${device} updates do not mutate an unchanged visible percentage`,async page=>{
+    await jobFixture(page);
+    const evidence=await page.evaluate(async()=>{
+     __jobs[0].progress=.37;renderJobs(__jobs);let mutations=0;const row=document.querySelector('[data-job-id="cache-0"]');
+     const observer=new MutationObserver(records=>mutations+=records.length);observer.observe(document.querySelector('#jobs'),{subtree:true,childList:true,characterData:true,attributes:true});
+     for(const progress of [.37001,.3701,.371,.3749]){__jobs[0].progress=progress;renderJobs(__jobs)}await Promise.resolve();observer.disconnect();
+     return{mutations,sameCard:row===document.querySelector('[data-job-id="cache-0"]'),progress:row.querySelector('[role="progressbar"]').getAttribute('aria-valuenow')};
+    });await page.evaluate(e=>window.__evidence=e,evidence);assert.equal(evidence.mutations,0);assert(evidence.sameCard);assert.equal(evidence.progress,'37');return evidence;
+   },{viewport});
+  }
+  await test('progress clamps and rounds exactly as before',async page=>{
+   await jobFixture(page);const values=await page.evaluate(()=>{const results=[];for(const progress of [-1,0,.0049,.005,.37,.995,2,null,'0.37','bad']){__jobs[0].progress=progress;renderJobs(__jobs);const row=document.querySelector('[data-job-id="cache-0"]');results.push({aria:row.querySelector('[role="progressbar"]').getAttribute('aria-valuenow'),width:row.querySelector('.fill').style.width})}return results});
+   assert.deepEqual(values.map(value=>value.aria),['0','0','0','1','37','100','100','0','37','0']);assert.deepEqual(values.map(value=>value.width),values.map(value=>value.aria+'%'));return{cases:values.length};
+  });
+  await test('changed job details and preview still refresh the card',async page=>{
+   await jobFixture(page);const evidence=await page.evaluate(()=>{let replaced=0;for(const change of [{name:'nova arte <teste>.png'},{error:'Detalhe de erro'},{thumb:'/api/thumb?id=preview-1'},{status:'pausado'},{newMetadata:'changed'}]){const old=document.querySelector('[data-job-id="cache-0"]');Object.assign(__jobs[0],change);renderJobs(__jobs);if(old!==document.querySelector('[data-job-id="cache-0"]')&&!old.isConnected)replaced++}return{replaced,action:document.querySelector('[data-job-id="cache-0"] .job-actions button').dataset.action,name:document.querySelector('[data-job-id="cache-0"] span').textContent}});
+   assert.equal(evidence.replaced,5);assert.equal(evidence.action,'resume');assert.equal(evidence.name,'nova arte <teste>.png');return evidence;
+  });
   await test('changed job controls receive focus and completion notifies once',async page=>{
    await jobFixture(page);const evidence=await page.evaluate(()=>{const row=__originalJobs.get('cache-0');row.click();row.querySelector('[data-action="pause"]').focus();__jobs[0].status='pausado';renderJobs(__jobs);const focusedAction=document.activeElement?.dataset.action;let notifications=0;celebrate=()=>notifications++;__jobs[0].status='pronto';renderJobs(__jobs);renderJobs(__jobs);__jobs[1].progress=.2;renderJobs(__jobs);return{focusedAction,notifications}});
    assert.equal(evidence.focusedAction,'resume');assert.equal(evidence.notifications,1);return evidence;
