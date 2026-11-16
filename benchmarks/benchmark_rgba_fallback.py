@@ -37,6 +37,7 @@ def main():
         binary_calls = []
         selection_calls = []
         strip_rgb_calls = []
+        strip_alpha_calls = []
         if hasattr(rip, '_opaque_color_levels'):
             original = rip._opaque_color_levels
             def tracked(*values):
@@ -61,6 +62,12 @@ def main():
                 strip_rgb_calls.append(True)
                 return original_strip_rgb(*values)
             rip._strip_rgb = tracked_strip_rgb
+        if hasattr(rip, '_strip_alpha'):
+            original_strip_alpha = rip._strip_alpha
+            def tracked_strip_alpha(*values):
+                strip_alpha_calls.append(True)
+                return original_strip_alpha(*values)
+            rip._strip_alpha = tracked_strip_alpha
         original_process = rip.process
         cpu_samples = []
         def timed_process(*values, **options):
@@ -82,6 +89,7 @@ def main():
                               binary_white_calls=len(binary_calls),
                               drop_selection_calls=len(selection_calls),
                               strip_rgb_calls=len(strip_rgb_calls),
+                              strip_alpha_calls=len(strip_alpha_calls),
                               ranks_cached=getattr(rip, '_opaque_ranks', None) is not None)))
         return
     if args.repeat < 1 or args.output is None:
