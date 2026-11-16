@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "mobileContexts": 3,
+  "actualUploads": 4,
+  "multipleFileChooser": true,
+  "galleryChooser": true,
+  "widthValidated": true,
+  "doubleTapDoesNotDuplicate": true,
+  "progressShown": true,
+  "loginResumesUploadDialog": true,
+  "queueErrorKeepsSelectionAndSession": true,
+  "logoutAbortsTransferAndClearsSelection": true,
+  "sameFilenameFromDifferentPhones": true,
+  "physicalPhonesTested": false,
+  "pageErrors": []
+}

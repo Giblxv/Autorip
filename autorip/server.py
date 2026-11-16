@@ -223,6 +223,7 @@ class App:
         self.lock = threading.RLock()
         self.settings_lock = threading.RLock()
         self.print_lock = threading.Lock()
+        self._hot_listing_lock = threading.Lock()
         self.printexp_network_lock = threading.Lock()
         self.print_catalog = PrintCatalog()
         self._outbox_counter = integrations.OutboxCounter()
@@ -584,24 +585,31 @@ class App:
     def list_hot_files(self):
         with self.settings_lock:
             folder = os.path.realpath(self.s.hot_folder)
+        # Coordene somente estas consultas: cada pedido faz uma varredura nova.
+        with self._hot_listing_lock:
+            return self._scan_hot_files(folder)
+
+    @staticmethod
+    def _scan_hot_files(folder):
         result = []
         try:
-            names = sorted(os.listdir(folder), key=str.casefold)
+            with os.scandir(folder) as entries:
+                for entry in entries:
+                    name = entry.name
+                    if name.startswith(".") or not name.lower().endswith(EXTS):
+                        continue
+                    try:
+                        info = entry.stat(follow_symlinks=False)
+                        if not stat.S_ISREG(info.st_mode):
+                            continue
+                        result.append((name.casefold(), {"name": safe_filename(name), "size": info.st_size,
+                                                        "mtime": info.st_mtime}))
+                    except OSError:
+                        continue
         except OSError:
-            return result
-        for name in names:
-            if name.startswith(".") or not name.lower().endswith(EXTS):
-                continue
-            path = os.path.join(folder, name)
-            try:
-                info = os.lstat(path)
-                if not stat.S_ISREG(info.st_mode) or os.path.islink(path):
-                    continue
-                result.append({"name": safe_filename(name), "size": info.st_size,
-                               "mtime": info.st_mtime})
-            except OSError:
-                continue
-        return result
+            return []
+        result.sort(key=lambda item: item[0])
+        return [item for _, item in result]
 
     def plan_layout(self, data):
         """Planeja uma fotografia da hot folder sem mover ou enfileirar as artes."""
